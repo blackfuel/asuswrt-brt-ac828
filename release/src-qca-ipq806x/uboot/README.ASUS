@@ -1,0 +1,8 @@
+BRT-AC828
+========
+
+1. Install toolchain and configure PATH environment variable in accordance with ../../../README.TXT
+2. Run "make brt-ac828_config"
+3. Run "make"
+4. Load u-boot_nand.img to BRT-AC828
+
