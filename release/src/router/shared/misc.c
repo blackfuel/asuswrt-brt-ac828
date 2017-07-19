@@ -1287,6 +1287,7 @@ int get_ipv6_service_by_unit(int unit)
 		{ "dhcp6",	IPV6_NATIVE_DHCP },
 #ifdef RTCONFIG_6RELAYD
 		{ "ipv6pt",     IPV6_PASSTHROUGH },
+		{ "flets",	IPV6_PASSTHROUGH },
 #endif
 		{ "6to4",	IPV6_6TO4 },
 		{ "6in4",	IPV6_6IN4 },

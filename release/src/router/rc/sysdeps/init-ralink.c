@@ -1411,6 +1411,10 @@ set_wan_tag(char *interface) {
 		switch_stb = nvram_get_int("switch_stb_x");
 		if (switch_stb >= 7) {
 			system("rtkswitch 40 1");			/* admin all frames on all ports */
+#if defined(RTN56U) || defined(RTN65U)
+			/* Make sure admin all frames on all ports is applied to Realtek switch. */
+			system("rtkswitch 38 0");
+#endif
 			if(wan_vid) { /* config wan port */
 				__setup_vlan(wan_vid, 0, 0x00000210);	/* config WAN & WAN_MAC port */
 			}

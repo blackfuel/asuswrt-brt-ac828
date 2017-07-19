@@ -208,6 +208,8 @@ function cancel(){
 	$('#iphone_switch').animate({backgroundPosition: -37}, "slow", function() {});
 	$("#agreement_panel").fadeOut(100);
 	document.getElementById("hiddenMask").style.visibility = "hidden";
+	htmlbodyforIE = parent.document.getElementsByTagName("html");  //this both for IE&FF, use "html" but not "body" because <!DOCTYPE html PUBLIC.......>
+	htmlbodyforIE[0].style.overflow = "scroll";	  //hidden the Y-scrollbar for preventing from user scroll it.
 }
 function cal_panel_block(obj){
 	var blockmarginLeft;
@@ -239,7 +241,7 @@ function cal_panel_block(obj){
 <body onload="initial();" onunload="unload_body();">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
-<div id="agreement_panel" class="panel_folder" style="margin-top: -100px;"></div>
+<div id="agreement_panel" class="eula_panel_container"></div>
 <div id="hiddenMask" class="popup_bg" style="z-index:999;">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center"></table>
 	<!--[if lte IE 6.5]><iframe class="hackiframe"></iframe><![endif]-->
@@ -255,6 +257,7 @@ function cal_panel_block(obj){
 <input type="hidden" name="action_wait" value="3">
 <input type="hidden" name="flag" value="">
 <input type="hidden" name="bwdpi_wh_enable" value="<% nvram_get("bwdpi_wh_enable"); %>">
+<input type="hidden" name="bwdpi_wh_stamp" value="<% nvram_get("bwdpi_wh_stamp"); %>">
 <input type="hidden" name="TM_EULA" value="<% nvram_get("TM_EULA"); %>">
 <table class="content" align="center" cellpadding="0" cellspacing="0">
 	<tr>
@@ -286,14 +289,27 @@ function cal_panel_block(obj){
 																$('#bwdpi_wh_enable').iphoneSwitch('<% nvram_get("bwdpi_wh_enable"); %>',
 																	function(){
 																		if(document.form.TM_EULA.value == 0){
+																			var adjust_TM_eula_height = function(_objID) {
+																				var scrollTop = document.body.scrollTop;
+																				document.getElementById(_objID).style.top = (scrollTop + 10) + "px";
+																				var visiable_height = document.documentElement.clientHeight;
+																				var tm_eula_container_height = parseInt(document.getElementById(_objID).offsetHeight);
+																				var tm_eula_visiable_height = visiable_height - tm_eula_container_height;
+																				if(tm_eula_visiable_height < 0) {
+																					var tm_eula_content_height = parseInt(document.getElementById("tm_eula_content").style.height);
+																					document.getElementById("tm_eula_content").style.height = (tm_eula_content_height - Math.abs(tm_eula_visiable_height) - 20) + "px"; //content height - overflow height - margin top and margin bottom
+																				}
+																			};
 																			if(document.form.preferred_lang.value == "JP"){
 																				$.get("JP_tm_eula.htm", function(data){
 																					document.getElementById('agreement_panel').innerHTML= data;
+																					adjust_TM_eula_height("agreement_panel");
 																				});
 																			}
 																			else{
 																				$.get("tm_eula.htm", function(data){
 																					document.getElementById('agreement_panel').innerHTML= data;
+																					adjust_TM_eula_height("agreement_panel");
 																				});
 																			}	
 																			dr_advise();
@@ -301,7 +317,9 @@ function cal_panel_block(obj){
 																			$("#agreement_panel").fadeIn(300);
 																			return false;
 																		}
-																			
+																			var t = new Date();
+																			var timestamp = t.getTime().toString().substring(0,10);
+																			document.form.bwdpi_wh_stamp.value = timestamp;
 																			document.form.bwdpi_wh_enable.value = 1;
 																			if(reset_wan_and_nat(document.form, document.form.bwdpi_wh_enable.value)) {
 																				document.form.submit();

@@ -344,6 +344,7 @@ void config_switch(void)
 	int controlrate_multicast;
 	int controlrate_broadcast;
 	int merge_wan_port_into_lan_ports;
+	char *str;
 
 	dbG("link down all ports\n");
 	eval("rtkswitch", "17");	// link down all ports
@@ -705,6 +706,14 @@ void config_switch(void)
 	}
 #endif
 
+#if defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2) || \
+    defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2)
+	str = nvram_get("lan_hash_algorithm");
+	if(str && *str != '\0') {
+		eval("rtkswitch", "47", str);
+	}
+#endif
+
 	dbG("link up wan port(s)\n");
 	eval("rtkswitch", "114");	// link up wan port(s)
 
@@ -815,11 +824,6 @@ static void __load_wifi_driver(int testmode)
 	}
 
 	olcfg = (!!nvram_get_int("wl0_hwol") << 0) | (!!nvram_get_int("wl1_hwol") << 1);
-	if (olcfg)
-		f_write_string("/proc/sys/vm/min_free_kbytes", "23916", 0, 0);
-	else
-		f_write_string("/proc/sys/vm/min_free_kbytes", "4096", 0, 0);
-
 	/* Always use maximum extra_pbuf_core0.
 	 * Because it can't be changed if it is allocated, write non-zero value.
 	 */
@@ -975,6 +979,11 @@ static void __load_wifi_driver(int testmode)
 
 void load_wifi_driver(void)
 {
+#if defined(RTCONFIG_SOC_IPQ8064)
+	f_write_string("/proc/sys/vm/pagecache_ratio", "25", 0, 0);
+	f_write_string("/proc/net/skb_recycler/max_skbs", "2176", 0, 0);
+#endif
+
 	__load_wifi_driver(0);
 }
 
@@ -1626,20 +1635,16 @@ int wl_exist(char *ifname, int band)
 
 void
 set_wan_tag(char *interface) {
-	int model, wan_vid; //, iptv_vid, voip_vid, wan_prio, iptv_prio, voip_prio;
+	int model, wan_vid;
 	char wan_dev[10], port_id[7];
 
 	model = get_model();
 	wan_vid = nvram_get_int("switch_wan0tagid");
-//	iptv_vid = nvram_get_int("switch_wan1tagid");
-//	voip_vid = nvram_get_int("switch_wan2tagid");
-//	wan_prio = nvram_get_int("switch_wan0prio");
-//	iptv_prio = nvram_get_int("switch_wan1prio");
-//	voip_prio = nvram_get_int("switch_wan2prio");
 
 	sprintf(wan_dev, "vlan%d", wan_vid);
 
 	switch(model) {
+	case MODEL_BRTAC828:
 	case MODEL_RTAC55U:
 	case MODEL_RTAC55UHP:
 	case MODEL_RT4GAC55U:
@@ -1671,6 +1676,11 @@ set_wan_tag(char *interface) {
 		switch_stb = nvram_get_int("switch_stb_x");
 		if (switch_stb >= 7) {
 			system("rtkswitch 40 1");			/* admin all frames on all ports */
+#if defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2) || \
+    defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2)
+			/* Make sure the "admin all frames on all ports" is applied to Realtek switch. */
+			system("rtkswitch 38 0");
+#endif
 			if(wan_vid) { /* config wan port */
 				__setup_vlan(wan_vid, 0, 0x00000210);	/* config WAN & WAN_MAC port */
 			}

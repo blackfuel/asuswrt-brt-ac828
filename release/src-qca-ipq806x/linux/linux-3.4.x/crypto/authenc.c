@@ -645,6 +645,7 @@ static struct crypto_instance *crypto_authenc_alloc(struct rtattr **tb)
 
 	inst->alg.cra_flags = CRYPTO_ALG_TYPE_AEAD;
 	inst->alg.cra_flags |= enc->cra_flags & CRYPTO_ALG_ASYNC;
+	inst->alg.cra_flags |= (enc->cra_flags & CRYPTO_ALG_NOSUPP_SG);
 	inst->alg.cra_priority = enc->cra_priority *
 				 10 + auth_base->cra_priority;
 	inst->alg.cra_blocksize = enc->cra_blocksize;

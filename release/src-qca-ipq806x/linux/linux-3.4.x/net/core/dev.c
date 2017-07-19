@@ -94,6 +94,7 @@
 #include <linux/ethtool.h>
 #include <linux/notifier.h>
 #include <linux/skbuff.h>
+#include <linux/netfilter_ipv4.h>
 #include <net/net_namespace.h>
 #include <net/sock.h>
 #include <linux/rtnetlink.h>
@@ -2561,11 +2562,11 @@ int dev_queue_xmit(struct sk_buff *skb)
 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_EGRESS);
 #endif
 	trace_net_dev_queue(skb);
-	if (q->enqueue
 #ifdef CONFIG_IP_NF_LFP
-	    && !(skb->nfcache&(1<<30))
+	if (q->enqueue && !(skb->nfcache & NFC_LFP_ENABLE))
+#else
+	if (q->enqueue)
 #endif
-	   )
 	{
 		rc = __dev_xmit_skb(skb, q, dev, txq);
 		goto out;

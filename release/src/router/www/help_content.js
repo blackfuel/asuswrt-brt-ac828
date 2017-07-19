@@ -25,7 +25,8 @@ helpcontent[0] = new Array("",
 			'<div><#qis_wireless_help2#></div><br/><img width="350px" src="/images/qis/security_key.png">',
 			"",
 			"<#Access_Time_desc#>",
-			"<#Access_Intranet_desc#>"
+			"<#Access_Intranet_desc#>",
+			"Smart Connect is the feature which could automatically steer clients to the most appropriate band (2.4GHz, 5GHz-1 and 5GHz-2)." /*untranslated*/
 			 );
 helpcontent[1] = new Array("",
 						   "<#WLANConfig11b_x_APMode_itemdesc#>",
@@ -72,7 +73,8 @@ helpcontent[3] = new Array("",
 							"<#RTS_for_AMPDU#>",
 							"<#WLANConfig11b_x_roamingassit_desc#>",	//31
 							"Provide Airtime Fairness between multiple links",	/* untranslated */
-							"<#WLANConfig11b_x_Auto#>"
+							"<#WLANConfig11b_x_Auto#>",
+							"Enable/Disable Bluetooth Coexisistence. Data rate 1Mbps and 2 Mbps are not allowed in Pre-emptive mode. TX Bursting is also not allowed in Pre-emptive mode."
 							 );
 
 helpcontent[4] = new Array("",
@@ -145,7 +147,8 @@ helpcontent[8] = new Array("",
 						   "<#FirewallConfig_DoSEnable_itemdesc#>");
 helpcontent[9] = new Array("",
 						   "<#FirewallConfig_URLActiveDate_itemdesc#>",
-						   "<#FirewallConfig_URLActiveTime_itemdesc#>");
+						   "<#FirewallConfig_URLActiveTime_itemdesc#>",
+						   "<#FirewallConfig_LanWanDefaultAct_itemdesc#>");
 helpcontent[10] = new Array("",
 							"<#FirewallConfig_LanWanActiveDate_itemdesc#>",
 							"<#FirewallConfig_LanWanActiveTime_itemdesc#>",
@@ -161,7 +164,10 @@ helpcontent[11] = new Array("",
 							"<#QIS_pass_desc2#> <#File_Pop_content_alert_desc3#>",
 							"This feature allows browser to redirect to failed connection warning page when Internet is down, if disabled warning page would not appear.",	/* untranslated */
 							"To set your clock forward one hour in the spring when DST (Daylight Saving Time) starts",	/* untranslated */
-							"To set your clock back one hour in the fall when DST (Daylight Saving Time) ends"	/* untranslated */
+							"To set your clock back one hour in the fall when DST (Daylight Saving Time) ends",	/* untranslated */
+							"For destination IP address, you can:<br/>(a) enter a specific IP address, such as \"192.168.1.2\"<br/>(b) enter IP addresses within one subnet or within the same IP pool, such as \"192.168.1.0/24\"",	/* untranslated */
+							"This feature allows you to restrict only specified IP address could access the wireless router via \"SSH\" / \"Telnet\" / \"Web Access from WAN\" (if Enabled) from WAN or LAN side.",		/* untranslated */
+							"USB hard disks will hibernate after being inactive for the configured time period."		/* untranslated */
 		);
 //Log
 helpcontent[12] = new Array("",
@@ -216,7 +222,7 @@ helpcontent[19] = new Array("",
 // QoS
 helpcontent[20] = new Array("",
 							"",
-							'<#BM_manual_link_speed_desc#>',
+							'<#EzQoS_bandwidth_note1#>',
 							"<#min_bound_desc#>",
 							"<#max_bound_desc#>",
 							"<#bound_zero_desc#>",
@@ -268,7 +274,7 @@ helpcontent[25] = new Array("",
 							"<#DSL_Stab_Adjustment#>",
 							"<#DSL_SRA_itemdesc#>",
 							"<#DSL_Bitswap_id#>",
-							"This item allows you to tweak the target SNR Margin of VDSL. For instance with a downstream SNR Margin at 8dB, you could set to 7dB or lower value to maximize the downstream performance, 4dB (Max.performance) but please note that the lower the value, DSL modem router will be weaker to defend the line noise, thus sync lost might occur, so please adjust with proper value. However if your VDSL connection is unstable or not able to establish a connection, for this case then set to a higher value such as 9dB ~ 30dB.",
+							"This item allows you to tweak the target SNR Margin of VDSL. For instance with a downstream SNR Margin at 8dB, you could set to 7dB or lower value to maximize the downstream performance, 2dB (Max.performance) but please note that the lower the value, DSL modem router will be weaker to defend the line noise, thus sync lost might occur, so please adjust with proper value. However if your VDSL connection is unstable or not able to establish a connection, for this case then set to a higher value such as 9dB ~ 30dB.",
 							"This item allows you to tweak the Tx Power of VDSL. Reduce Tx Power(-1 dB ~ -7 dB) would increase the downstream performance(reduce more Tx Power leads to higher downstream data rate), but will impact upstream and vice versa.",
 							"This item configures Rx AGC(Auto Gain Control) GAIN for VDSL, if tweak the Stability Adjustment (VDSL) setting still could not get desired downstream speed, then could try to set Rx AGC GAIN Adjustment to High Performance mode. However if your VDSL connection is unstable and has some CRC then could set to Stable mode.",
 							"This item allows you to control whether to Enable/Disable UPBO(Upstream Power Back Off) for VDSL. DSLAM could use UPBO to reduce the Tx Power of your xDSL modem router, in some cases abnormal UPBO control from DSLAM could leads to sync up issue(such as not enough Tx Power to sync with minimum rate). Thus with this feature now you could disable UPBO and will not get affected by DSLAM setting.",
@@ -312,7 +318,7 @@ helpcontent[28] = new Array("",
 //Switch Control
 helpcontent[29] = new Array("",
 							"This item had various names: Port Trunking/ Bonding/ Teaming/ Link Aggregation/ 802.3ad.",	/*untranslated*/
-							"When NAT Acceleration enabled, switch can handle the network packets by itself and bypass CPU. It can increases NAT throughput but some applications may not work precisely, such as time scheduling."	/*untranslated*/
+							"When NAT Acceleration enabled, switch can handle the network packets by itself and bypass CPU. It can increases NAT throughput but some features may not work precisely, such as time scheduling, traditional QoS and bandwidth limiter on guest network, etc. If you set NAT acceleration as auto, it will be disable automatically once these features are enabled."	/*untranslated*/
 							);
 
 helpcontent[30] = new Array("",
@@ -327,3 +333,33 @@ helpcontent[31] = new Array("",
 							"The NAS ID is string on RADIUS attribute 32, which allows captive portal to send authentication request to RADIUS server for applying different policy of user group.Then, the RADIUS server can send a customized authentication response base on the received NAS ID for the captive portal. To enable the features, you must configure NAS ID policy on RADIUS server correspondingly.",/*untranslated*/
 							"Enter a whitelist URL, also known as walled garden.\nNote: Guest user can fetch the whitelist web content under the domain name without any authentication."/*untranslated*/
 							);
+
+//VPN Fusion
+helpcontent[32] = new Array("",
+							"The client device which doesn't exist in the exception list will connect to default connection. You can set the default as VPN tunnel once VPN profile created. If the VPN tunnel setting as default is disconnected or deactivate, the client device will connect to Internet.",/*untranslated*/
+							"Enable this option allows VPN clients to access the subnet of your LAN",/*untranslated*/
+							"Enable this option allows VPN clients use the Internet from your router instead of the one at their location.",/*untranslated*/
+							"Virtual network device type. TUN devices encapsulate IPv4 or IPv6 (OSI Layer 3) while TAP devices encapsulate Ethernet 802.3 (OSI Layer 2).",/*untranslated*/
+							"Choose the communicating protocol with remote host.",/*untranslated*/
+							"Set the port number to bind. The current default of 1194 represents the official IANA port number assignment for OpenVPN.",/*untranslated*/
+							"<b>TLS</b>: OpenVPN runs in server mode and SSL/TLS authentication will be used;<br> <b>Static Key</b>: OpenVPN runs in P2P mode.",/*untranslated*/
+							"The bits size of automatically generated certificate.",/*untranslated*/
+							"Use username/password only allows client connect to server without certification and authentication by username/password. Be aware that using this directive is less secure than requiring certificates.",/*untranslated*/
+							"Add an additional layer of HMAC authentication on top of the TLS control channel to protect against DoS attacks. An OpenVPN static key will be used.",/*untranslated*/	//10
+							"This directive will set up an OpenVPN server which will allocate addresses to clients out of the given network/netmask. The server itself will take the \".1\" address of the given network for use as the server-side end‐point of the local TUN/TAP interface.",/*untranslated*/
+							"The IP address of the local and remote VPN endpoint in p2p mode.",/*untranslated*/
+							"<b>Yes</b>: Use LAN DHCP server to allocate IP address;<br> <b>No</b>: Allocate IP address from the Address Pool",/*untranslated*/
+							"The first address and the last address in the pool to be assigned to clients.",/*untranslated*/							
+							"Response the DNS query from clients.",/*untranslated*/
+							"In server mode, provide DNS information to clients.",/*untranslated*/
+							"The cipher algorithm to encrypt packets in transmission. AES-128-CBC is recommendation.",/*untranslated*/
+							"Use fast LZO compression. It may add up to 1 byte per packet for incompressible data.",/*untranslated*/
+							"This option can be used on both the client and server, and whichever uses the lower value will be the one to trigger the renegotiation. Renegotiate data channel key after n seconds (default=3600), 0 to disable.",/*untranslated*/
+							"When this option is enabled, each client can view the other clients which are currently connected. Otherwise, each client will only see the server.",/*untranslated*/	//20
+							"Only the client in the \"Allowed Clients\" table could be authenticated.",/*untranslated*/
+							"The Username / Common Name(CN) of client certificate.<br> If setting authenticated by username / password only, this field should be the username in the \"Username and Password\" table.",/*untranslated*/
+							"The Network Address of a subnet to generate an internal route to a specific client. This specific client should own this subnet.",/*untranslated*/
+							"The Network Mask of a subnet to generate an internal route to a specific client. This specific client should own this subnet.",/*untranslated*/
+							" If you would like other clients to be able to this specific client's subnet, choose Yes and Enable \"Allow Client <-> Client\"."/*untranslated*/
+							);
+

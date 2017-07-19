@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <meta HTTP-EQUIV="Expires" CONTENT="-1">
-<title><#Web_Title#> - Two-Way IPS</title>
+<title><#Web_Title#> - <#AiProtection_two-way_IPS#></title>
 <link rel="stylesheet" type="text/css" href="index_style.css"> 
 <link rel="stylesheet" type="text/css" href="form_style.css">
 <script type="text/javascript" src="/state.js"></script>
@@ -289,7 +289,7 @@ function generateDetailTable(data_array){
 	var direct_type = ["Client Device Infected", "External Attacks"];
 	var code = '';
 	code += '<div style="font-size:14px;font-weight:bold;border-bottom: 1px solid #797979">';
-	code += '<div style="display:table-cell;width:70px;padding-right:5px;">Time</div>';
+	code += '<div style="display:table-cell;width:70px;padding-right:5px;"><#diskUtility_time#></div>';
 	code += '<div style="display:table-cell;width:50px;padding-right:5px;">Level</div>';
 	code += '<div style="display:table-cell;width:140px;padding-right:5px;">Type</div>';
 	
@@ -399,7 +399,7 @@ function deleteHover(flag){
 <body onload="initial();" onunload="unload_body();" onselectstart="return false;">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
-<div id="agreement_panel" class="panel_folder" style="margin-top: -100px;"></div>
+<div id="agreement_panel" class="eula_panel_container"></div>
 <div id="hiddenMask" class="popup_bg" style="z-index:999;">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center"></table>
 	<!--[if lte IE 6.5.]><script>alert("<#ALERT_TO_CHANGE_BROWSER#>");</script><![endif]-->
@@ -456,13 +456,13 @@ function deleteHover(flag){
 						<table width="730px" border="0" cellpadding="4" cellspacing="0" class="FormTitle" id="FormTitle">
 							<tbody>
 							<tr>
-								<td style="background:#4D595D" valign="top">
+								<td class="content_bg" valign="top">
 									<div>&nbsp;</div>
 									<div>
 										<table width="730px">
 											<tr>
 												<td align="left">
-													<span class="formfonttitle"><#AiProtection_title#> - Two-Way IPS</span>
+													<span class="formfonttitle"><#AiProtection_title#> - <#AiProtection_two-way_IPS#></span>
 												</td>
 											</tr>
 										</table>
@@ -472,7 +472,7 @@ function deleteHover(flag){
 										<table width="700px" style="margin-left:25px;">
 											<tr>
 												<td style="font-size:14px;">
-													<div>Two-Way IPS (Intrusion Prevention System) prevents Spam or DDoS from attacking Internet device and blocks malicious incoming packets to protect router from network vulnerability attacks like Shellshocked, Heartbleed, Bitcoin mining and Ransomware attack ; And also detects suspicious outgoing packets to find infected device out, and then prevent from being enslaved by Botnets.</div>
+													<div><#AiProtection_two-way_IPS_desc#></div>
 												</td>
 											</tr>									
 										</table>
@@ -486,7 +486,7 @@ function deleteHover(flag){
 												<div style="display:table-row">
 													<!--div style="display:inline-block;padding: 5px 0"><input id="mali_checkbox" type="checkbox" onclick="mali_check();"></div>
 													<div style="display:inline-block;font-size:14px;vertical-align:bottom;padding: 5px 0" title="<#AiProtection_scan_desc#>"><#AiProtection_sites_blocking#></div-->
-													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center">Security Event</div>
+													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center"><#AiProtection_event#></div>
 												</div>
 												<div id="vulner_table" style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;position:relative;">
 													<div id="bar_shade" style="position:absolute;width:330px;height:330px;background-color:#505050;opacity:0.6;margin:5px;display:none"></div>
@@ -511,7 +511,7 @@ function deleteHover(flag){
 											</div>
 
 											<div style="display:table-cell;width:370px;height:350px;padding-left:10px;">
-												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;">Severity Level</div>
+												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;"><#AiProtection_level#></div>
 
 												<!-- Line Chart -Block-->
 												<div style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;padding-left:10px;position:relative">
@@ -551,14 +551,14 @@ function deleteHover(flag){
 											</div>
 										</div-->
 										<div>
-											<div style="text-align:center;font-size:16px;">Event Details</div>
+											<div style="text-align:center;font-size:16px;"><#AiProtection_eventdetails#></div>
 											<div style="float:right;margin:-20px 30px 0 0"><div id="delete_icon" style="width:25px;height:25px;background:url('images/New_ui/delete.svg')" onclick="eraseDatabase();" onmouseover="deleteHover('1')" onmouseout="deleteHover('0')"></div></div>
 										</div>
 										<div style="margin: 10px auto;width:720px;height:500px;background:#444f53;border-radius:10px;position:relative;overflow:auto">
 											<div id="info_shade" style="position:absolute;width:710px;height:490px;background-color:#505050;opacity:0.6;margin:5px;display:none"></div>
 											<div id="detail_info_table" style="padding: 10px 15px;">
 												<div style="font-size:14px;font-weight:bold;border-bottom: 1px solid #797979">
-													<div style="display:table-cell;width:110px;padding-right:5px;">Time</div>
+													<div style="display:table-cell;width:110px;padding-right:5px;"><#diskUtility_time#></div>
 													<div style="display:table-cell;width:50px;padding-right:5px;">Level</div>
 													<div style="display:table-cell;width:150px;padding-right:5px;">Source</div>
 													<div style="display:table-cell;width:150px;padding-right:5px;">Destination</div>

@@ -84,7 +84,6 @@ p{
 <script type="text/javascript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/help.js"></script>
 <script>
-var client_flag = '<% get_parameter("client_flag"); %>'.trim();
 if(parent.location.pathname.search("index") === -1) top.location.href = "../index.asp";
 
 var wirelessOverFlag = false;
@@ -172,12 +171,6 @@ function drawClientList(tab){
 		if(clientName.toLowerCase().indexOf(document.getElementById("searchingBar").value.toLowerCase()) == -1){i++; pagesVar.endIndex++; continue;}
 		// filter */ 
 
-		if(client_flag != "") {
-			if(clientObj.wlInterface != client_flag) {
-				i++; pagesVar.endIndex++; continue;
-			}
-		}
-
 		clientHtmlTd += '<div class="clientBg" onclick="popupCustomTable(\'' + clientObj.mac + '\');"><table width="100%" height="85px" border="0"><tr><td rowspan="3" width="85px">';
 		if(usericon_support) {
 			if(clientMacUploadIcon[clientObj.mac] == undefined) {
@@ -191,7 +184,13 @@ function drawClientList(tab){
 		}
 		
 		var deviceTitle = (clientObj.dpiDevice == "") ? clientObj.vendor : clientObj.dpiDevice;
-		if(userIconBase64 != "NoIcon") {
+		if(top.isIE8){
+			clientHtmlTd += '<div class="clientIconIE8HACK"';
+			clientHtmlTd += ' title="';
+			clientHtmlTd += deviceTitle;
+			clientHtmlTd += '"></div>';
+		}
+		else if(userIconBase64 != "NoIcon") {
 			clientHtmlTd += '<div title="'+ deviceTitle + '"">';
 			clientHtmlTd += '<img id="imgUserIcon_'+ i +'" class="imgUserIcon" src="' + userIconBase64 + '"';
 			clientHtmlTd += '</div>';
@@ -321,44 +320,22 @@ function drawClientList(tab){
 	document.getElementById("rightBtn").style.visibility = (pagesVar.endIndex >= clientList.length) ? "hidden" : "visible";
 
 	// Wired
-	if(client_flag == "") {
+	if(!(isSwMode('mb') || isSwMode('ew'))) {
 		document.getElementById("tabWired").style.display = (totalClientNum.wired == 0) ? "none" : "";
 		document.getElementById("tabWiredNum").innerHTML = 	totalClientNum.wired;
 	}
 
 	// Wireless
-	var show_wireless_num = 0;
-	switch(client_flag) {
-		case "main" :
-			show_wireless_num = totalClientNum.wireless_main;
-			break;
-		case "gn1" :
-			show_wireless_num = totalClientNum.wireless_gn1;
-			break;
-		case "gn2" :
-			show_wireless_num = totalClientNum.wireless_gn2;
-			break;
-		case "gn3" :
-			show_wireless_num = totalClientNum.wireless_gn3;
-			break;
-		default :
-			show_wireless_num = totalClientNum.wireless;
-			break;
+	if(!(isSwMode('mb') || isSwMode('ew'))) {
+		document.getElementById("tabWireless").style.display = (totalClientNum.wireless == 0) ? "none" : "";
+		document.getElementById("tabWirelessNum").innerHTML = totalClientNum.wireless;
 	}
-	document.getElementById("tabWireless").style.display = (show_wireless_num == 0) ? "none" : "";
-	document.getElementById("tabWirelessNum").innerHTML = show_wireless_num;
-
-	if(show_wireless_num == 0) 
+	if(totalClientNum.wireless == 0) 
 		wirelessOverFlag = false;
 
 	if(wl_nband_title.length > 1){
 		for(var i=0; i<wl_nband_title.length; i++){
-			if(client_flag != "") {
-				document.getElementById("liWirelessNum" + i).innerHTML = totalClientNum.wireless_ifnames[client_flag + "_" + i];
-			}
-			else {
-				document.getElementById("liWirelessNum" + i).innerHTML = totalClientNum.wireless_ifnames["all_" + i];
-			}
+			document.getElementById("liWirelessNum" + i).innerHTML = totalClientNum.wireless_ifnames[i];
 		}
 	}
 
@@ -368,12 +345,7 @@ function drawClientList(tab){
 		document.getElementById("searchingBar").placeholder = 'Search';
 	}
 	else{
-		if(client_flag != "") {
-			document.getElementById("searchingBar").placeholder = '[' + wl_nband_title[tab.split("wireless")[1]] + '](' + totalClientNum.wireless_ifnames[client_flag + "_" + tab.split("wireless")[1]] + ')';
-		}
-		else {
-			document.getElementById("searchingBar").placeholder = '[' + wl_nband_title[tab.split("wireless")[1]] + '](' + totalClientNum.wireless_ifnames["all_" + tab.split("wireless")[1]] + ')';
-		}
+		document.getElementById("searchingBar").placeholder = '[' + wl_nband_title[tab.split("wireless")[1]] + '](' + totalClientNum.wireless_ifnames[tab.split("wireless")[1]] + ')';
 	}
 
 	if(pagesVar.curTab != tab){
@@ -601,7 +573,7 @@ function updateClientList(e){
 
 	<tr>
 		<td>				
-			<table width="95%" border="0" align="center" cellpadding="4" cellspacing="0" style="background-color:#4d595d;">
+			<table width="95%" border="0" align="center" cellpadding="4" cellspacing="0" class="list_bg">
   				<tr>
     				<td style="padding:3px 3px 5px 5px;">
 						<input type="text" placeholder="Search" id="searchingBar" class="input_25_table" style="width:96%;margin-top:3px;margin-bottom:3px" maxlength="" value="" autocorrect="off" autocapitalize="off">

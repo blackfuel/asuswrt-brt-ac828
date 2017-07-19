@@ -620,8 +620,11 @@ static int ipq_check_read_status(struct mtd_info *mtd, uint32_t status)
 
 	debug("Read Status: %08x\n", status);
 
-	cw_erased = readl(&regs->erased_cw_detect_status);
-	cw_erased &= CODEWORD_ERASED_MASK;
+	/* Hardware handles erased page detection for BCH */
+	if (dev->dev_cfg1 & ENABLE_BCH_ECC(1)) {
+		cw_erased = readl(&regs->erased_cw_detect_status);
+		cw_erased &= CODEWORD_ERASED_MASK;
+	}
 
 	num_errors = readl(&regs->buffer_status);
 	num_errors &= NUM_ERRORS_MASK;
@@ -699,23 +702,26 @@ static int ipq_nand_handle_erased_pg(struct mtd_info *mtd,
 static int ipq_read_cw(struct mtd_info *mtd, u_int cwno,
 		       struct mtd_oob_ops *ops)
 {
-	int ret;
+	int ret, r;
 	uint32_t status;
 	struct ipq_nand_dev *dev = MTD_IPQ_NAND_DEV(mtd);
 	struct ebi2nd_regs *regs = dev->regs;
 	struct ipq_cw_layout *cwl = &dev->curr_page_layout[cwno];
+	uint32_t f = mtd->ecc_stats.failed;
 
 	ret = ipq_exec_cmd(mtd, dev->read_cmd, &status);
 	if (ret < 0)
 		return ret;
 
-	ret = ipq_check_read_status(mtd, status);
+	r = ret = ipq_check_read_status(mtd, status);
 
 	if (ops->datbuf != NULL) {
 		hw2memcpy(ops->datbuf, &regs->buffn_acc[cwl->data_offs >> 2],
 			  cwl->data_size);
 
-		ret = ipq_nand_handle_erased_pg(mtd, ops, cwl, ret);
+		if (mtd->ecc_stats.failed > f)
+			r = -EBADMSG;
+		ret = ipq_nand_handle_erased_pg(mtd, ops, cwl, r);
 		if (ret < 0)
 			return ret;
 
@@ -1598,6 +1604,8 @@ int ipq_nand_scan(struct mtd_info *mtd)
 	uint32_t nand_id2 = 0;
 	uint32_t onfi_sig = 0;
 	struct nand_chip *chip = MTD_NAND_CHIP(mtd);
+	struct ipq_nand_dev *dev = MTD_IPQ_NAND_DEV(mtd);
+        struct ebi2nd_regs *regs = dev->regs;
 
 	ret = ipq_nand_onfi_probe(mtd, &onfi_sig);
 	if (ret < 0)
@@ -1630,7 +1638,13 @@ int ipq_nand_scan(struct mtd_info *mtd)
 		if (ret < 0)
 			return ret;
 	}
-
+	writel(0x04E00480, &regs->xfr_step1);
+	writel(0x41F0419A, &regs->xfr_step2);
+	writel(0x81E08180, &regs->xfr_step3);
+	writel(0xD000C000, &regs->xfr_step4);
+	writel(0xC000C000, &regs->xfr_step5);
+	writel(0xC000C000, &regs->xfr_step6);
+	writel(0xC000C000, &regs->xfr_step7);
 	mtd->type = MTD_NANDFLASH;
 	mtd->flags = MTD_CAP_NANDFLASH;
 
@@ -1774,7 +1788,7 @@ int ipq_nand_post_scan_init(struct mtd_info *mtd, enum ipq_nand_layout layout)
 	struct nand_chip *chip = MTD_NAND_CHIP(mtd);
 	struct nand_onfi_params *nand_onfi = MTD_ONFI_PARAMS(mtd);
 	int ret = 0;
-	char *buf;
+	u_char *buf;
 
 	alloc_size = (mtd->writesize   /* For dev->pad_dat */
 		      + mtd->oobsize   /* For dev->pad_oob */

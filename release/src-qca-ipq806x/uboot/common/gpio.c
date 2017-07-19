@@ -11,6 +11,10 @@
 #include <asm/arch-ipq806x/iomap.h>
 #include "../board/qcom/ipq806x_cdp/ipq806x_cdp.h"
 
+#if defined(BRTAC828) || defined(RTAD7200)
+#include "../drivers/rtl8370mb/rtk_types.h"
+#include "../drivers/rtl8370mb/led.h"
+#endif
 
 #define INVALID_GPIO_NR	0xFFFFFFFF
 #define GPIO_OE_ENABLE		1
@@ -518,6 +522,12 @@ void all_leds_on(void)
 {
 	int i;
 
+#if defined(BRTAC828) || defined(RTAD7200)
+	for (i = UTP_PORT0; i <= UTP_PORT7; ++i) {
+		rtk_led_modeForce_set(i , LED_GROUP_0, LED_FORCE_ON);
+	}
+#endif
+
 	for (i = 0; i < GPIO_IDX_MAX; i++) {
 		if (!gpio_tbl[i].name || !gpio_tbl[i].is_led)
 			continue;
@@ -532,6 +542,12 @@ void all_leds_on(void)
 void all_leds_off(void)
 {
 	int i;
+
+#if defined(BRTAC828) || defined(RTAD7200)
+	for (i = UTP_PORT0; i <= UTP_PORT7; ++i) {
+		rtk_led_modeForce_set(i , LED_GROUP_0, LED_FORCE_OFF);
+	}
+#endif
 
 	for (i = 0; i < GPIO_IDX_MAX; i++) {
 		if (!gpio_tbl[i].name || !gpio_tbl[i].is_led)

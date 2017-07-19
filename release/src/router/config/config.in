@@ -865,6 +865,10 @@ config RTCONFIG_UBIFS
 	bool "UBI File-System"
 	default n
 
+config RTCONFIG_SAVEJFFS
+	bool "Save/Restore /jffs to/from configuration file."
+	default n
+
 config RTCONFIG_OPTIMIZE_XBOX
 	bool "OPTIMIZE_XBOX"
 	default n
@@ -1255,4 +1259,9 @@ config RTCONFIG_WEBMON
 
 config RTCONFIG_BACKUP_LOG
 	bool "BACKUP_LOG"
+	default n
+
+config RTCONFIG_LETSENCRYPT
+	bool "Let's Encrypt"
+	depends on RTCONFIG_HTTPS && (RTCONFIG_JFFS2 || RTCONFIG_BRCM_NAND_JFFS2 || RTCONFIG_UBIFS)
 	default n

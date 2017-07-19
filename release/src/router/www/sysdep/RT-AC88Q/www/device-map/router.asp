@@ -134,7 +134,7 @@ function initial(){
 		}
 
 		// disallow to use the other band as a wireless AP
-		if(parent.sw_mode == 4 && !localAP_support){
+		if(parent.isSwMode("mb") && !localAP_support){
 			for(var x=0; x<wl_info.wl_if_total;x++){
 				if(x != '<% nvram_get("wlc_band"); %>')
 					document.getElementById('t'+parseInt(x)).style.display = 'none';
@@ -213,13 +213,19 @@ function initial(){
 	if(parent.sw_mode == 2 && parent.concurrep_support)
 		document.form.wl_subunit.value = 1;
 
-	if(smart_connect_support){
+	if(smart_connect_support && (parent.isSwMode("rt") || parent.isSwMode("ap"))){
 		var smart_connect_x = '<% nvram_get("smart_connect_x"); %>';
-		if(based_modelid == "RT-AC5300" || based_modelid == "RT-AC3200" || based_modelid == "RT-AC88U"){
+		if(based_modelid == "RT-AC5300" ||
+			based_modelid == "GT-AC5300" || 
+			based_modelid == "RT-AC3200" || 
+			based_modelid == "RT-AC88U" ||
+			based_modelid == "RT-AC86U" ||
+			based_modelid == "AC2900" ||
+			based_modelid == "RT-AC3100"){
 			var value = new Array();
 			var desc = new Array();
 				
-			if(based_modelid == "RT-AC5300"){
+			if(based_modelid == "RT-AC5300" || based_modelid == "GT-AC5300"){
 				desc = ["none", "Tri-Band Smart Connect", "5GHz Smart Connect"];
 				value = ["0", "1", "2"];
 				add_options_x2(document.form.smart_connect_t, desc, value, smart_connect_x);
@@ -229,7 +235,7 @@ function initial(){
 				value = ["0", "1"];
 				add_options_x2(document.form.smart_connect_t, desc, value, smart_connect_x);						
 			}
-			else if(based_modelid == "RT-AC88U"){
+			else if(based_modelid == "RT-AC88U" || based_modelid == "RT-AC86U" || based_modelid == "AC2900" || based_modelid == "RT-AC3100"){
 				desc = ["none", "Dual-Band Smart Connect"];
 				value = ["0", "1"];
 				add_options_x2(document.form.smart_connect_t, desc, value, smart_connect_x);						
@@ -331,7 +337,7 @@ function initial(){
 	wl_auth_mode_change(1);
 	show_LAN_info();
 
-	if(smart_connect_support && parent.sw_mode != 4){
+	if(smart_connect_support && (parent.isSwMode("rt") || parent.isSwMode("ap"))){
 
 		if(flag == '')
 			smart_connect_flag_t = '<% nvram_get("smart_connect_x"); %>';
@@ -440,6 +446,9 @@ function tabclickhandler(wl_unit){
 		else if((parent.sw_mode == 2 || parent.sw_mode == 4) && '<% nvram_get("wlc_band"); %>' == wl_unit){
 			document.form.wl_subunit.value = 1;
 		}
+		else if (parent.sw_mode == 2 && parent.concurrep_support){
+			document.form.wl_subunit.value = 1;
+		}
 		else{
 			document.form.wl_subunit.value = -1;
 		}
@@ -447,7 +456,7 @@ function tabclickhandler(wl_unit){
 		document.form.wl_unit.value = wl_unit;
 		cookie.set("wireless_unit", wl_unit, 30);
 
-		if(smart_connect_support){
+		if(smart_connect_support && (parent.isSwMode("rt") || parent.isSwMode("ap"))){
 			var smart_connect_flag = document.form.smart_connect_x.value;
 			document.form.current_page.value = "device-map/router.asp?flag=" + smart_connect_flag;
 		}else{
@@ -541,7 +550,12 @@ function change_wep_type(mode){
 		value_array = new Array("1", "2");
 		show_wep_x = 1;
 	}
-	else if(mode == "open" && (document.form.wl_nmode_x.value == 2 || sw_mode == 2)){
+	else if(based_modelid == "RP-AC66"){
+		wep_type_array = new Array("None");
+		value_array = new Array("0");
+		cur_wep = "0";
+	}
+	else if(mode == "open" && document.form.wl_nmode_x.value == 2){
 		wep_type_array = new Array("None", "WEP-64bits", "WEP-128bits");
 		value_array = new Array("0", "1", "2");
 		show_wep_x = 1;
@@ -623,7 +637,7 @@ function show_LAN_info(v){
 	else	
 		showtext(document.getElementById("LANIP"), '<% nvram_get("lan_ipaddr"); %>');
 
-	if(yadns_support){
+	if(yadns_support && parent.sw_mode == 1){
 		var mode = (yadns_enable != 0) ? yadns_mode : -1;
 		showtext(document.getElementById("yadns_mode"), get_yadns_modedesc(mode));
 		for(var i = 0; i < 3; i++){
@@ -635,17 +649,13 @@ function show_LAN_info(v){
 			document.getElementById("yadns_status").style.display = "";
 	}
 
-	var wl2_mac = '<% nvram_get("wl0_hwaddr"); %>';
-	var wl5_mac = '<% nvram_get("wl1_hwaddr"); %>';
-	var wl5_2_mac = '<% nvram_get("wl2_hwaddr"); %>';
-
 	showtext(document.getElementById("PINCode"), '<% nvram_get("secret_code"); %>');
 	showtext(document.getElementById("MAC"), '<% nvram_get("lan_hwaddr"); %>');
-	showtext(document.getElementById("MAC_wl2"), wl2_mac);
+	showtext(document.getElementById("MAC_wl2"), '<% nvram_get("wl0_hwaddr"); %>');
 	if(document.form.wl_unit.value == 1)
-		showtext(document.getElementById("MAC_wl5"), wl5_mac);
+		showtext(document.getElementById("MAC_wl5"), '<% nvram_get("wl1_hwaddr"); %>');
 	else if(document.form.wl_unit.value == 2)
-		showtext(document.getElementById("MAC_wl5_2"), wl5_2_mac);
+		showtext(document.getElementById("MAC_wl5_2"), '<% nvram_get("wl2_hwaddr"); %>');
 
 	if(document.form.wl_unit.value == 0){
 		document.getElementById("macaddr_wl5").style.display = "none";
@@ -666,11 +676,11 @@ function show_LAN_info(v){
 		document.getElementById("macaddr_wl5").style.display = "none";
 		document.getElementById("macaddr_wl5_2").style.display = "";
 	}
-	if(smart_connect_support){
+	if(smart_connect_support && (parent.isSwMode("rt") || parent.isSwMode("ap"))){
 		if(v == '1'){
-			showtext(document.getElementById("MAC_wl2"), wl2_mac);
-			showtext(document.getElementById("MAC_wl5"), wl5_mac);
-			showtext(document.getElementById("MAC_wl5_2"), wl5_2_mac);
+			showtext(document.getElementById("MAC_wl2"), '<% nvram_get("wl0_hwaddr"); %>');
+			showtext(document.getElementById("MAC_wl5"), '<% nvram_get("wl1_hwaddr"); %>');
+			showtext(document.getElementById("MAC_wl5_2"), '<% nvram_get("wl2_hwaddr"); %>');
 			document.getElementById("macaddr_wl5_title").innerHTML = "5GHz-1 ";
 			document.getElementById("macaddr_wl2").style.display = "";
 			document.getElementById("macaddr_wl5").style.display = "";
@@ -846,9 +856,9 @@ function tab_reset(v){
 			document.getElementById("t2").style.display = "none";
 		}
 	}else if(v == 1){	//Smart Connect
-		if(based_modelid == "RT-AC5300" || based_modelid == "RT-AC3200")
+		if(based_modelid == "RT-AC5300" || based_modelid == "RT-AC3200" || based_modelid == "GT-AC5300")
 			document.getElementById("span0").innerHTML = "2.4GHz, 5GHz-1 and 5GHz-2";
-		else if(based_modelid == "RT-AC88U")
+		else if(based_modelid == "RT-AC88U" || based_modelid == "RT-AC86U" || based_modelid == "AC2900" || based_modelid == "RT-AC3100")
 			document.getElementById("span0").innerHTML = "2.4GHz and 5GHz";
 		
 		document.getElementById("t1").style.display = "none";
@@ -956,7 +966,7 @@ function limit_auth_method(){
 <input type="hidden" name="wl_key3_org" value="<% nvram_char_to_ascii("WLANConfig11b", "wl_key3"); %>">
 <input type="hidden" name="wl_key4_org" value="<% nvram_char_to_ascii("WLANConfig11b", "wl_key4"); %>">
 <input type="hidden" name="wl_nmode_x" value="<% nvram_get("wl_nmode_x"); %>"><!--Lock Add 20091210 for n only-->
-<input type="hidden" name="wps_band" value="<% nvram_get("wps_band"); %>">
+<input type="hidden" name="wps_band" value="<% nvram_get("wps_band_x"); %>">
 <input type="hidden" name="wl_unit" value="<% nvram_get("wl_unit"); %>">
 <input type="hidden" name="wl_subunit" value="-1">
 <input type="hidden" name="wl_radio" value="<% nvram_get("wl_radio"); %>">
@@ -1220,14 +1230,14 @@ function limit_auth_method(){
   		<tr>
     			<td style="padding:10px 10px 0px 10px;">
     				<p class="formfonttitle_nwm" ><#LAN_IP#></p>
-    				<p style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px; background-color:#444f53; line-height:20px;" id="LANIP"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px; line-height:20px;" id="LANIP"></p>
       			<img style="margin-top:5px; *margin-top:-10px;" src="/images/New_ui/networkmap/linetwo2.png">
     			</td>
   		</tr>  
   		<tr>
     			<td style="padding:5px 10px 0px 10px;">
     				<p class="formfonttitle_nwm" ><#PIN_code#></p>
-    				<p style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px; background-color:#444f53; line-height:20px;" id="PINCode"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px;line-height:20px;" id="PINCode"></p>
       			<img style="margin-top:5px; *margin-top:-10px;" src="/images/New_ui/networkmap/linetwo2.png">
     			</td>
   		</tr>
@@ -1235,10 +1245,10 @@ function limit_auth_method(){
     			<td style="padding:5px 10px 0px 10px;">
     				<p class="formfonttitle_nwm" ><#YandexDNS#></p>
     				<a href="/YandexDNS.asp" target="_parent">
-    				<p style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px; background-color:#444f53; line-height:20px;" id="yadns_mode"></p>
-    				<p style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px; background-color:#444f53; line-height:20px;" id="yadns_mode0"></p>
-    				<p style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px; background-color:#444f53; line-height:20px;" id="yadns_mode1"></p>
-    				<p style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px; background-color:#444f53; line-height:20px;" id="yadns_mode2"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px;line-height:20px;" id="yadns_mode"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px;line-height:20px;" id="yadns_mode0"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px;line-height:20px;" id="yadns_mode1"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-top:3px; *margin-top:-5px; margin-right:10px;line-height:20px;" id="yadns_mode2"></p>
     				</a>
       			<img style="margin-top:5px; *margin-top:-10px;" src="/images/New_ui/networkmap/linetwo2.png">
     			</td>
@@ -1246,26 +1256,26 @@ function limit_auth_method(){
   		<tr>
     			<td style="padding:5px 10px 0px 10px;">
     				<p class="formfonttitle_nwm" >LAN <#MAC_Address#></p>
-    				<p style="padding-left:10px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px; background-color:#444f53; line-height:20px;" id="MAC"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px;line-height:20px;" id="MAC"></p>
     				<img style="margin-top:5px; *margin-top:-10px;" src="/images/New_ui/networkmap/linetwo2.png">
     			</td>
   		</tr>     
   		<tr id="macaddr_wl2">
     			<td style="padding:5px 10px 0px 10px;">
     				<p class="formfonttitle_nwm" >Wireless <span id="macaddr_wl2_title">2.4GHz </span><#MAC_Address#></p>
-    				<p style="padding-left:10px; margin-bottom:5px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px; background-color:#444f53; line-height:20px;" id="MAC_wl2"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-bottom:5px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px;line-height:20px;" id="MAC_wl2"></p>
     			</td>
   		</tr>     
   		<tr id="macaddr_wl5">
     			<td style="padding:5px 10px 0px 10px;">
     				<p class="formfonttitle_nwm" >Wireless <span id="macaddr_wl5_title">5GHz </span><#MAC_Address#></p>
-    				<p style="padding-left:10px; margin-bottom:5px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px; background-color:#444f53; line-height:20px;" id="MAC_wl5"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-bottom:5px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px;line-height:20px;" id="MAC_wl5"></p>
     			</td>
   		</tr>
   		<tr id="macaddr_wl5_2" style="display:none;">
     			<td style="padding:5px 10px 0px 10px;">
     				<p class="formfonttitle_nwm" >Wireless <span id="macaddr_wl5_2_title">5GHz-2 </span><#MAC_Address#></p>
-    				<p style="padding-left:10px; margin-bottom:5px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px; background-color:#444f53; line-height:20px;" id="MAC_wl5_2"></p>
+    				<p class="tab_info_bg" style="padding-left:10px; margin-bottom:5px; margin-top:3px; *margin-top:-5px; padding-bottom:3px; margin-right:10px;line-height:20px;" id="MAC_wl5_2"></p>
     			</td>
   		</tr>  
 		</table>

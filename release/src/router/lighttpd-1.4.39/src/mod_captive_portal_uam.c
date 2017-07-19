@@ -240,9 +240,8 @@ URIHANDLER_FUNC(mod_captive_portal_uam_physical_handler){
 			memset(temp,'\0', len);				
 			strncpy(temp, pch+9, len);
 			temp[len]='\0';
-
 			buffer_copy_string(url_opt_password, temp );
-			buffer_urldecode_path(url_opt_password);	
+			buffer_urldecode_query(url_opt_password);	
 			free(temp);
 		}
 		else if(strncmp(pch, "userurl=", 8)==0){

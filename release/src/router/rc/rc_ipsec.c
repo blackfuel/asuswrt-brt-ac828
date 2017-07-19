@@ -1042,13 +1042,13 @@ void rc_ipsec_secrets_set()
 
 void ipsec_conf_local_set(FILE *fp, int prof_idx, ipsec_prof_type_t prof_type)
 {
-	char lan_class[32];
 	char left_ipaddr[16];
 	char tmp_str[12];
 	int unit = 0;
 	char word[80], *next;
+	/*char lan_class[32];
 	
-	/*ip2class(nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"), lan_class);
+	ip2class(nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"), lan_class);
 	if(0 != strcmp(prof[prof_type][prof_idx].local_subnet,lan_class))
 		strcpy(prof[prof_type][prof_idx].local_subnet,lan_class);*/
 	

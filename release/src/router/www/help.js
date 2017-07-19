@@ -119,13 +119,41 @@ function enableMonomode(){
 	document.titleForm.submit();
 }
 
-function remove_disk(disk_num){
+function remove_all_disk(){
 	var str = "<#Safelyremovedisk_confirm#>";
 	if(confirm(str)){
-		showLoading();		
-		document.diskForm_title.disk.value = disk_num;
-		setTimeout("document.diskForm_title.submit();", 1);
+		showLoading();
+		document.diskForm_title.disk.value = "all";
+		setTimeout(function(){
+			document.diskForm_title.submit();
+		}, 1);
 	}
+}
+
+function remove_disk(disksIndex){
+	require(['/require/modules/diskList.js?hash=' + Math.random().toString()], function(diskList){
+		var removeHandler = function(disk){
+			var str = "";
+			str += (disk.isBusy) ? "<#ALERT_OF_ERROR_System3#> ".split(":")[1] : "" ;
+			str += "<#Safelyremovedisk_confirm#>";
+
+			if(confirm(str)){
+				parent.showLoading();			
+				document.diskForm_title.disk.value = disk.node;
+				setTimeout(function(){
+					document.diskForm_title.submit();
+				}, 1);
+			}
+		}
+
+		var usbDevicesList = diskList.list();
+		for(var i=0; i < usbDevicesList.length; i++){
+			if(usbDevicesList[i].node == disksIndex){
+				removeHandler(usbDevicesList[i]);
+				break;
+			}
+		}
+	});
 }
 
 function gotoguestnetwork(){
@@ -1023,7 +1051,7 @@ function openHint(hint_array_id, hint_show_id, flag){
 				if(statusmenu == "")
 					statusmenu = "<span class='StatusHint'><#DISK_UNMOUNTED#></span>";
 				else if(statusmenu.howMany("remove_disk") > 1)
-					statusmenu += "<div style='margin-top:2px;' class='StatusClickHint' onclick='remove_disk(\"all\");' onmouseout='this.className=\"StatusClickHint\"' onmouseover='this.className=\"StatusClickHint_mouseover\"'>Eject all USB disks</div>";
+					statusmenu += "<div style='margin-top:2px;' class='StatusClickHint' onclick='remove_all_disk();' onmouseout='this.className=\"StatusClickHint\"' onmouseover='this.className=\"StatusClickHint_mouseover\"'>Eject all USB disks</div>";
 
 				_caption = "USB storage";
 				return overlib(statusmenu, OFFSETX, -160, LEFT, STICKY, CAPTION, " ", CLOSETITLE, '');

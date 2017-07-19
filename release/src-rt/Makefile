@@ -590,6 +590,10 @@ define RouterOptions
 		sed -i "/RTCONFIG_MTK_TW_AUTO_BAND4/d" $(1); \
 		echo "RTCONFIG_MTK_TW_AUTO_BAND4=y" >>$(1); \
 	fi; \
+	if [ "$(QCA_TW_AUTO_BAND4)" = "y" ]; then \
+		sed -i "/RTCONFIG_QCA_TW_AUTO_BAND4/d" $(1); \
+		echo "RTCONFIG_QCA_TW_AUTO_BAND4=y" >>$(1); \
+	fi; \
 	if [ "$(NEWSSID_REV2)" = "y" ]; then \
 		sed -i "/RTCONFIG_NEWSSID_REV2/d" $(1); \
 		echo "RTCONFIG_NEWSSID_REV2=y" >>$(1); \
@@ -1058,6 +1062,12 @@ define RouterOptions
 		echo "# RTCONFIG_UBI is not set" >>$(1); \
 		sed -i "/RTCONFIG_UBIFS/d" $(1); \
 		echo "# RTCONFIG_UBIFS is not set" >>$(1); \
+	fi; \
+	if [ "$(UBI)" = "y" ] || [ "$(JFFS2)" = "y" ] ; then \
+		if [ "$(SAVEJFFS)" = "y" ] ; then \
+			sed -i "/RTCONFIG_SAVEJFFS/d" $(1); \
+			echo "RTCONFIG_SAVEJFFS=y" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(OPTIMIZE_XBOX)" = "y" ]; then \
 		sed -i "/RTCONFIG_OPTIMIZE_XBOX/d" $(1); \
@@ -1606,6 +1616,10 @@ define RouterOptions
 	if [ "$(BACKUP_LOG)" = "y" ]; then \
 		sed -i "/RTCONFIG_BACKUP_LOG/d" $(1); \
 		echo "RTCONFIG_BACKUP_LOG=y" >>$(1); \
+	fi; \
+	if [ "$(LETSENCRYPT)" = "y" ]; then \
+		sed -i "/RTCONFIG_LETSENCRYPT/d" $(1); \
+		echo "RTCONFIG_LETSENCRYPT=y" >>$(1); \
 	fi; \
 	)
 	$(call platformRouterOptions, $(1))

@@ -12,8 +12,8 @@
 
 void myAsusDiscoveryDebugPrint(char *pc)
 {
-    #ifdef _ASUS_DEVICE_DISCOVERY_DEBUG
-    printf("%s\n", pc);
-    #endif
+	#ifdef _ASUS_DEVICE_DISCOVERY_DEBUG
+	printf("%s\n", pc);
+	#endif
 }
 

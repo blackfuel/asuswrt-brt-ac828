@@ -1,17 +1,19 @@
-function supportsite_model(modelname, odmpid, hwver){
-	/*
-		New naming rule:
-		1. " " "/" "-" "_" "&" "!" to "-"
-		2. "+" to "-plus"
-	*/
+/*
+New naming rule:
+1. " " "/" "-" "_" "&" "!" to "-"
+2. "+" to "-plus"
+*/
 
-	var real_model_name = "";
-	real_model_name = modelname.replace(" ", "-");
-	real_model_name = real_model_name.replace("/", "-");
-	real_model_name = real_model_name.replace("_", "-");
-	real_model_name = real_model_name.replace("&", "-");
-	real_model_name = real_model_name.replace("!", "-");
-	real_model_name = real_model_name.replace("+", "-plus");
+function supportsite_model(support_site_modelid, hwver){
+	
+var real_model_name = "";
+real_model_name = support_site_modelid.replace(" ", "-");
+real_model_name = real_model_name.replace("/", "-");
+real_model_name = real_model_name.replace("_", "-");
+real_model_name = real_model_name.replace("&", "-");
+real_model_name = real_model_name.replace("!", "-");
+real_model_name = real_model_name.replace("+", "-plus");
 
-	return real_model_name;
+return real_model_name;
 }	
+		

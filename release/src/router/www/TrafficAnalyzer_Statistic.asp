@@ -144,7 +144,7 @@ function get_client_used_apps_info(client_index, used_data_array, top5_info, typ
 
 	if(type == "router"){
 		document.getElementById('info_block_title').innerHTML = "Monthly Top 5 Clients Used";
-		document.getElementById('top_client_title').innerHTML = "Client:";
+		document.getElementById('top_client_title').innerHTML = "<#Client_Name#>:";
 	}
 	else{
 		document.getElementById('info_block_title').innerHTML = "Monthly Top 5 Apps Used";
@@ -294,7 +294,7 @@ function get_client_info(list_info, type){
 	if(type == "router")
 		code = "<option value='all' selected>All Clients</option>";
 	else
-		code = "<option value='all' selected>All apps</option>";
+		code = "<option value='all' selected>All Apps</option>";
 	top5_client_array = [];
 	top5_app_array = [];
 
@@ -519,9 +519,9 @@ function show_detail_info(mac, used_data_array, type){
 	code += '<tr style="font-size:14px;">';
 	if(type == "router"){
 		if(clientList[mac] == undefined)
-			code += '<th colspan="4">Client: '+ mac +'</th>';
+			code += '<th colspan="4"><#Client_Name#>: '+ mac +'</th>';
 		else
-			code += '<th colspan="4">Client: '+ getClientCurrentName(mac); +'</th>';	
+			code += '<th colspan="4"><#Client_Name#>: '+ getClientCurrentName(mac); +'</th>';	
 	}
 	else{
 		code += '<th colspan="4">App: '+ mac +'</th>';	
@@ -533,12 +533,12 @@ function show_detail_info(mac, used_data_array, type){
 		code += '<th style="width:55%;text-align:left;">App\'s Name</th>';	
 	}
 	else{
-		code += '<th style="width:55%;text-align:left;">Client\'s Name</th>';
+		code += '<th style="width:55%;text-align:left;"><#Client_Name#></th>';
 	}
 	
-	code += '<th style="width:15%;text-align:right;">Upload</th>';
-	code += '<th style="width:15%;text-align:right;">Download</th>';
-	code += '<th style="width:15%;text-align:right;">Total</th>';
+	code += '<th style="width:15%;text-align:right;"><#option_upload#></th>';
+	code += '<th style="width:15%;text-align:right;"><#option_download#></th>';
+	code += '<th style="width:15%;text-align:right;"><#Total#></th>';
 	code += '</tr>';
 	for(i=0;i<used_data_array.length;i++){
 		code += '<tr>';
@@ -572,16 +572,16 @@ function show_all_info(mac, type){
 	if(type == "router"){
 		code += "<tr style='font-size:14px;'>";
 		if(clientList[mac] == undefined)
-			code += "<th colspan='4'>Client's Name: "+ mac +"</th>";
+			code += "<th colspan='4'><#Client_Name#>: "+ mac +"</th>";
 		else
-			code += "<th colspan='4'>Client's Name: "+ getClientCurrentName(mac) +"</th>";
+			code += "<th colspan='4'><#Client_Name#>: "+ getClientCurrentName(mac) +"</th>";
 		
 		code += "</tr>";
 		code += '<tr style="font-size:13px;">';
-		code += "<th style='width:55%;text-align:left;'>App's Name</th>";
-		code += '<th style="width:15%;text-align:right;">Upload</th>';
-		code += '<th style="width:15%;text-align:right;">Download</th>';
-		code += '<th style="width:15%;text-align:right;">Total</th>';
+		code += "<th style='width:55%;text-align:left;'>App Name</th>";
+		code += '<th style="width:15%;text-align:right;"><#option_upload#></th>';
+		code += '<th style="width:15%;text-align:right;"><#option_download#></th>';
+		code += '<th style="width:15%;text-align:right;"><#Total#></th>';
 		code += '</tr>';
 					
 					
@@ -599,13 +599,13 @@ function show_all_info(mac, type){
 	}
 	else{
 		code += "<tr style='font-size:14px;'>";
-		code += "<th colspan='4'>App's Name: "+ mac +"</th>";		
+		code += "<th colspan='4'>App Name: "+ mac +"</th>";		
 		code += "</tr>";
 		code += '<tr style="font-size:13px;">';
-		code += "<th style='width:55%;text-align:left;'>Client's Name</th>";
-		code += '<th style="width:15%;text-align:right;">Upload</th>';
-		code += '<th style="width:15%;text-align:right;">Download</th>';
-		code += '<th style="width:15%;text-align:right;">Total</th>';
+		code += "<th style='width:55%;text-align:left;'><#Client_Name#></th>";
+		code += '<th style="width:15%;text-align:right;"><#option_upload#></th>';
+		code += '<th style="width:15%;text-align:right;"><#option_download#></th>';
+		code += '<th style="width:15%;text-align:right;"><#Total#></th>';
 		code += '</tr>';
 					
 					
@@ -1100,7 +1100,7 @@ function draw_pie_chart(list_info, top5_info, type){
 			id: "0"
 		}];
 		
-		code = '<div style="width:100px;word-wrap:break-word;padding-left:5px;background-color:#B3645B;margin-right:-10px;border-top-left-radius:10px;border-bottom-left-radius:10px;">No Client</div>';		
+		code = '<div style="width:110px;word-wrap:break-word;padding-left:5px;background-color:#B3645B;margin-right:-10px;border-top-left-radius:10px;border-bottom-left-radius:10px;">No Client</div>';		
 	}
 	else{
 		for(i=0;i<top5_info.length && i<6;i++){		
@@ -1460,6 +1460,8 @@ function cancel(){
 	$('#iphone_switch').animate({backgroundPosition: -37}, "slow", function() {});
 	$("#agreement_panel").fadeOut(100);
 	document.getElementById("hiddenMask").style.visibility = "hidden";
+	htmlbodyforIE = parent.document.getElementsByTagName("html");  //this both for IE&FF, use "html" but not "body" because <!DOCTYPE html PUBLIC.......>
+	htmlbodyforIE[0].style.overflow = "scroll";	  //hidden the Y-scrollbar for preventing from user scroll it.	
 }
 
 function applyRule(){
@@ -1509,14 +1511,14 @@ function getClientCurrentName(_mac) {
 <body onload="initial();" onunload="unload_body();">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
-<div id="agreement_panel" class="panel_folder" style="margin-top: -100px;display:none;position:absolute;"></div>
+<div id="agreement_panel" class="eula_panel_container"></div>
 <div id="hiddenMask" class="popup_bg" style="z-index:999;">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center">
 	</table>
 	<!--[if lte IE 11]><iframe class="hackiframe"></iframe><![endif]-->
 </div>
 <iframe name="hidden_frame" id="hidden_frame" width="0" height="0" frameborder="0"></iframe>
-<div id="client_all_info_block" style="background-color:#2F3E44;width:730px;height:700px;position:absolute;z-index:100;margin-left:235px;border-radius:10px;display:none"></div>
+<div id="client_all_info_block" class="analysis_bg" style="width:730px;height:700px;position:absolute;z-index:100;margin-left:235px;border-radius:10px;display:none"></div>
 <form method="post" name="form" action="/start_apply.htm" target="hidden_frame">
 <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
@@ -1572,14 +1574,28 @@ function getClientCurrentName(_mac) {
 																		$('#traffic_analysis_enable').iphoneSwitch('<% nvram_get("bwdpi_db_enable"); %>',
 																			function(){
 																				if(document.form.TM_EULA.value == 0){
+																					var adjust_TM_eula_height = function(_objID) {
+																						var scrollTop = document.body.scrollTop;
+																						document.getElementById(_objID).style.top = (scrollTop + 10) + "px";
+																						var visiable_height = document.documentElement.clientHeight;
+																						var tm_eula_container_height = parseInt(document.getElementById(_objID).offsetHeight);
+																						var tm_eula_visiable_height = visiable_height - tm_eula_container_height;
+																						if(tm_eula_visiable_height < 0) {
+																							var tm_eula_content_height = parseInt(document.getElementById("tm_eula_content").style.height);
+																							document.getElementById("tm_eula_content").style.height = (tm_eula_content_height - Math.abs(tm_eula_visiable_height) - 20) + "px"; //content height - overflow height - margin top and margin bottom
+																						}
+																					};
+
 																					if(document.form.preferred_lang.value == "JP"){
 																						$.get("JP_tm_eula.htm", function(data){
 																							document.getElementById('agreement_panel').innerHTML= data;
+																							adjust_TM_eula_height("agreement_panel");
 																						});
 																					}
 																					else{
 																						$.get("tm_eula.htm", function(data){
 																							document.getElementById('agreement_panel').innerHTML= data;
+																							adjust_TM_eula_height("agreement_panel");
 																						});
 																					}	
 																					
@@ -1664,7 +1680,7 @@ function getClientCurrentName(_mac) {
 											</tr>
 										</table>
 									</div>
-									<div style="background-color:#2f3e44;border-radius:10px;width:100%">
+									<div class="analysis_bg" style="border-radius:4px;width:100%">
 										<div style="padding-top:5px;">
 											<table style="width:99%;">
 												<tr>
@@ -1723,7 +1739,7 @@ function getClientCurrentName(_mac) {
 										</table>
 									</div>	
 
-									<div id="detail_info_block" style="background-color:#2f3e44;border-radius:10px;width:100%;min-height:350px;margin-top:10px;overflow-y:auto;height:370px;display:none"></div>
+									<div id="detail_info_block" class="analysis_bg" style="border-radius:4px;width:100%;min-height:350px;margin-top:10px;overflow-y:auto;height:370px;display:none"></div>
 								</td>
 							</tr>
 						</table>

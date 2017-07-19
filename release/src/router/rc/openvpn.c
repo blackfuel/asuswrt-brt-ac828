@@ -770,8 +770,11 @@ void start_vpnserver(int serverNum)
 	//protocol
 	sprintf(&buffer[0], "vpn_server%d_proto", serverNum);
 	fprintf(fp, "proto %s\n", nvram_safe_get(&buffer[0]));
-	if(!strcmp(nvram_safe_get(&buffer[0]), "udp"))
+	if(!strcmp(nvram_safe_get(&buffer[0]), "udp")) {
+		fprintf(fp, "proto udp\n");
+		fprintf(fp, "multihome\n");
 		fprintf(fp_client, "proto %s\n", nvram_safe_get(&buffer[0]));
+	}
 	else
 		fprintf(fp_client, "proto tcp-client\n");
 

@@ -600,6 +600,7 @@ int do_ubi(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 				vid_header_offset);
 		if (err) {
 			printf("UBI init error %d\n", err);
+			put_mtd_device(ubi_dev.mtd_info);
 			ubi_dev.selected = 0;
 			return err;
 		}

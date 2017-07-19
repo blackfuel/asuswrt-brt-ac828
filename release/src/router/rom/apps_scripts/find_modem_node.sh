@@ -8,6 +8,7 @@ if [ -z "$unit" ] || [ "$unit" -eq "0" ]; then
 else
 	prefix="usb_modem${unit}_"
 fi
+echo "find_modem_node: prefix=$prefix."
 
 modem_act_path=`nvram get ${prefix}act_path`
 modem_type=`nvram get ${prefix}act_type`

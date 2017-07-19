@@ -739,7 +739,7 @@ tagged_vlan_defaults(void)
 		if ((p = strsep(&g, "<")) == NULL) break;
 		if((vstrsep(p, ">", &mac, &ip)) != 2) continue;
 		if(strlen(dhcp_staticlist) != 0)
-			strcat(dhcp_staticlist, "");
+			strcat(dhcp_staticlist, ";");
 		strcat(dhcp_staticlist, mac);
 		strcat(dhcp_staticlist, " ");
 		strcat(dhcp_staticlist, ip);
@@ -1342,13 +1342,23 @@ misc_defaults(int restore_defaults)
 #endif
 #endif
 
+#ifdef BRTAC828
+	/* Bonding and LAN as WAN are not compatible to each other.
+	 * If LAN as WAN is enabled, turn of bonding automatically.
+	 * UI will notify end-user before enabling LAN as WAN.
+	 */
+	if (strstr(nvram_safe_get("wans_dualwan"), "lan") != NULL) {
+		nvram_set("lan_trunk_0", "0");
+		nvram_set("lan_trunk_1", "0");
+		nvram_set("lan_trunk_type", "0");
+	}
+#endif
+
 #ifdef RTCONFIG_TUNNEL
 	nvram_set("aae_support", "1");
 #endif
 	if(nvram_get_int("ATEMODE") != 0)
 		logmessage("ATE", "not valid user mode");
-
-	nvram_unset("wps_enable_old");
 }
 
 /* ASUS use erase nvram to reset default only */
@@ -2024,6 +2034,19 @@ static int set_basic_ifname_vars(char *wan, char *lan, char *wl2g, char *wl5g, c
 			type = get_dualwan_by_unit(unit);
 			switch (type) {
 			case WANS_DUALWAN_IF_LAN:
+#if defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2) || \
+    defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2)
+				/* For Realtek switch platforms.
+				 * Because our IPTV code always untag frames at CPU port,
+				 * unless platform-specific switch configuration code ignore CPU port from untag port mask.
+				 * See config_switch() how to use __setup_vlan().
+				 */
+				if (nvram_get("switch_wantag") && nvram_match("switch_wantag", "movistar")) {
+					sprintf(buf, "vlan%s", nvram_safe_get("switch_wan0tagid"));
+					wphy = buf;
+				}
+				else
+#endif
 				if (force_dwlan || (get_wans_dualwan() & WANSCAP_WAN)
 #if defined(RTCONFIG_RALINK)
 				    || (!nvram_match("switch_wantag", "none") && !nvram_match("switch_wantag", ""))
@@ -5162,7 +5185,7 @@ int init_nvram(void)
 		nvram_set_int("AllLED", 1);
 #endif
 #ifdef RTCONFIG_WPS_DUALBAND
-	nvram_set_int("wps_band", 0);
+	nvram_set_int("wps_band_x", 0);
 	nvram_set_int("wps_dualband", 1);
 #else
 	nvram_set_int("wps_dualband", 0);
@@ -5778,6 +5801,9 @@ int init_nvram(void)
 
 #ifdef RTCONFIG_HTTPS
 	add_rc_support("HTTPS");
+#ifdef RTCONFIG_LETSENCRYPT
+	add_rc_support("letsencrypt");
+#endif
 #endif
 
 #ifdef RTCONFIG_SSH
@@ -5989,11 +6015,6 @@ int init_nvram2(void)
 		nvram_set("computer_name", friendly_name);
 		nvram_set("dms_friendly_name", friendly_name);
 		nvram_set("daapd_friendly_name", friendly_name);
-
-#if defined(BRTAC828)
-		sprintf(friendly_name, "%s-%02X%02X", "BRT-AC828", mac_binary[4], mac_binary[5]);
-		nvram_set("computer_name", friendly_name);
-#endif
 
 		nvram_commit();
 	}
@@ -6422,7 +6443,7 @@ static void sysinit(void)
 #if defined(RTAC55U) || defined(RTAC55UHP)
 	ratio = 20;
 #elif defined(RTCONFIG_SOC_IPQ8064)
-	ratio = 35;
+	ratio = 90;
 #endif
 	limit_page_cache_ratio(ratio);
 
@@ -6497,7 +6518,11 @@ static void sysinit(void)
 			min_free_kbytes_check = 0;
 		}
 #elif defined(RTCONFIG_QCA)
+#if defined(RTCONFIG_WIFI_QCA9990_QCA9990) || defined(RTCONFIG_WIFI_QCA9994_QCA9994)
+	f_write_string("/proc/sys/vm/min_free_kbytes", "23916", 0, 0);
+#else
 	f_write_string("/proc/sys/vm/min_free_kbytes", "4096", 0, 0);
+#endif
 	min_free_kbytes_check = 1;
 #else
 	model = get_model();
@@ -6693,6 +6718,12 @@ Alarm_Led(void) {
 		sleep(1);
 	}
 }
+void config_format_compatibility_handler(void)
+{
+	//adjust_url_urlelist(); /* For based on 382, new config format */
+	adjust_ddns_config();
+	adjust_access_restrict_config();
+}
 
 int init_main(int argc, char *argv[])
 {
@@ -6712,6 +6743,8 @@ int init_main(int argc, char *argv[])
 #endif
 	{
 		sysinit();
+
+		config_format_compatibility_handler();
 
 #ifdef RTCONFIG_USB
 		// let usb host & modem drivers be inserted early.

@@ -103,7 +103,7 @@ char *get_wscd_pidfile(void)
 	static char tmpstr[32] = "/var/run/wscd.pid.";
 	char wif[8];
 
-	__get_wlifname(nvram_get_int("wps_band"), 0, wif);
+	__get_wlifname(nvram_get_int("wps_band_x"), 0, wif);
 	sprintf(tmpstr, "/var/run/wscd.pid.%s", wif);
 	return tmpstr;
 }
@@ -138,7 +138,7 @@ const char *get_wifname(int band)
 
 const char *get_wpsifname(void)
 {
-	int wps_band = nvram_get_int("wps_band");
+	int wps_band = nvram_get_int("wps_band_x");
 
 	if (wps_band)
 		return WIF_5G;
@@ -149,7 +149,7 @@ const char *get_wpsifname(void)
 #if 0
 char *get_non_wpsifname()
 {
-	int wps_band = nvram_get_int("wps_band");
+	int wps_band = nvram_get_int("wps_band_x");
 
 	if (wps_band)
 		return WIF_2G;
@@ -876,7 +876,7 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 	// LDPC
 	if (nvram_match(strcat_r(prefix, "optimizexbox", tmp), "1"))
 		ldpc = 0;
-	fprintf(fp2, "iwpriv %s ldpc %d\n", wif, ldpc);
+	fprintf(fp2, "iwpriv %s ldpc %d\n", wif, ldpc? 3 : 0);
 #endif
 #endif
 
@@ -947,7 +947,13 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 		//BeaconPeriod
 		str = nvram_safe_get(strcat_r(prefix, "bcn", tmp));
 		if (str && strlen(str)) {
-			if (atoi(str) > 1000 || atoi(str) < 20) {
+			const int min_bintval =
+#if defined(RTCONFIG_WIFI_QCA9994_QCA9994)
+				100;
+#else
+				40;
+#endif
+			if (atoi(str) > 1000 || atoi(str) < min_bintval) {
 				nvram_set(strcat_r(prefix, "bcn", tmp), "100");
 				fprintf(fp2, "iwpriv %s bintval 100\n",wif);
 			} else
@@ -1217,19 +1223,20 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 			fprintf(fp3,"iwpriv %s enable_ol_stats %d\n", get_vphyifname(band), nvram_get_int("traffic_5g")==1? 1:0);
 #endif
 #if defined(RTCONFIG_VHT80_80)
-		if (strstr(t_mode, "11ACV") && nvram_get_int(strcat_r(tmpfix, "bw", tmp)) == 4 && !strcmp(t_bw, "HT80_80")) {
+		if (!subnet && strstr(t_mode, "11ACV") && nvram_get_int(strcat_r(tmpfix, "bw", tmp)) == 4 && !strcmp(t_bw, "HT80_80")) {
 			char *p = nvram_get(strcat_r(tmpfix, "cfreq2", tmp));
 			unsigned int cfreq2 = p? atoi(p) : 0;
 
 			/* if bw = 80+80, set central frequency of 2-nd 80MHz segment. */
-			fprintf(fp3, "iwpriv %s cfreq2 %d\n", wif, cfreq2);
+			if (cfreq2)
+				fprintf(fp3, "iwpriv %s cfreq2 %d\n", wif, cfreq2);
 		}
 #endif
 	}
 
 	val = nvram_pf_get_int(main_prefix, "channel");
 #ifdef RTCONFIG_QCA_TW_AUTO_BAND4
-	if(band) //5G, flush block-channel list
+	if (band && !subnet) //5G, flush block-channel list
 		fprintf(fp3, "wifitool %s block_acs_channel 0\n",wif);
 #endif			
 	if(val)
@@ -1859,7 +1866,7 @@ int wps_pin(int pincode)
 {
 	int i;
 	char word[256], *next, ifnames[128];
-	int wps_band = nvram_get_int("wps_band"), multiband = get_wps_multiband();
+	int wps_band = nvram_get_int("wps_band_x"), multiband = get_wps_multiband();
 
 	i = 0;
 	strcpy(ifnames, nvram_safe_get("wl_ifnames"));
@@ -1893,7 +1900,7 @@ static int __wps_pbc(const int multiband)
 {
 	int i;
 	char word[256], *next, ifnames[128];
-	int wps_band = nvram_get_int("wps_band");
+	int wps_band = nvram_get_int("wps_band_x");
 
 	i = 0;
 	strcpy(ifnames, nvram_safe_get("wl_ifnames"));
@@ -1936,7 +1943,7 @@ extern void wl_default_wps(int unit);
 
 void __wps_oob(const int multiband)
 {
-	int i, wps_band = nvram_get_int("wps_band");
+	int i, wps_band = nvram_get_int("wps_band_x");
 	char word[256], *next;
 	char ifnames[128];
 
@@ -1989,7 +1996,7 @@ void start_wsc(void)
 	int i;
 	char *wps_sta_pin = nvram_safe_get("wps_sta_pin");
 	char word[256], *next, ifnames[128];
-	int wps_band = nvram_get_int("wps_band"), multiband = get_wps_multiband();
+	int wps_band = nvram_get_int("wps_band_x"), multiband = get_wps_multiband();
 
 	if (nvram_match("lan_ipaddr", ""))
 		return;
@@ -2032,7 +2039,7 @@ static void __stop_wsc(int multiband)
 {
 	int i;
 	char word[256], *next, ifnames[128];
-	int wps_band = nvram_get_int("wps_band");
+	int wps_band = nvram_get_int("wps_band_x");
 
 	i = 0;
 	strcpy(ifnames, nvram_safe_get("wl_ifnames"));
@@ -2901,7 +2908,7 @@ unsigned int getPapState(int unit)
 	char buf[8192], sta[64];
 	FILE *fp;
 	int len;
-	char *pt1, *pt2;
+	char *pt1 = "95", *pt2;
 
 	strcpy(sta, get_staifname(unit));
 	sprintf(buf, "iwconfig %s", sta);

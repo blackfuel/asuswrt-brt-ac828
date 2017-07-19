@@ -11,6 +11,9 @@
 #if defined(RTCONFIG_BWDPI) || defined(RTCONFIG_BWDPI_DEP)
 #include <bwdpi.h>
 #endif
+#ifdef RTCONFIG_USB
+#include <disk_io_tools.h>	//mkdir_if_none()
+#endif
 
 
 // define function bit, you can define more functions as below

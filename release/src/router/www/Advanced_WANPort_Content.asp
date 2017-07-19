@@ -237,7 +237,7 @@ function form_show(v){
 		document.getElementById("wans_mode_tr").style.display = "";
 		document.getElementById("fo_detection_count_hd").innerHTML = "<#dualwan_pingtime_detect2#>";
 		document.getElementById("sentence1").style.display = "";
-		document.getElementById("sentence2").style.display = "";		
+		document.getElementById("sentence2").style.display = "";
 	}		
 }
 
@@ -251,10 +251,30 @@ function applyRule(){
 				if(confirm_flag) {
 					document.form.switch_wantag.disabled = false;
 					document.form.switch_wantag.value = "none";
+					document.form.switch_stb_x.disabled = false;
+					document.form.switch_stb_x.value = "0";
 				}
 				else {
 					return false;
 				}
+			}
+		}
+		var lan_trunk_type = '<% nvram_get("lan_trunk_type"); %>';
+		var primary_wan_type = document.form.wans_primary.value;
+		var secondary_wan_type = document.form.wans_second.value;
+		var confirmAction = function() {
+			return confirm("Enable the LAN as WAN setting will cause (LAN > Switch Control > bonding) feature will be disabled, Are you sure to continue?");/*untranslated*/
+		};
+		if(wans_flag == 1) {
+			if( (primary_wan_type == "lan" || secondary_wan_type == "lan") && lan_trunk_type != "0" ) {
+				if(!confirmAction())
+					return false;
+			}
+		}
+		else {
+			if(primary_wan_type == "lan" && lan_trunk_type != "0") {
+				if(!confirmAction())
+					return false;
 			}
 		}
 	}
@@ -1012,6 +1032,7 @@ function remain_origins(){
 <input type="hidden" name="wan0_enable" value="<% nvram_get("wan0_enable"); %>">
 <input type="hidden" name="wan1_enable" value="<% nvram_get("wan1_enable"); %>">
 <input type="hidden" name="switch_wantag" value="<% nvram_get("switch_wantag"); %>" disabled>
+<input type="hidden" name="switch_stb_x" value="<% nvram_get("switch_stb_x"); %>" disabled>
 
 <!--===================================Beginning of Detection Time Confirm===========================================-->
 <div id="detect_time_confirm" style="display:none;">

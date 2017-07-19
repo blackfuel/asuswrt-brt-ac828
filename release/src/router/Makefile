@@ -762,7 +762,7 @@ obj-$(RTCONFIG_EXT_RTL8370MB) += rtl_bin
 obj-$(RTCONFIG_LACP) += lacp
 
 #obj-y += bonnie
-#obj-y += stress
+#obj-y += stress-1.x
 
 ifeq ($(RTN65U), y)
 obj-y += asm1042
@@ -804,6 +804,9 @@ obj-$(RTCONFIG_TR069) += tr069
 obj-$(RTCONFIG_CLOUDCHECK) += cloudcheck
 
 obj-$(RTCONFIG_GETREALIP) += ministun
+
+obj-$(RTCONFIG_LETSENCRYPT) += curl-7.21.7
+obj-$(RTCONFIG_LETSENCRYPT) += acme
 
 ifneq ($(find lighttpd-1.4.39, $(obj-y)),"")
 released_dir += APP-IPK
@@ -1461,27 +1464,27 @@ bonnie-clean:
 	[ ! -f bonnie/Makefile ] || $(MAKE) -C bonnie clean
 	@rm -f bonnie/Makefile
 
-stress: stress/Makefile
-	$(MAKE) -C stress
+stress-1.x: stress-1.x/Makefile
+	$(MAKE) -C stress-1.x
 
-stress/Makefile:
-	$(MAKE) stress-configure
+stress-1.x/Makefile:
+	$(MAKE) stress-1.x-configure
 
-stress-configure:
-	( cd stress ; \
-		$(CONFIGURE) \
+stress-1.x-configure:
+	( cd stress-1.x ; \
+		./autogen.sh && $(CONFIGURE) \
 		--prefix=/usr \
 		--bindir=/usr/sbin \
 		--libdir=/usr/lib \
 	)
 
-stress-install:
-	install -D stress/src/stress $(INSTALLDIR)/stress/usr/sbin/stress
-	$(STRIP) $(INSTALLDIR)/stress/usr/sbin/stress
+stress-1.x-install:
+	install -D stress-1.x/src/stress $(INSTALLDIR)/stress-1.x/usr/sbin/stress
+	$(STRIP) $(INSTALLDIR)/stress-1.x/usr/sbin/stress
 
-stress-clean:
-	[ ! -f stress/Makefile ] || $(MAKE) -C stress clean
-	@rm -f stress/Makefile
+stress-1.x-clean:
+	[ ! -f stress-1.x/Makefile ] || $(MAKE) -C stress-1.x clean
+	@rm -f stress-1.x/Makefile
 
 www-install:
 	@$(MAKE) -C www install INSTALLDIR=$(INSTALLDIR)/www TOMATO_EXPERIMENTAL=$(TOMATO_EXPERIMENTAL)
@@ -2718,7 +2721,7 @@ iperf-clean:
 	@rm -f iperf/Makefile
 
 libevent-2.0.21: libevent-2.0.21/Makefile
-	$(MAKE) -j 8 -C $@ && $(MAKE) $@-stage
+	$(MAKE) -j 8 -C $@ && $(MAKE) $@-stage && sed 's|/usr/lib|$(STAGEDIR)/usr/lib|g' -i $(STAGEDIR)/usr/lib/libevent.la
 
 libevent-2.0.21/Makefile:
 	$(MAKE) libevent-2.0.21-configure
@@ -3637,6 +3640,7 @@ lighttpd-1.4.39-install: lighttpd-1.4.39
 	install -D lighttpd-1.4.39/src/.libs/lighttpd $(INSTALLDIR)/lighttpd-1.4.39/usr/sbin/lighttpd
 	install -D lighttpd-1.4.39/src/.libs/lighttpd-monitor $(INSTALLDIR)/lighttpd-1.4.39/usr/sbin/lighttpd-monitor
 	install -D lighttpd-1.4.39/src/.libs/lighttpd-arpping $(INSTALLDIR)/lighttpd-1.4.39/usr/sbin/lighttpd-arpping
+	cd $(INSTALLDIR)/lighttpd-1.4.39/usr/sbin/ && ln -sf lighttpd uamsrv 
 	$(STRIP) -s $(INSTALLDIR)/lighttpd-1.4.39/usr/sbin/lighttpd
 	$(STRIP) -s $(INSTALLDIR)/lighttpd-1.4.39/usr/sbin/lighttpd-monitor
 	$(STRIP) -s $(INSTALLDIR)/lighttpd-1.4.39/usr/sbin/lighttpd-arpping
@@ -3911,7 +3915,7 @@ fb_wifi-clean:
 #add by gauss
 #add install libcurl
 curl-7.21.7: curl-7.21.7/Makefile
-	@$(MAKE) -C $@ && $(MAKE) $@-stage
+	@$(MAKE) -C $@ && $(MAKE) $@-stage && sed 's|/usr/lib|$(STAGEDIR)/usr/lib|g' -i $(STAGEDIR)/usr/lib/libcurl.la
 
 curl-7.21.7/Makefile: curl-7.21.7/configure
 	@cd curl-7.21.7 && $(CONFIGURE) CC=$(CC) \
@@ -3926,6 +3930,10 @@ curl-7.21.7-install: curl-7.21.7
 	cd $(INSTALLDIR)/curl-7.21.7/usr/lib && ln -sf libcurl.so.4.2.0 libcurl.so && ln -sf libcurl.so.4.2.0 libcurl.so.4
 ifeq ($(RTCONFIG_SPEEDTEST),y)
 	# for speedtest
+	install -D curl-7.21.7/src/.libs/curl $(INSTALLDIR)/curl-7.21.7/usr/sbin/curl
+	$(STRIP) $(INSTALLDIR)/curl-7.21.7/usr/sbin/curl
+endif
+ifeq ($(RTCONFIG_LETSENCRYPT),y)
 	install -D curl-7.21.7/src/.libs/curl $(INSTALLDIR)/curl-7.21.7/usr/sbin/curl
 	$(STRIP) $(INSTALLDIR)/curl-7.21.7/usr/sbin/curl
 endif

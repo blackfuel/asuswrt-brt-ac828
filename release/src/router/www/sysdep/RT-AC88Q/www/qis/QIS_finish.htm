@@ -1085,7 +1085,7 @@ function QKfinish_load_body(){
 				
 				var startQuery = function(){
 					$.ajax({ 
-						url: location_org.replace(header_info[0].host, parent.staticIP) + "/httpd_check.json",
+						url: location_org.replace(header_info[0].host, parent.staticIP) + "/repage.json",
 						dataType: 'jsonp',
 						timeout: 2000,
 
@@ -1161,7 +1161,7 @@ function check_firmware(){
 	}	
 }
 
-function iAmAlive(){
+function repage(){
 	top.location.href = "http://" + parent.staticIP;					
 }
 
@@ -1185,6 +1185,8 @@ function goto_index(){
 		document.restartForm.wans_dualwan.value = parent.QKform.wans_dualwan.value;
 		document.restartForm.modem_enable.disabled = false;
 		document.restartForm.modem_enable.value = parent.QKform.modem_enable.value;
+		document.restartForm.modem_autoapn.disabled = false;
+		document.restartForm.modem_autoapn.value = parent.QKform.modem_autoapn.value;		
 		document.restartForm.modem_country.disabled = false;
 		document.restartForm.modem_country.value = parent.QKform.modem_country.value;
 		document.restartForm.modem_isp.disabled = false;
@@ -1203,6 +1205,10 @@ function goto_index(){
 		document.restartForm.modem_ttlsid.value = parent.QKform.modem_ttlsid.value;
 		document.restartForm.Dev3G.disabled = false;
 		document.restartForm.Dev3G.value = parent.QKform.Dev3G.value;
+		document.restartForm.modem_authmode.disabled = false;
+		document.restartForm.modem_authmode.value = parent.QKform.modem_authmode.value;
+		document.restartForm.modem_mtu.disabled = false;
+		document.restartForm.modem_mtu.value = parent.QKform.modem_mtu.value;
 	}
 
 	if(parent.sysReboot){
@@ -1866,6 +1872,7 @@ function detect_redirect(){
 	<input type="hidden" name="wans_dualwan" value="<% nvram_get("wans_dualwan"); %>" disabled>
 	<!--USB Modem-->
 	<input type="hidden" name="modem_enable" value="<% nvram_get("modem_enable"); %>" disabled>
+	<input type="hidden" name="modem_autoapn" value="<% nvram_get("modem_autoapn"); %>" disabled>
 	<input type="hidden" name="modem_country" value="<% nvram_get("modem_country"); %>" disabled>
 	<input type="hidden" name="modem_isp" value="<% nvram_get("modem_isp"); %>" disabled>
 	<input type="hidden" name="modem_apn" value="<% nvram_get("modem_apn"); %>" disabled>
@@ -1875,6 +1882,8 @@ function detect_redirect(){
 	<input type="hidden" name="modem_pass" value="<% nvram_get("modem_pass"); %>" disabled>
 	<input type="hidden" name="modem_ttlsid" value="<% nvram_get("modem_ttlsid"); %>" disabled>
 	<input type="hidden" name="Dev3G" value="<% nvram_get("Dev3G"); %>" disabled>
+	<input type="hidden" name="modem_authmode" value="<% nvram_get("modem_authmode"); %>" disabled>
+	<input type="hidden" name="modem_mtu" value="<% nvram_get("modem_mtu"); %>" disabled>
 </form>
 
 </body>

@@ -40,29 +40,11 @@ var diskOrder = parent.getSelectedDiskOrder();
 var apps_array = <% apps_info("asus"); %>;
 
 function initial(){
-	document.getElementById("t0").className = "tabclick_NW";
-	document.getElementById("t1").className = "tab_NW";
-
-	var usb_fatfs_mod = '<% nvram_get("usb_fatfs_mod"); %>';
-	var usb_ntfs_mod = '<% nvram_get("usb_ntfs_mod"); %>';
-	var usb_hfs_mod = '<% nvram_get("usb_hfs_mod"); %>';
-	if(usb_fatfs_mod == "tuxera" || usb_ntfs_mod == "tuxera" || usb_hfs_mod == "tuxera") {
-		document.getElementById("t2").className = "tab_NW";
-	}
-	else {
-		document.getElementById("t2").style.display = "none";
-	}
-
 	flash_button();
 
 	if(!parent.media_support)
 		document.getElementById("mediaserver_hyperlink").style.display = "none";
 	
-	// Hide disk utility temporarily.
-	if(parent.diskUtility_support){
-		document.getElementById("diskTab").style.display = "";
-	}
-
 	showDiskUsage(parent.usbPorts[diskOrder-1]);
 
 	if(sw_mode == "2" || sw_mode == "3" || sw_mode == "4")
@@ -71,9 +53,30 @@ function initial(){
 	if(noaidisk_support)
 		document.getElementById("aidisk_hyperlink").style.display = "none";
 	
-	if((based_modelid == "RT-AC87U" || based_modelid == "RT-AC5300" || based_modelid == "RT-AC88U" || based_modelid == "RT-AC3100") && parent.currentUsbPort == 0){
+	if((based_modelid == "RT-AC87U" || based_modelid == "RT-AC5300" || based_modelid == "RT-AC88U" || based_modelid == "RT-AC86U" || based_modelid == "AC2900" || based_modelid == "RT-AC3100" || based_modelid == "RT-AC58U" || based_modelid == "RT-AC82U" || based_modelid == "RT-AC85U" || based_modelid == "RT-AC65U") && parent.currentUsbPort == 0){
 		document.getElementById('reduce_usb3_table').style.display = "";
 	}		
+
+	var disk_list_array = new Array();
+	var usb_fatfs_mod = '<% nvram_get("usb_fatfs_mod"); %>';
+	var usb_ntfs_mod = '<% nvram_get("usb_ntfs_mod"); %>';
+	var usb_hfs_mod = '<% nvram_get("usb_hfs_mod"); %>';
+
+	disk_list_array = { "info" : ["<#diskUtility_information#>", "disk.asp"], "health" : ["<#diskUtility#>", "disk_utility.asp"], "format" : ["Format", "disk_format.asp"]};
+	if(!parent.diskUtility_support) {
+		delete disk_list_array.health;
+		delete disk_list_array.format;
+	}
+	if(usb_fatfs_mod != "tuxera" && usb_ntfs_mod != "tuxera" && usb_hfs_mod != "tuxera") {
+		delete disk_list_array.format;
+	}
+	$('#diskTab').html(parent.gen_tab_menu(disk_list_array, "info"));
+
+	//short term solution for brt-ac828
+	if(based_modelid == "BRT-AC828") {
+		document.getElementById("mediaserver_hyperlink").style.display = "none";
+		document.getElementById("aidisk_hyperlink").style.display = "none";
+	}
 }
 
 var thisForeignDisksIndex;
@@ -122,48 +125,19 @@ function gotoDM(){
 	window.open(dm_url);
 }
 
-function remove_disk(){
-	var str = "<#Safelyremovedisk_confirm#>";
-	if(confirm(str)){
-		parent.showLoading();
-		
-		document.diskForm.action = "safely_remove_disk.asp";
-		document.diskForm.disk.value = thisForeignDisksIndex;
-		setTimeout("document.diskForm.submit();", 1);
-	}
+function remove_disk_call(){
+	top.remove_disk(thisForeignDisksIndex)
 }
 </script>
 </head>
 
 <body class="statusbody" onload="initial();">
-<table>
-	<tr>
-	<td>		
-		<table id="diskTab" width="100px" border="0" align="left" style="margin-left:5px;display:none;" cellpadding="0" cellspacing="0">
-  		<td>
-				<div id="t0" class="tabclick_NW" align="center" style="font-weight: bolder;margin-right:2px;" onclick="">
-					<span id="span1" style="cursor:pointer;font-weight: bolder;"><#diskUtility_information#></span>
-				</div>
-			</td>
-  		<td>
-				<div id="t1" class="tab_NW" align="center" style="font-weight: bolder;margin-right:2px;" onclick="location.href='disk_utility.asp'">
-					<span id="span1" style="cursor:pointer;font-weight: bolder;"><#diskUtility#></span>
-				</div>
-			</td>
-		<td>
-			<div id="t2" class="tab_NW" align="center" style="font-weight: bolder;margin-right:2px;" onclick="location.href='disk_format.asp'">
-				<span style="cursor:pointer;font-weight: bolder;">Format</span>
-			</div>
-		</td>
-		</table>
-	</td>
-</tr>
-</table>
-<table width="95%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="table1px" style="margin-top:-3px;">
+<div id="diskTab" class='tab_table'></div>
+<table width="95%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="table1px">
 	<tr>
     <td style="padding:5px 10px 0px 15px;">
     	<p class="formfonttitle_nwm"><#Modelname#>:</p>
-			<p style="padding-left:10px; margin-top:3px; background-color:#444f53; line-height:20px; color:#FFFFFF;" id="disk_model_name"></p>
+			<p class="tab_info_bg" style="padding-left:10px; margin-top:3px;line-height:20px; color:#FFFFFF;" id="disk_model_name"></p>
       <img style="margin-top:5px;" src="/images/New_ui/networkmap/linetwo2.png">
     </td>
   </tr>
@@ -173,7 +147,7 @@ function remove_disk(){
   <tr>
     <td style="padding:5px 10px 0px 15px;">
     	<p class="formfonttitle_nwm"><#Availablespace#>:</p>
-    	<p style="padding-left:10px; margin-top:3px; background-color:#444f53; line-height:20px; color:#FFFFFF;" id="disk_avail_size"></p>
+    	<p class="tab_info_bg" style="padding-left:10px; margin-top:3px;line-height:20px; color:#FFFFFF;" id="disk_avail_size"></p>
       <img style="margin-top:5px;" src="/images/New_ui/networkmap/linetwo2.png">
     </td>
   </tr>
@@ -181,7 +155,7 @@ function remove_disk(){
   <tr>
     <td style="padding:5px 10px 0px 15px;">
     	<p class="formfonttitle_nwm"><#Totalspace#>:</p>
-    	<p style="padding-left:10px; margin-top:3px; background-color:#444f53; line-height:20px; color:#FFFFFF;" id="disk_total_size"></p>
+    	<p class="tab_info_bg" style="padding-left:10px; margin-top:3px;line-height:20px; color:#FFFFFF;" id="disk_total_size"></p>
       <img style="margin-top:5px;" src="/images/New_ui/networkmap/linetwo2.png">
     </td>
   </tr>
@@ -215,7 +189,7 @@ function remove_disk(){
   <tr>
     <td height="50" style="padding:10px 15px 0px 15px;">
     	<p class="formfonttitle_nwm" style="float:left;width:138px; "><#Safelyremovedisk_title#>:</p>
-    	<input id="show_remove_button" class="button_gen" type="button" class="button" onclick="remove_disk();" value="<#btn_remove#>">
+    	<input id="show_remove_button" class="button_gen" type="button" class="button" onclick="remove_disk_call();" value="<#btn_remove#>">
     	<div id="show_removed_string" style="display:none;"><#Safelyremovedisk#></div>
 		 <img style="margin-top:5px;" src="/images/New_ui/networkmap/linetwo2.png">
     </td>

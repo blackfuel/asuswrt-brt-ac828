@@ -15,9 +15,9 @@
 <script type="text/javascript" src="/popup.js"></script>
 <script type="text/javascript" src="/help.js"></script>
 <script type="text/javascript" src="/validator.js"></script>
+<script type="text/javascript" src="/disk_functions.js"></script>
 <script type="text/javascript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
-<script type="text/javascript" src="/disk_functions.js"></script>
 <script type="text/javascript" src="/form.js"></script>
 <style type="text/css">
 .upnp_table{
@@ -27,7 +27,6 @@
 	padding-top:20px; 
 	margin-top:-17px; 
 	position:relative;
-	background-color:#4d595d;
 	align:left;
 	-webkit-border-top-right-radius: 05px;
 	-webkit-border-bottom-right-radius: 5px;
@@ -35,7 +34,8 @@
 	-moz-border-radius-topright: 05px;
 	-moz-border-radius-bottomright: 5px;
 	-moz-border-radius-bottomleft: 5px;
-	border-top-right-radius: 05px;
+	border-top-right-radius: 5px;
+	border-top-left-radius: 5px;
 	border-bottom-right-radius: 5px;
 	border-bottom-left-radius: 5px;
 }
@@ -142,9 +142,6 @@ function daapd_display(){
 
 function initial(){
 	show_menu();
-	document.getElementById("_APP_Installation").innerHTML = '<table><tbody><tr><td><div class="_APP_Installation"></div></td><td><div style="width:120px;"><#Menu_usb_application#></div></td></tr></tbody></table>';
-	document.getElementById("_APP_Installation").className = "menu_clicked";
-
 	document.aidiskForm.protocol.value = PROTOCOL;
 	initial_dir();
 	check_dir_path();
@@ -155,11 +152,6 @@ function initial(){
 	do_get_friendly_name("dms");
 	check_dms_status();
 	
-	if((calculate_height-3)*52 + 20 > 535)
-		document.getElementById("upnp_icon").style.height = (calculate_height-3)*52 -70 + "px";
-	else
-		document.getElementById("upnp_icon").style.height = "500px";
-		
 	if(noiTunes_support){		
 		document.getElementById("iTunes_div").style.display = "none";		
 	}
@@ -726,12 +718,12 @@ function show_dlna_path(){
 		for(var i = 1; i < dms_dir_x_array_row.length; i++){
 			var tmp_type = "";
 			code +='<tr id="row'+i+'">';
-			if(dms_dir_x_array_row[i].length > 35){
-				temp = dms_dir_x_array_row[i].substr(0,35) + "...";
-				code +='<td width="45%" class="dlna_path_td" title="'+ dms_dir_x_array_row[i] +'">'+ temp +'</td>';
+			if(decodeURIComponent(dms_dir_x_array_row[i]).length > 35){
+				temp = decodeURIComponent(dms_dir_x_array_row[i]).substr(0,35) + "...";
+				code +='<td width="45%" class="dlna_path_td" title="'+ decodeURIComponent(dms_dir_x_array_row[i]) +'">'+ temp +'</td>';
 			}
 			else{
-				code +='<td width="45%" class="dlna_path_td" title="'+ dms_dir_x_array_row[i] +'">'+ dms_dir_x_array_row[i] +'</td>';
+				code +='<td width="45%" class="dlna_path_td" title="'+ decodeURIComponent(dms_dir_x_array_row[i]) +'">'+ decodeURIComponent(dms_dir_x_array_row[i]) +'</td>';
 			}
 				tmp_type += dms_dir_type_x_array_row[i].indexOf("A")>=0? "Audio " : "";
 				tmp_type += dms_dir_type_x_array_row[i].indexOf("P")>=0? "Image " : "";
@@ -863,7 +855,7 @@ function set_dms_dir(obj){
 		<br>
 
 <!--=====Beginning of Main Content=====-->
-<div id="upnp_table" class="upnp_table" align="left" border="0" cellpadding="0" cellspacing="0">
+<div id="FormTitle" class="upnp_table content_bg" align="left" border="0" cellpadding="0" cellspacing="0">
 <table width="98%" border="0" align="left" cellpadding="0" cellspacing="0">
   <tr>
   	<td>

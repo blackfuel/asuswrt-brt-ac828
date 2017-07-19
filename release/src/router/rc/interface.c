@@ -511,7 +511,11 @@ int start_vlan(void)
 	if(!nvram_match("switch_wantag", "none")&&!nvram_match("switch_wantag", ""))
 	{
 #if defined(RTCONFIG_QCA)
+#if defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2)
+		char *wan_base_if = "eth1";	/* lan_1, WAN interface if IPTV is enabled. */
+#else
 		char *wan_base_if = "eth0";
+#endif
 #elif defined(RTCONFIG_RALINK)
 #if defined(RTCONFIG_RALINK_MT7620) /* RT-N14U, RT-AC52U, RT-AC51U, RT-N11P, RT-N54U, RT-AC1200HP, RT-AC54U */
 		char *wan_base_if = "eth2";

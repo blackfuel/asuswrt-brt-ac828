@@ -3806,12 +3806,7 @@ int redir_main(struct redir_t *redir,
       return redir_main_exit();
     }
 
-    if (is_local_user(redir, &conn)) { 
-      session_param_defaults(&conn.s_params);
-      conn.response = REDIR_SUCCESS;
-    }
-    else {
-
+	if (_options.pidfile && atoi(nvram_safe_get("cp_Radius"))){ 
 #ifdef ENABLE_MODULES
       int i;
       int flags = 0;
@@ -3822,40 +3817,39 @@ int redir_main(struct redir_t *redir,
 	 *  When waiting for RADIUS, we need to be forked.
 	 *  TODO: make redir_radius asynchronous.
 	 */
-	pid_t forkpid = redir_fork(infd, outfd);
-	if (forkpid) { /* parent or error */
-	  return redir_main_exit();
-	}
+		pid_t forkpid = redir_fork(infd, outfd);
+		if (forkpid) { /* parent or error */
+	  		return redir_main_exit();
+		}
       }
 
 #ifdef ENABLE_MODULES
       log_dbg("checking modules...");
       for (i=0; i < MAX_MODULES; i++) {
-	if (!_options.modules[i].name[0]) break;
-	if (_options.modules[i].ctx) {
-	  struct chilli_module *m = 
-	    (struct chilli_module *)_options.modules[i].ctx;
-	  if (m->redir_login) {
-	    int modresult = m->redir_login(redir, &conn, &socket);
-	    flags |= modresult;
-	    switch(chilli_mod_state(modresult)) {
-	    case CHILLI_MOD_ERROR:
-	      return redir_main_exit();
-	    default: 
-	      break;
-	    }
-	  }
-	}
+			if (!_options.modules[i].name[0]) break;
+			if (_options.modules[i].ctx) {
+	  		struct chilli_module *m = (struct chilli_module *)_options.modules[i].ctx;
+	  			if (m->redir_login) {
+	    			int modresult = m->redir_login(redir, &conn, &socket);
+	    			flags |= modresult;
+	    			switch(chilli_mod_state(modresult)) {
+	    				case CHILLI_MOD_ERROR:
+	      					return redir_main_exit();
+	    				default: 
+	      					break;
+	    			}
+	  			}
+			}
       }
       if (flags & CHILLI_MOD_REDIR_SKIP_RADIUS) {
-	log_dbg("Skipping RADIUS authentication");
+			log_dbg("Skipping RADIUS authentication");
       } else {
 #endif
       
       termstate = REDIR_TERM_RADIUS;
       
       if (optionsdebug) 
-	log_dbg("redir_accept: Sending RADIUS request");
+			log_dbg("redir_accept: Sending RADIUS request");
       
       redir_radius(redir, &address->sin_addr, &conn, reauth);
       termstate = REDIR_TERM_REPLY;
@@ -3867,6 +3861,15 @@ int redir_main(struct redir_t *redir,
 #if(_debug_ > 1)
       log_dbg("Received RADIUS reply");
 #endif
+	}else{
+		if (is_local_user(redir, &conn)) { 
+      		session_param_defaults(&conn.s_params);
+      		conn.response = REDIR_SUCCESS;
+    	}else{
+			conn.response = REDIR_FAILED_REJECT;
+		}
+
+
     }
 
     if (conn.response == REDIR_SUCCESS) { /* Accept-Accept */

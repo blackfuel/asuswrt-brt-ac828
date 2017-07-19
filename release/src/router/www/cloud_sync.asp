@@ -577,8 +577,8 @@ function getDropBoxClientName(token, uid){
     	},
     	success: function(response){
     		if(document.getElementById("cloudListUserName_" + uid)) {
-    			document.getElementById("cloudListUserName_" + uid).innerHTML = response.email.shorter(20);
-    			document.getElementById("cloudListUserName_" + uid).title = response.email;
+    			document.getElementById("cloudListUserName_" + uid).innerHTML = htmlEnDeCode.htmlEncode(decodeURIComponent(response.email.shorter(20)))
+    			document.getElementById("cloudListUserName_" + uid).title = htmlEnDeCode.htmlEncode(decodeURIComponent(response.email));
     		}
     		else
       			getDropBoxClientName();    			

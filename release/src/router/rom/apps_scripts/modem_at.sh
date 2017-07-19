@@ -17,6 +17,11 @@ modem_vid=`nvram get ${prefix}act_vid`
 
 atcmd=`nvram get modem_atcmd`
 
+
+if [ "$modem_type" == "" -o "$modem_type" == "ecm" -o "$modem_type" == "rndis" -o "$modem_type" == "asix" -o "$modem_type" == "ncm" ]; then
+	exit 0
+fi
+
 #at_ret="/tmp/at_ret"
 
 if [ -n "$3" -a "$3" == "bulk" ]; then

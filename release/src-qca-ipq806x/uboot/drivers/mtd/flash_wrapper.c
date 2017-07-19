@@ -53,6 +53,8 @@ typedef struct eeprom_set_hdr_s {
 	uint32_t ih_write_ver;	/* Number of writes             */
 	uint32_t ih_dcrc;	/* Image Data CRC Checksum      */
 } eeprom_set_hdr_t;
+
+static int remove_software_marked_bad_block(void);
 #else
 #define MAX_EEPROM_SET_LENGTH		65536
 extern int do_spi_flash(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]);
@@ -511,7 +513,11 @@ int ra_flash_init_layout(void)
 	r = do_ubi(NULL, 0, ARRAY_SIZE(ubi_part), ubi_part);
 	if (r) {
 		printf("Mount UBI device fail. (r = %d)\n", r);
-		return -ENOENT;
+		if (remove_software_marked_bad_block() >= 0)
+			r = do_ubi(NULL, 0, ARRAY_SIZE(ubi_part), ubi_part);
+
+		if (r)
+			return -ENOENT;
 	}
 	do_ubi(NULL, 0, ARRAY_SIZE(ubi_info_layout), ubi_info_layout);
 
@@ -964,6 +970,67 @@ static int update_eeprom_sets(void)
 }
 #endif	/* CONFIG_UBI_SUPPORT */
 
+#if defined(CONFIG_UBI_SUPPORT)
+/**
+ * Erase all software marked bad-block
+ * @return:
+ *    >=0:	success
+ *     <0:	any error
+ */
+static int remove_software_marked_bad_block(void)
+{
+	int ret, ok = 0, fail = 0;
+	ulong off;
+	nand_info_t *nand;
+	struct mtd_oob_ops ops;
+	u_char buf[4], buf1[4];
+
+	nand = &nand_info[nand_curr_device];
+	printf("Scanning software marked bad-block ...\n");
+	for (off = 0; off < nand->size; off += nand->erasesize) {
+		memset(&ops, 0, sizeof(ops));
+		ops.mode = MTD_OOB_RAW;
+		ops.ooblen = sizeof(buf);
+		ops.oobbuf = (uint8_t*) &buf[0];
+		if ((ret = nand->read_oob(nand, off, &ops)) != 0) {
+			printf("read oob from %lx fail. (ret %d)\n", off, ret);
+			fail++;
+			continue;
+		}
+		memset(&ops, 0, sizeof(ops));
+		ops.mode = MTD_OOB_RAW;
+		ops.ooblen = sizeof(buf1);
+		ops.oobbuf = (uint8_t*) &buf1[0];
+		if ((ret = nand->read_oob(nand, off + nand->writesize, &ops)) != 0) {
+			printf("read oob from %lx fail. (ret %d)\n", off + nand->writesize, ret);
+			fail++;
+			continue;
+		}
+		if (buf[0] == 0xFF && buf1[0] == 0xFF) {
+			continue;
+		} else if ((buf[0] != SW_BAD_BLOCK_INDICATION && buf[0] != 0xFF) ||
+			   (buf1[0] != SW_BAD_BLOCK_INDICATION && buf1[0] != 0xFF))
+		{
+			printf("skip unknown bad-block indication byte at %08lx. (mark %02x,%02x)\n", off, buf[0], buf1[0]);
+			continue;
+		}
+		if ((ret = nand_erase(nand, off, nand->erasesize)) != 0) {
+			printf("erase offset %lx fail. (ret %d)\n", off, ret);
+			fail++;
+			continue;
+		}
+
+		printf("Erase software marked bad-block at %08lx successful.\n", off);
+		ok++;
+	}
+
+	if (ok > 0)
+		return ok;
+	else if (fail > 0)
+		return -1;
+	return 0;
+}
+#endif
 
 /**
  * Read date from FACTORY area. Only first MAX_EEPROM_SET_LENGTH can be read.

@@ -1129,10 +1129,8 @@ int write_3g_conf(FILE *fp, int dno, int aut, const unsigned int vid, const unsi
 			fprintf(fp, "DefaultVendor=0x%04x\n",	0x19d2);
 			fprintf(fp, "DefaultProduct=0x%04x\n",	0x0026);
 			fprintf(fp, "TargetVendor=0x%04x\n",	0x19d2);
-			fprintf(fp, "TargetProduct=0x%04x\n",	0x0094);
-			fprintf(fp, "MessageContent=%s\n",	"5553424312345678000000000000061e000000000000000000000000000000");
-			fprintf(fp, "MessageContent2=%s\n",	"5553424312345679000000000000061b000000020000000000000000000000");
-			fprintf(fp, "NeedResponse=1\n");
+			fprintf(fp, "TargetProductList=\"%s\"\n",	"0073,0094,0152");
+			fprintf(fp, "StandardEject=1\n");
 			break;
 		case SN_UTStarcom_UM185E:
 			fprintf(fp, "DefaultVendor=0x%04x\n",	0x106c);
@@ -2350,7 +2348,7 @@ int write_3g_ppp_conf(int modem_unit){
 
 	usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-	snprintf(modem_node, 16, "%s", nvram_safe_get(strcat_r(prefix2, "act_int", tmp2)));
+	snprintf(modem_node, sizeof(modem_node), "%s", nvram_safe_get(strcat_r(prefix2, "act_int", tmp2)));
 	if(strlen(modem_node) <= 0){
 		usb_dbg("%s: Fail to get the act modem node.\n", __FUNCTION__);
 		return 0;
@@ -2868,7 +2866,7 @@ int set_usb_common_nvram(const char *action, const char *device_name, const char
 	if(!check_hotplug_action(action)){
 		if(known_type == NULL){
 			snprintf(prefix, sizeof(prefix), "usb_path%s", port_path);
-			snprintf(been_type, 16, "%s", nvram_safe_get(prefix));
+			snprintf(been_type, sizeof(been_type), "%s", nvram_safe_get(prefix));
 
 			if(strcmp(been_type, "storage") || strlen(nvram_safe_get(strcat_r(prefix, "_speed", tmp))) <= 0)
 				nvram_unset(prefix);
@@ -3060,7 +3058,7 @@ int asus_mmc(const char *device_name, const char *action)
 
 	ptr = (char *)device_name+strlen(device_name)-1;
 
-	snprintf(usb_port, 32, "%s", SDCARD_PORT);
+	snprintf(usb_port, sizeof(usb_port), "%s", SDCARD_PORT);
 
 	if(!check_hotplug_action(action)){
 		snprintf(prefix, sizeof(prefix), "usb_path_%s", device_name);
@@ -3079,10 +3077,10 @@ int asus_mmc(const char *device_name, const char *action)
 		putenv("INTERFACE=8/0/0");
 		putenv("ACTION=remove");
 		putenv("PRODUCT=asus_mmc");
-		snprintf(env_dev, 64, "DEVICENAME=%s", device_name);
+		snprintf(env_dev, sizeof(env_dev), "DEVICENAME=%s", device_name);
 		putenv(env_dev);
 		putenv("SUBSYSTEM=block");
-		snprintf(env_major, 64, "MAJOR=%d", USB_DISK_MAJOR);
+		snprintf(env_major, sizeof(env_major), "MAJOR=%d", USB_DISK_MAJOR);
 		putenv(env_major);
 		putenv("PHYSDEVBUS=scsi");
 
@@ -3127,12 +3125,12 @@ int asus_mmc(const char *device_name, const char *action)
 	putenv("INTERFACE=8/0/0");
 	putenv("ACTION=add");
 	putenv("PRODUCT=asus_mmc");
-	snprintf(env_dev, 64, "DEVICENAME=%s", device_name);
+	snprintf(env_dev, sizeof(env_dev), "DEVICENAME=%s", device_name);
 	putenv(env_dev);
 	putenv("SUBSYSTEM=block");
-	snprintf(env_port, 64, "USBPORT=%s", usb_port);
+	snprintf(env_port, sizeof(env_port), "USBPORT=%s", usb_port);
 	putenv(env_port);
-	snprintf(env_major, 64, "MAJOR=%d", USB_DISK_MAJOR);
+	snprintf(env_major, sizeof(env_major), "MAJOR=%d", USB_DISK_MAJOR);
 	putenv(env_major);
 	putenv("PHYSDEVBUS=scsi");
 
@@ -3232,7 +3230,7 @@ int asus_sd(const char *device_name, const char *action)
 		if(modem_unit != MODEM_UNIT_NONE){
 			usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-			snprintf(nvram_value, 32, "%s", nvram_safe_get(strcat_r(prefix2, "act_reset_path", tmp2)));
+			snprintf(nvram_value, sizeof(nvram_value), "%s", nvram_safe_get(strcat_r(prefix2, "act_reset_path", tmp2)));
 			if(!strcmp(nvram_value, usb_node)){
 				usb_dbg("(%s): the device is resetting...(%s)\n", device_name, action);
 				file_unlock(isLock);
@@ -3258,14 +3256,14 @@ int asus_sd(const char *device_name, const char *action)
 			}
 			usb2mode = atoi(buf1);
 
-			snprintf(nvram_value, 32, "%s", nvram_safe_get(strcat_r(prefix, "_speed", tmp)));
+			snprintf(nvram_value, sizeof(nvram_value), "%s", nvram_safe_get(strcat_r(prefix, "_speed", tmp)));
 			if(usb2mode != 0 && strlen(nvram_value) > 0 && strcmp(nvram_value, "5000"))
 				notify_rc("restart_xhcimode 0");
 		}
 #endif
 
 #ifdef RTCONFIG_USB_MODEM
-		snprintf(buf1, 32, "%s.%s", USB_MODESWITCH_CONF, port_path);
+		snprintf(buf1, sizeof(buf1), "%s.%s", USB_MODESWITCH_CONF, port_path);
 		unlink(buf1);
 #endif
 
@@ -3285,10 +3283,10 @@ int asus_sd(const char *device_name, const char *action)
 		putenv("INTERFACE=8/0/0");
 		putenv("ACTION=remove");
 		putenv("PRODUCT=asus_sd");
-		snprintf(env_dev, 64, "DEVICENAME=%s", device_name);
+		snprintf(env_dev, sizeof(env_dev), "DEVICENAME=%s", device_name);
 		putenv(env_dev);
 		putenv("SUBSYSTEM=block");
-		snprintf(env_major, 64, "MAJOR=%d", USB_DISK_MAJOR);
+		snprintf(env_major, sizeof(env_major), "MAJOR=%d", USB_DISK_MAJOR);
 		putenv(env_major);
 		putenv("PHYSDEVBUS=scsi");
 
@@ -3448,7 +3446,7 @@ after_change_xhcimode:
 
 			if(!plugged_disk){
 				usb_dbg("(%s): Got the first storage on Port %s.\n", device_name, usb_port);
-				snprintf(str, 32, "0x%x", HINT_USB_FIRSTIME_CHECK_EVENT);
+				snprintf(str, sizeof(str), "0x%x", HINT_USB_FIRSTIME_CHECK_EVENT);
 				eval("Notify_Event2NC", str, "");
 				nvram_set("ntevent_firstdisk", "1");
 
@@ -3457,7 +3455,7 @@ after_change_xhcimode:
 
 #if defined(RTCONFIG_USB_XHCI) || defined(RTCONFIG_ETRON_XHCI)
 				if(!usb_usb3 && !ntevent_disableusb3){
-					snprintf(str, 32, "0x%x", HINT_USB3_WITHOUT_ENHANCE_EVENT);
+					snprintf(str, sizeof(str), "0x%x", HINT_USB3_WITHOUT_ENHANCE_EVENT);
 					eval("Notify_Event2NC", str, "");
 					nvram_set("ntevent_disableusb3", "1");
 				}
@@ -3492,10 +3490,10 @@ after_change_xhcimode:
 	putenv("INTERFACE=8/0/0");
 	putenv("ACTION=add");
 	putenv("PRODUCT=asus_sd");
-	snprintf(env_dev, 64, "DEVICENAME=%s", device_name);
+	snprintf(env_dev, sizeof(env_dev), "DEVICENAME=%s", device_name);
 	putenv(env_dev);
 	putenv("SUBSYSTEM=block");
-	snprintf(env_port, 64, "USBPORT=%s", usb_port);
+	snprintf(env_port, sizeof(env_port), "USBPORT=%s", usb_port);
 	putenv(env_port);
 
 	eval("hotplug", "block");
@@ -3832,8 +3830,8 @@ int asus_sr(const char *device_name, const char *action)
 		return 0;
 	}
 
-	snprintf(nvram_name, 32, "usb_path%s", port_path);
-	snprintf(nvram_value, 32, "%s", nvram_safe_get(nvram_name));
+	snprintf(nvram_name, sizeof(nvram_name), "usb_path%s", port_path);
+	snprintf(nvram_value, sizeof(nvram_value), "%s", nvram_safe_get(nvram_name));
 
 	// Storage interface is first up with some composite devices,
 	// so needs to wait that other interfaces wake up.
@@ -3842,7 +3840,7 @@ int asus_sr(const char *device_name, const char *action)
 		if(strcmp(nvram_value, "printer") && strcmp(nvram_value, "modem")){
 			usb_dbg("%s: wait for the printer/modem interface...\n", __FUNCTION__);
 			sleep(1);
-			snprintf(nvram_value, 32, "%s", nvram_safe_get(nvram_name));
+			snprintf(nvram_value, sizeof(nvram_value), "%s", nvram_safe_get(nvram_name));
 		}
 		else
 			break;
@@ -3876,12 +3874,12 @@ int asus_sr(const char *device_name, const char *action)
 	else if(strcmp(nvram_safe_get("stop_cd_remove"), "1")){
 		usb_dbg("(%s): Running sdparm...\n", device_name);
 
-		snprintf(eject_cmd, 128, "/dev/%s", device_name);
+		snprintf(eject_cmd, sizeof(eject_cmd), "/dev/%s", device_name);
 		eval("sdparm", "--command=eject", eject_cmd);
 		sleep(1);
 
 		if(find_sg_of_device(device_name, sg_device, sizeof(sg_device)) != NULL){
-			snprintf(eject_cmd, 128, "/dev/%s", sg_device);
+			snprintf(eject_cmd, sizeof(eject_cmd), "/dev/%s", sg_device);
 			eval("sdparm", "--command=eject", eject_cmd);
 			sleep(1);
 		}
@@ -3935,16 +3933,16 @@ int asus_tty(const char *device_name, const char *action)
 
 	// If remove the device?
 	if(!check_hotplug_action(action)){
-		snprintf(buf1, 32, "usb_path_%s", device_name);
-		snprintf(usb_node, 32, "%s", nvram_safe_get(buf1));
+		snprintf(buf1, sizeof(buf1), "usb_path_%s", device_name);
+		snprintf(usb_node, sizeof(usb_node), "%s", nvram_safe_get(buf1));
 		nvram_unset(buf1);
 
 		modem_unit = get_modemunit_by_node(usb_node);
 		if(modem_unit != MODEM_UNIT_NONE){
 			usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-			snprintf(act_dev, 8, "%s", nvram_safe_get(strcat_r(prefix2, "act_dev", tmp2)));
-			snprintf(current_act, 16, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+			snprintf(act_dev, sizeof(act_dev), "%s", nvram_safe_get(strcat_r(prefix2, "act_dev", tmp2)));
+			snprintf(current_act, sizeof(current_act), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
 
 			usb_dbg("(%s): usb_node=%s, %s=%s.\n", device_name, usb_node, tmp2, current_act);
 			if(!strcmp(current_act, usb_node)){
@@ -3955,7 +3953,7 @@ int asus_tty(const char *device_name, const char *action)
 				}
 
 				if(strncmp(act_dev, "usb", 3) && strncmp(act_dev, "wwan", 4) && strncmp(act_dev, "eth", 3)){
-					snprintf(prefix, 32, "usb_path%s", port_path);
+					snprintf(prefix, sizeof(prefix), "usb_path%s", port_path);
 					nvram_unset(strcat_r(prefix, "_act", tmp));
 					nvram_unset(strcat_r(prefix, "_act_def", tmp));
 
@@ -4052,7 +4050,7 @@ int asus_tty(const char *device_name, const char *action)
 	for(modem_unit = MODEM_UNIT_FIRST; modem_unit < MODEM_UNIT_MAX; ++modem_unit){
 		usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-		snprintf(buf1, 32, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+		snprintf(buf1, sizeof(buf1), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
 		if(strlen(buf1) > 0 && strcmp(buf1, usb_node)){
 			usb_dbg("(%s): Already had the modem in the USB port: %s!\n", device_name, buf1);
 			continue;
@@ -4068,9 +4066,9 @@ int asus_tty(const char *device_name, const char *action)
 	}
 	else if(strlen(buf1) <= 0){
 		nvram_set(strcat_r(prefix2, "act_path", tmp2), usb_node);
-		snprintf(buf1, 32, "%u",  vid);
+		snprintf(buf1, sizeof(buf1), "%u",  vid);
 		nvram_set(strcat_r(prefix2, "act_vid", tmp2), buf1);
-		snprintf(buf1, 32, "%u",  pid);
+		snprintf(buf1, sizeof(buf1), "%u",  pid);
 		nvram_set(strcat_r(prefix2, "act_pid", tmp2), buf1);
 	}
 
@@ -4141,7 +4139,7 @@ int asus_tty(const char *device_name, const char *action)
 		}
 		else{
 			cur_val = -1;
-			if(strlen(current_act) > 6) {
+			if(strlen(current_act) > 6){
 				errno = 0;
 				cur_val = strtol(&current_act[6], &ptr, 10);
 				if(errno != 0 || &current_act[6] == ptr){
@@ -4197,17 +4195,55 @@ usb_dbg("(%s): cur_val=%d, tmp_val=%d.\n", device_name, cur_val, tmp_val);
 			return 0;
 		}
 
-		if(!strcmp(device_name, "ttyACM0")){
+		//if(!strcmp(device_name, "ttyACM0")){
+		if(!strcmp(current_act, "")){
 			nvram_set(strcat_r(prefix, "_act", tmp), device_name);
+			memset(current_act, 0, 16);
+			strncpy(current_act, device_name, 16);
 		}
 		else{
+			cur_val = -1;
+			if(strlen(current_act) > 6){
+				errno = 0;
+				cur_val = strtol(&current_act[6], &ptr, 10);
+				if(errno != 0 || &current_act[6] == ptr){
+					cur_val = -1;
+				}
+			}
+
+			errno = 0;
+			tmp_val = strtol(&device_name[6], &ptr, 10);
+			if(errno != 0 || &device_name[6] == ptr){
+				usb_dbg("(%s): Can't get the working node.\n", device_name);
+				file_unlock(isLock_tty);
+				file_unlock(isLock);
+				return 0;
+			}
+			else if(cur_val != -1 && cur_val < tmp_val){ // get the smaller node safely.
+usb_dbg("(%s): cur_val=%d, tmp_val=%d, set_default_node=%s.\n", device_name, cur_val, tmp_val, current_def);
+				usb_dbg("(%s): Skip to write PPP's conf.\n", device_name);
+				file_unlock(isLock_tty);
+				file_unlock(isLock);
+				return 0;
+			}
+			else{
+usb_dbg("(%s): current_act=%s, device_name=%s.\n", device_name, current_act, device_name);
+usb_dbg("(%s): cur_val=%d, tmp_val=%d.\n", device_name, cur_val, tmp_val);
+				nvram_set(strcat_r(prefix, "_act", tmp), device_name);
+				memset(current_act, 0, 16);
+				strncpy(current_act, device_name, 16);
+			}
+		}
+
+		// Only let act node trigger the dial procedure and avoid the wrong node to write the PPP conf.
+		if(strcmp(device_name, current_act)){
+			usb_dbg("(%s): Success 1!\n", device_name);
 			file_unlock(isLock_tty);
 			file_unlock(isLock);
 			return 0;
 		}
 	}
 
-	// If the node is the default node without the Int endpoint, skip to autorun restart_wan_if.
 	if(strcmp(current_def, "1")){
 		if((wan_unit = get_wanunit_by_type(get_wantype_by_modemunit(modem_unit))) != WAN_UNIT_NONE){
 			// show the manual-setting dongle in Networkmap when it was plugged after reboot.
@@ -4229,7 +4265,7 @@ usb_dbg("(%s): cur_val=%d, tmp_val=%d.\n", device_name, cur_val, tmp_val);
 usb_dbg("Didn't support the USB connection now...\n");
 	}
 
-	usb_dbg("(%s): Success!\n", device_name);
+	usb_dbg("(%s): Success 2!\n", device_name);
 	file_unlock(isLock_tty);
 	file_unlock(isLock);
 #endif // RTCONFIG_USB_MODEM
@@ -4280,7 +4316,7 @@ int asus_usbbcm(const char *device_name, const char *action)
 			return 0;
 		}
 
-		snprintf(prefix, 32, "usb_path%s", port_path);
+		snprintf(prefix, sizeof(prefix), "usb_path%s", port_path);
 		if(!strcmp(nvram_safe_get(strcat_r(prefix, "_act", tmp)), device_name)){
 			nvram_unset(tmp);
 			modem_unit = get_modemunit_by_node(usb_node);
@@ -4327,7 +4363,7 @@ int asus_usbbcm(const char *device_name, const char *action)
 	for(modem_unit = MODEM_UNIT_FIRST; modem_unit < MODEM_UNIT_MAX; ++modem_unit){
 		usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-		snprintf(buf1, 32, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+		snprintf(buf1, sizeof(buf1), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
 		if(strlen(buf1) > 0 && strcmp(buf1, usb_node)){
 			usb_dbg("(%s): Already had the modem in the USB port: %s!\n", device_name, buf1);
 			continue;
@@ -4477,33 +4513,17 @@ int asus_usb_interface(const char *device_name, const char *action)
 
 	// If remove the device? Handle the remove hotplug of the printer and modem.
 	if(!check_hotplug_action(action)){
-		snprintf(nvram_usb_path, 32, "usb_led%d", port_num);
-		if (nvram_get_int(nvram_usb_path) == 1) {
-			int turn_off_led = 1;
-			disk_info_t *disk_list, *disk_info;
-
-			disk_list = read_disk_data();
-			for (disk_info = disk_list; disk_info != NULL && turn_off_led; disk_info = disk_info->next) {
-				if (port_num != atoi(disk_info->port))
-					continue;
-
-				turn_off_led = 0;
-				_dprintf("Another disk exist on USB port %d, don't turn off USB LED\n", port_num);
-			}
-			free_disk_data(&disk_list);
-
-			/* If any USB Mass-storage, USB modem, or USB printer exist on same USB port, don't turn off USB LED. */
-			if (turn_off_led && find_supported_usb_device(port_num) > 0)
-				turn_off_led = 0;
-
-			if (turn_off_led)
-				nvram_unset(nvram_usb_path);
+		snprintf(nvram_usb_path, sizeof(nvram_usb_path), "usb_led%d", port_num);
+		if (nvram_get_int(nvram_usb_path) == 1 &&
+		    find_supported_usb_device(port_num) <= 0)
+		{
+			nvram_unset(nvram_usb_path);
 		}
 
 		strcpy(device_type, nvram_safe_get(prefix));
 
 #ifdef RTCONFIG_USB_MODEM
-		snprintf(conf_file, 32, "%s.%s", USB_MODESWITCH_CONF, port_path);
+		snprintf(conf_file, sizeof(conf_file), "%s.%s", USB_MODESWITCH_CONF, port_path);
 		unlink(conf_file);
 
 		modem_unit = get_modemunit_by_node(usb_node);
@@ -4511,7 +4531,7 @@ int asus_usb_interface(const char *device_name, const char *action)
 			usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
 			if(!strcmp(device_type, "modem") && !strcmp(usb_node, nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)))){
-				snprintf(buf, 128, "%s", nvram_safe_get(strcat_r(prefix, "_act", tmp)));
+				snprintf(buf, sizeof(buf), "%s", nvram_safe_get(strcat_r(prefix, "_act", tmp)));
 
 				// remove the device between adding interface and adding tty.
 				modprobe_r("option");
@@ -4533,7 +4553,8 @@ int asus_usb_interface(const char *device_name, const char *action)
 				}
 #endif
 
-#ifndef RTCONFIG_INTERNAL_GOBI
+//#ifndef RTCONFIG_INTERNAL_GOBI
+#if 0
 				// When ACM dongles are removed, there are no removed hotplugs of ttyACM nodes.
 				if(!strncmp(buf, "ttyACM", 6)){
 					// No methods let DUT restore the normal state after removing the ACM dongle.
@@ -4565,7 +4586,7 @@ int asus_usb_interface(const char *device_name, const char *action)
 	if (f_read_string(class_path, class, sizeof(class)) > 0 && atoi(class) == 9)
 		turn_on_led = 0;
 
-	snprintf(nvram_usb_path, 32, "usb_led%d", port_num);
+	snprintf(nvram_usb_path, sizeof(nvram_usb_path), "usb_led%d", port_num);
 #ifdef RTCONFIG_INTERNAL_GOBI
 	if(nvram_get_int("usb_buildin") == port_num)
 		; //skip this LED
@@ -4589,7 +4610,7 @@ int asus_usb_interface(const char *device_name, const char *action)
 
 			if(strcmp(nvram_safe_get("stop_ui_remove"), "1")){
 				usb_dbg("(%s): Running usb_modeswitch...\n", device_name);
-				snprintf(modem_cmd, 128, "%s.%s", USB_MODESWITCH_CONF, port_path);
+				snprintf(modem_cmd, sizeof(modem_cmd), "%s.%s", USB_MODESWITCH_CONF, port_path);
 				xstart("usb_modeswitch", "-c", modem_cmd);
 			}
 
@@ -4614,10 +4635,21 @@ int asus_usb_interface(const char *device_name, const char *action)
 #endif
 
 #ifdef RTCONFIG_INTERNAL_GOBI
-	if(!is_gobi_dongle(1, vid, pid))
+	if(is_gobi_dongle(1, vid, pid)){
+		if(get_usb_interface_order(device_name) != 2){
+			usb_dbg("(%s): skip the Gobi's interface...\n", device_name);
+			file_unlock(isLock);
+			return 0;
+		}
+	}
+	else
 #endif
 #ifdef RTCONFIG_USB_PRINTER
 	{
+		if (nvram_get_int("usb_printer") && !module_loaded(USBPRINTER_MOD)) {
+			symlink("/dev/usb", "/dev/printers");
+			modprobe(USBPRINTER_MOD);
+		}
 		// Wait if there is the printer interface.
 		retry = 0;
 		while(!hadPrinterModule() && retry < MAX_WAIT_PRINTER_MODULE){
@@ -4634,13 +4666,6 @@ int asus_usb_interface(const char *device_name, const char *action)
 		}
 	}
 #endif
-#ifdef RTCONFIG_INTERNAL_GOBI
-	else if(is_gobi_dongle(1, vid, pid) && get_usb_interface_order(device_name) != 2){
-		usb_dbg("(%s): skip the Gobi's interface...\n", device_name);
-		file_unlock(isLock);
-		return 0;
-	}
-#endif
 
 #ifdef RTCONFIG_USB_MODEM
 	// set USB common nvram.
@@ -4649,7 +4674,7 @@ int asus_usb_interface(const char *device_name, const char *action)
 	for(modem_unit = MODEM_UNIT_FIRST; modem_unit < MODEM_UNIT_MAX; ++modem_unit){
 		usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-		snprintf(tmp, 100, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+		snprintf(tmp, sizeof(tmp), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
 		if(strlen(tmp) > 0 && strcmp(tmp, usb_node)){
 			usb_dbg("(%s): Already had the modem in the USB port: %s!\n", device_name, tmp);
 			continue;
@@ -4732,9 +4757,9 @@ int asus_usb_interface(const char *device_name, const char *action)
 
 		nvram_set(strcat_r(prefix, "_act", tmp), "wimax0");
 		nvram_set(strcat_r(prefix2, "act_path", tmp2), usb_node);
-		snprintf(buf, 128, "%u",  vid);
+		snprintf(buf, sizeof(buf), "%u",  vid);
 		nvram_set(strcat_r(prefix2, "act_vid", tmp2), buf);
-		snprintf(buf, 128, "%u",  pid);
+		snprintf(buf, sizeof(buf), "%u",  pid);
 		nvram_set(strcat_r(prefix2, "act_pid", tmp2), buf);
 	}
 	else if(is_gct_dongle(1, vid, pid)){
@@ -4743,9 +4768,9 @@ int asus_usb_interface(const char *device_name, const char *action)
 
 		nvram_set(strcat_r(prefix, "_act", tmp), "wimax0");
 		nvram_set(strcat_r(prefix2, "act_path", tmp2), usb_node);
-		snprintf(buf, 128, "%u",  vid);
+		snprintf(buf, sizeof(buf), "%u",  vid);
 		nvram_set(strcat_r(prefix2, "act_vid", tmp2), buf);
-		snprintf(buf, 128, "%u",  pid);
+		snprintf(buf, sizeof(buf), "%u",  pid);
 		nvram_set(strcat_r(prefix2, "act_pid", tmp2), buf);
 	}
 	else
@@ -4791,8 +4816,8 @@ int asus_usb_interface(const char *device_name, const char *action)
 		f_write_string("/sys/bus/usb-serial/drivers/option1/new_id", buf, 0, 0);
 #else
 		//sleep(2);
-		//snprintf(modem_cmd, 128, "vendor=0x%04x", vid);
-		//snprintf(buf, 128, "product=0x%04x", pid);
+		//snprintf(modem_cmd, sizeof(modem_cmd), "vendor=0x%04x", vid);
+		//snprintf(buf, sizeof(buf), "product=0x%04x", pid);
 		//eval("insmod", "option", modem_cmd, buf);
 		usb_dbg("(%s): Runing option with (0x%04x/0x%04x)...\n", device_name, vid, pid);
 		snprintf(modem_cmd, sizeof(modem_cmd), "vendor=0x%04x product=0x%04x", vid, pid);

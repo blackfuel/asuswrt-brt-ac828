@@ -166,20 +166,19 @@ function add_client(flag, target){
 	if(!validator.isLegalIP($("#ip_address")[0], "")){
 		return false;		
 	}
-
-	if(flag != "modify"){
-		for(i=0;i<info.clients.length;i++){
-			var client_index = info.clients[i];
-			if(name == info.clients[client_index].name){
-				alert("<#File_Pop_content_alert_desc5#>");
-				document.getElementById("name").focus();
-				return false;
-			}
-			else if(ipaddr == info.clients[client_index].ipaddr){
-				alert("This IP address already exists.\nPlease enter a different one.");
-				document.getElementById("ip_address").focus();
-				return false;
-			}
+	
+	var index = info.clients.indexOf(target);
+	for(i=0;i<info.clients.length;i++){
+		var client_index = info.clients[i];
+		if(name == info.clients[client_index].name && index != i){
+			alert("<#File_Pop_content_alert_desc5#>");
+			document.getElementById("name").focus();
+			return false;
+		}
+		else if(ipaddr == info.clients[client_index].ipaddr && index != i){
+			alert("This IP address already exists.\nPlease enter a different one.");
+			document.getElementById("ip_address").focus();
+			return false;
 		}
 	}
 

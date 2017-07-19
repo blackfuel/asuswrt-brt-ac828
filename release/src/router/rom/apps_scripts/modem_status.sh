@@ -12,6 +12,7 @@ fi
 
 act_node1="${prefix}act_int"
 act_node2="${prefix}act_bulk"
+modem_type=`nvram get ${prefix}act_type`
 modem_vid=`nvram get ${prefix}act_vid`
 modem_pid=`nvram get ${prefix}act_pid`
 modem_dev=`nvram get ${prefix}act_dev`
@@ -72,6 +73,10 @@ _get_gobi_device(){
 	echo "0"
 }
 
+
+if [ "$modem_type" == "" -o  "$modem_type" == "ecm" -o "$modem_type" == "rndis" -o "$modem_type" == "asix" -o "$modem_type" == "ncm" ]; then
+	exit 0
+fi
 
 act_node=
 #modem_type=`nvram get ${prefix}act_type`

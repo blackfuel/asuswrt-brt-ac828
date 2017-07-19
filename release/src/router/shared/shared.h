@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <endian.h>
 #ifndef _LINUX_IF_H
 #include <net/if.h>
 #endif
@@ -15,6 +16,79 @@
 #ifdef RTCONFIG_USB
 #include <mntent.h>	// !!TB
 #endif
+
+/* Endian conversion functions. */
+#define __bswap16(x) (uint16_t)	( \
+				(((uint16_t)(x) & 0x00ffu) << 8) | \
+				(((uint16_t)(x) & 0xff00u) >> 8))
+
+#define __bswap32(x) (uint32_t)	( \
+				(((uint32_t)(x) & 0xff000000u) >> 24) | \
+				(((uint32_t)(x) & 0x00ff0000u) >>  8) | \
+				(((uint32_t)(x) & 0x0000ff00u) <<  8) | \
+				(((uint32_t)(x) & 0x000000ffu) << 24))
+
+#define __bswap64(x) (uint64_t)	( \
+				(((uint64_t)(x) & 0xff00000000000000ull) >> 56) | \
+				(((uint64_t)(x) & 0x00ff000000000000ull) >> 40) | \
+				(((uint64_t)(x) & 0x0000ff0000000000ull) >> 24) | \
+				(((uint64_t)(x) & 0x000000ff00000000ull) >>  8) | \
+				(((uint64_t)(x) & 0x00000000ff000000ull) <<  8) | \
+				(((uint64_t)(x) & 0x0000000000ff0000ull) << 24) | \
+				(((uint64_t)(x) & 0x000000000000ff00ull) << 40) | \
+				(((uint64_t)(x) & 0x00000000000000ffull) << 56))
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+#ifndef le16_to_cpu
+#define le16_to_cpu(x) __bswap16(x)
+#endif
+#ifndef le32_to_cpu
+#define le32_to_cpu(x) __bswap32(x)
+#endif
+#ifndef le64_to_cpu
+#define le64_to_cpu(x) __bswap64(x)
+#endif
+#ifndef be16_to_cpu
+#define be16_to_cpu(x) (x)
+#endif
+#ifndef be32_to_cpu
+#define be32_to_cpu(x) (x)
+#endif
+#ifndef cpu_to_le16
+#define cpu_to_le16(x) __bswap16(x)
+#endif
+#ifndef cpu_to_le32
+#define cpu_to_le32(x) __bswap32(x)
+#endif
+#ifndef cpu_to_be32
+#define cpu_to_be32(x) (x)
+#endif
+#else	/* __BYTE_ORDER != __BIG_ENDIAN */
+#ifndef le16_to_cpu
+#define le16_to_cpu(x) (x)
+#endif
+#ifndef le32_to_cpu
+#define le32_to_cpu(x) (x)
+#endif
+#ifndef le64_to_cpu
+#define le64_to_cpu(x) (x)
+#endif
+#ifndef be16_to_cpu
+#define be16_to_cpu(x) __bswap16(x)
+#endif
+#ifndef be32_to_cpu
+#define be32_to_cpu(x) __bswap32(x)
+#endif
+#ifndef cpu_to_le16
+#define cpu_to_le16(x) (x)
+#endif
+#ifndef cpu_to_le32
+#define cpu_to_le32(x) (x)
+#endif
+#ifndef cpu_to_be32
+#define cpu_to_be32(x) __bswap32(x)
+#endif
+#endif	/* __BYTE_ORDER == __BIG_ENDIAN */
 
 /* btn_XXX_gpio, led_XXX_gpio */
 #define GPIO_ACTIVE_LOW 0x1000
@@ -42,13 +116,14 @@
  * skb->mark usage
  * 1.	bit 28~31:	Load-balance rule, IPTABLES_MARK_LB_*
  * 2.	bit 26~27:	Facebook Wi-Fi, FBWIFI_MARK_*
- * 3.	bit  0~5 :	QoS
+ * 3.	bit  0~5 :	QoS (T.QoS: bit 0~2, BWLIT: bit 0~5)
  */
 #define IPTABLES_MARK_LB_SET(x)	((((x)&0xFU)|0x8)<<28)			/* mark for load-balance, bit 28~31, bit31 is always 1. */
 #define IPTABLES_MARK_LB_MASK	IPTABLES_MARK_LB_SET(0xf)
 #define FBWIFI_MARK_SET(x)	(((x)&0x3U)<<26)			/* Facebook Wi-Fi: bit 26~27 */
 #define FBWIFI_MARK_MASK	FBWIFI_MARK_SET(0x3)
 #define FBWIFI_MARK_INV_MASK	(~(FBWIFI_MARK_SET(0x3)))
+#define QOS_MASK		(0x3F)
 
 #ifdef RTCONFIG_INTERNAL_GOBI
 #define DEF_SECOND_WANIF	"usb"
@@ -101,6 +176,11 @@
 	if(f_exists(TLD_DEBUG) > 0) { \
 		dbg("[TRAFFIC LIMITER][%s:(%d)]"fmt, __FUNCTION__, __LINE__, ##args); \
 	}
+#endif
+
+#if defined(RTCONFIG_SAVEJFFS)
+#define JFFS_CFGS_HDR	"JCFG"
+#define JFFS_CFGS	"/tmp/jffs_cfgs"
 #endif
 
 //version.c
@@ -685,11 +765,34 @@ static inline int have_sata_led(int model) { return 0; }
 #define ARRAY_SIZE(ary) (sizeof(ary) / sizeof((ary)[0]))
 #endif
 
-#if defined(RTCONFIG_HAS_5G)
+#if defined(RTCONFIG_WIGIG)
+/* 2-nd 5G may not exist! Remember to check existence of wl2_nband in firmware
+ * or 5G-2 rc_support in UI for that band.  At compile-time, RTCONFIG_HAS_5G_2
+ * can be used to test.  But, non-QCA platform haven't support RTCONFIG_HAS_5G_2.
+ */
+#define MAX_NR_WL_IF			4
+#elif defined(RTCONFIG_HAS_5G_2)
+#define MAX_NR_WL_IF			3
+#elif defined(MAPAC2200)
+#define MAX_NR_WL_IF			3
+#elif defined(RTCONFIG_HAS_5G)
 #define MAX_NR_WL_IF			2
 #else	/* ! RTCONFIG_HAS_5G */
 #define MAX_NR_WL_IF			1	/* Single 2G */
 #endif	/* ! RTCONFIG_HAS_5G */
+
+enum wl_band_id {
+	WL_2G_BAND = 0,
+	WL_5G_BAND = 1,
+	WL_5G_2_BAND = 2,
+	WL_60G_BAND = 3,
+
+	WL_NR_BANDS				/* Maximum number of Wireless bands of all models. */
+};
+
+#define SKIP_ABSENT_FAKE_IFACE(iface)		if (!strncmp(iface, "FAKE", 4)) { continue; }
+#define SKIP_ABSENT_BAND(u)			if (!nvram_get(wl_nvname("nband", u, 0))) { continue; }
+#define SKIP_ABSENT_BAND_AND_INC_UNIT(u)	if (!nvram_get(wl_nvname("nband", u, 0))) { ++u; continue; }
 
 #if defined(RTCONFIG_RALINK) || defined(RTCONFIG_QCA)
 static inline int __access_point_mode(int sw_mode)
@@ -903,6 +1006,7 @@ extern char *__get_wlifname(int band, int subunit, char *buf);
 extern int get_wlsubnet(int band, const char *ifname);
 extern char *get_staifname(int band);
 extern char *get_vphyifname(int band);
+extern int match_radio_status(int unit, int status);
 #endif
 extern char *get_wlifname(int unit, int subunit, int subunit_x, char *buf);
 extern char *get_wlxy_ifname(int x, int y, char *buf);
@@ -994,6 +1098,12 @@ extern int remove_word(char *buffer, const char *word);
 extern int check_if_file_exist(const char *file);
 extern int check_if_dir_exist(const char *file);
 extern int check_if_dir_writable(const char *dir);
+
+#if defined(RTCONFIG_SAVEJFFS)
+/* jffs_cfgs.c */
+extern int append_jffs_cfgs(FILE *fp_jc, char *nv_fn);
+extern int restore_jffs_cfgs(char *nv_fn);
+#endif
 
 /* mdio.c */
 #if defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2) || \
@@ -1447,6 +1557,9 @@ extern int FindBrifByWlif(char *wl_ifname, char *brif_name, int size);
 #define UPLOAD_CERT_FOLDER	"/jffs/.cert"
 #define UPLOAD_CERT	"/jffs/.cert/cert.pem"
 #define UPLOAD_KEY	"/jffs/.cert/key.pem"
+#ifdef RTCONFIG_LETSENCRYPT
+#define ACME_CERTHOME	"/jffs/.le"
+#endif
 #endif
 
 #endif	/* !__SHARED_H__ */

@@ -1581,7 +1581,11 @@ void timecheck(void)
 	}
 
 	// radio on/off
-	if (nvram_match("svc_ready", "1"))
+	if (nvram_match("svc_ready", "1")
+#ifdef RTCONFIG_QCA
+		&& nvram_match("wlready", "1")
+#endif
+	)
 	foreach (word, nvram_safe_get("wl_ifnames"), next) {
 		snprintf(prefix, sizeof(prefix), "wl%d_", unit);
 
@@ -1609,7 +1613,16 @@ void timecheck(void)
 
 
 		if (svcStatus[item] != activeNow) {
+#ifdef RTCONFIG_QCA
+			if (match_radio_status(unit, activeNow)) {
+				svcStatus[item] = activeNow;
+				item++;
+				unit++;
+				continue;
+			}
+#else
 			svcStatus[item] = activeNow;
+#endif
 			if (activeNow == 1) eval("radio", "on", tmp);
 			else eval("radio", "off", tmp);
 		}

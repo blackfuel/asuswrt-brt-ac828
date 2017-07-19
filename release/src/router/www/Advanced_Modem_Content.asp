@@ -58,6 +58,7 @@
 <script type="text/javascript" src="/wcdma_list.js"></script>
 <script type="text/javaScript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
+<script type="text/javascript" src="/validator.js"></script>
 <script>
 
 var modem = '<% nvram_get("Dev3G"); %>';
@@ -167,11 +168,6 @@ function initial(){
 			hide_usb_settings();
 		}
 	);
-
-	if(!dualWAN_support){
-		document.getElementById("_APP_Installation").innerHTML = '<table><tbody><tr><td><div class="_APP_Installation"></div></td><td><div style="width:120px;"><#Menu_usb_application#></div></td></tr></tbody></table>';
-		document.getElementById("_APP_Installation").className = "menu_clicked";
-	}
 
 	if(!wimax_support){
 		for (var i = 0; i < document.form.modem_enable_option.options.length; i++) {
@@ -803,7 +799,7 @@ function change_apn_mode(){
 					</tr>
 
 					<tr>
-						<th width="40%">APN Configuration</th><!--untranslated-->
+						<th width="40%"><#APN_configuration#></th>
 						<td>
 							<select name="modem_autoapn" id="modem_autoapn" class="input_option" onchange="change_apn_mode();">
 								<option value="1" <% nvram_match("modem_autoapn", "1","selected"); %>>Automatic</option><!--untranslated-->
@@ -949,6 +945,28 @@ function change_apn_mode(){
 					</tr>
 				</table>	
 	
+				<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable" style="margin-top:8px">
+				<thead>
+				<tr>
+					<td colspan="2"><#PPPConnection_x_HostNameForISP_sectionname#></td>
+				</tr>
+				</thead>
+				<tr>
+					<th><a class="hintstyle" href="javascript:void(0);" onClick=""><#Extend_TTL_Value#></a></th>
+						<td>
+							<input type="radio" name="ttl_inc_enable" class="input" value="1" <% nvram_match("ttl_inc_enable", "1", "checked"); %>><#checkbox_Yes#>
+							<input type="radio" name="ttl_inc_enable" class="input" value="0" <% nvram_match("ttl_inc_enable", "0", "checked"); %>><#checkbox_No#>
+						</td>
+				</tr>
+				<tr>
+					<th><a class="hintstyle" href="javascript:void(0);" onClick=""><#Spoof_TTL_Value#></a></th>
+						<td>
+							<input type="radio" name="ttl_spoof_enable" class="input" value="1" <% nvram_match("ttl_spoof_enable", "1", "checked"); %>><#checkbox_Yes#>
+							<input type="radio" name="ttl_spoof_enable" class="input" value="0" <% nvram_match("ttl_spoof_enable", "0", "checked"); %>><#checkbox_No#>
+						</td>
+				</tr>
+				</table>
+
 				<div class="apply_gen">
 					<input class="button_gen" onclick="applyRule()" type="button" value="<#CTL_apply#>"/>
 				</div>

@@ -19,6 +19,7 @@ var newDisk = function(){
 	this.hasErrPart = false;
 	this.hasAppDev = false;
 	this.hasTM = false;
+	this.isBusy = false;
 	this.partition = new Array(0);
 }
 
@@ -598,9 +599,14 @@ function getChangedPermission(selectedObj){
 	var folderObj = document.getElementById("d"+selectedBarCode);
 	var radioName = "g"+selectedBarCode;
 	var permission, orig_permission;
-	
-	if(!this.selectedAccount)
-		this.selectedAccount = "guest";
+
+	if(select_flag == "group"){
+		if(!this.selectedAccount)
+			this.selectedAccount = "Administrator";
+	}else{
+		if(!this.selectedAccount)
+			this.selectedAccount = "guest";
+	}
 
 	if(selectedlayer == 2)
 		setSelectedPoolOrder(selectedObj.id);

@@ -35,9 +35,11 @@
 
 #include <unistd.h>	// for sleep()
 #include <typedefs.h>
+#include <stdint.h>
 
 #include <rtconfig.h>
 #include <bcmnvram.h>
+#include <shared.h>
 
 #define PROTECT_CHAR	'x'
 
@@ -323,6 +325,9 @@ int nvram_save_new(char *file, char *buf)
 {
 	FILE *fp;
 	char *name;
+#if defined(RTCONFIG_SAVEJFFS)
+	uint32_t filelen_le32;
+#endif
 	unsigned long count, filelen, i;
 	unsigned char rand = 0, temp;
 
@@ -343,7 +348,12 @@ int nvram_save_new(char *file, char *buf)
 	fprintf(stderr, "random number: %x\n", rand);
 #endif
 	fwrite(PROFILE_HEADER_NEW, 1, 4, fp);
+#if defined(RTCONFIG_SAVEJFFS)
+	filelen_le32 = cpu_to_le32(filelen);
+	fwrite(&filelen_le32, 1, 3, fp);
+#else
 	fwrite(&filelen, 1, 3, fp);
+#endif
 	fwrite(&rand, 1, 1, fp);
 #ifdef ASUS_DEBUG
 	for (i = 0; i < 4; i++)
@@ -453,7 +463,8 @@ int nvram_restore_new(char *file, char *buf)
 {
 	FILE *fp;
 	char header[8], *p, *v;
-	unsigned long count, filelen, *filelenptr, i;
+	uint32_t *filelenptr;
+	unsigned long count, filelen, i;
 	unsigned char rand, *randptr;
 
 	if ((fp = fopen(file, "r+")) == NULL) return -1;
@@ -461,7 +472,7 @@ int nvram_restore_new(char *file, char *buf)
 	count = fread(header, 1, 8, fp);
 	if (count>=8 && strncmp(header, PROFILE_HEADER, 4) == 0)
 	{
-		filelenptr = (unsigned long *)(header + 4);
+		filelenptr = (uint32_t *)(header + 4);
 #ifdef ASUS_DEBUG
 		fprintf(stderr, "restoring original text cfg of length %x\n", *filelenptr);
 #endif
@@ -469,8 +480,12 @@ int nvram_restore_new(char *file, char *buf)
 	}
 	else if (count>=8 && strncmp(header, PROFILE_HEADER_NEW, 4) == 0)
 	{
-		filelenptr = (unsigned long *)(header + 4);
+		filelenptr = (uint32_t *)(header + 4);
+#if defined(RTCONFIG_SAVEJFFS)
+		filelen = le32_to_cpu(*filelenptr) & 0xffffff;
+#else
 		filelen = *filelenptr & 0xffffff;
+#endif
 #ifdef ASUS_DEBUG
 		fprintf(stderr, "restoring non-text cfg of length %x\n", filelen);
 #endif

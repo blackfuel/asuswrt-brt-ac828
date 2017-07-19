@@ -230,6 +230,8 @@ uint8 nvram_calc_crc(struct nvram_header * nvh);
 #define MAX_NVRAM_SPACE		NVRAM_SPACE
 #endif
 
+#define NVRAM_IOCTL_GET_SPACE	0x0001
+
 #define DEF_NVRAM_SPACE		0x8000
 #define NVRAM_LZMA_MAGIC	0x4c5a4d41	/* 'LZMA' */
 

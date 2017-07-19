@@ -75,6 +75,25 @@ var validator = {
 			return "";
 	},
 
+	bandwidth_code: function(o,event) {
+		var keyPressed = event.keyCode ? event.keyCode : event.which;
+		var target = o.value.split(".");
+		
+		if (validator.isFunctionButton(event))
+			return true;
+			
+		if((keyPressed == 46) && (target.length > 1))
+			return false;
+
+		if((target.length > 1) && (target[1].length > 0))
+			return false;
+			
+		if ((keyPressed == 46) || (keyPressed > 47 && keyPressed < 58))
+			return true;
+		else
+			return false;
+	},
+
 	checkIP: function(o,e){
 		var nextInputBlock = o.nextSibling.nextSibling; //find the next input (sibling include ".")
 		var nc = window.event ? e.keyCode : e.which;
@@ -272,9 +291,6 @@ var validator = {
 	haveFullWidthChar: function(obj) {
 		var re = /[^\x00-\xff]/g;
 		if (obj.value.match(re)) {
-			alert('<#JS_validchar#>');
-			obj.focus();
-			obj.select();
 			return false;
 		}
 		else {
@@ -910,7 +926,7 @@ var validator = {
 		if (urlregex.test(value)) {
 			return true;
 		}
-		alert("It is invalid URL.");
+		alert("It is invalid URL."); /*untranslated*/
 		return false;
 	},
 
@@ -2033,6 +2049,58 @@ var validator = {
 		}
 		
 		return true;
+	},
+
+	mac_addr: function(_value) {
+		var hwaddr = new RegExp("(([a-fA-F0-9]{2}(\:|$)){6})", "gi");
+		if(hwaddr.test(_value))
+			return true;
+		else
+			return false;
+	},
+
+	ipv4_addr: function(_value) {
+		//ip address accept is 0.0.0.0~255.255.255.255
+		var ipformat  = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+		if((ipformat.test(_value)))
+			return true;
+		else
+			return false;
+	},
+
+	ipv4_addr_range: function(_value) {
+		//ip address accept is 0.0.0.0~255.255.255.255
+		//format: 192.168.1.*, 192.168.1.2-100, 192.168.1.0/24
+		var ipformatSubnet = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(\*)$/;
+		if((ipformatSubnet.test(_value)))	//192.168.1.*
+			return true;
+		else {
+			var ipformatRange = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)-(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$/;
+			if((ipformatRange.test(_value))) {	//192.168.1.0-255
+				var part = _value.split(".");
+				var range = part[3].split("-");
+				if(parseInt(range[0]) < parseInt(range[1]))
+					return true;
+				else
+					return false;
+			}
+			else {
+				var ipformatMask = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[0-2]|2[0-9]|1[0-9]|[1-9])$/;
+				if((ipformatMask.test(_value)))	//192.168.1.0/24
+					return true;
+				else
+					return false;
+			}
+		}
+	},
+
+	domainName: function(_value) {
+		//domin name
+		var domainNameFormat = /^((?:(?:(?:\w[\.\-\+]?)*)\w)+)((?:(?:(?:\w[\.\-\+]?){0,62})\w)+)\.(\w{2,6})$/; 
+		if(domainNameFormat.test(_value))
+			return true;
+		else
+			return false;
 	}
 
 };

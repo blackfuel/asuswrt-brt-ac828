@@ -575,24 +575,26 @@ static void stop_emf(char *lan_ifname)
 }
 #endif
 
+static void stop_snooper(void)
+{
+	killall_tk("snooper");
+}
+
 static void start_snooper(char *lan_ifname)
 {
 #ifdef CONFIG_BCMWL5
 	char word[64], *next;
 
+	stop_snooper();
+
 	if (!nvram_match("emf_enable", "1"))
 		return;
 
 	foreach (word, nvram_safe_get("lan_ifnames"), next) {
-		if (eval("/usr/sbin/snooper", "-b", lan_ifname, "-s", word) == 0);
+		if (eval("/usr/sbin/snooper", "-b", lan_ifname, "-s", word) == 0)
 			break;
 	}
 #endif
-}
-
-static void stop_snooper(void)
-{
-	killall_tk("snooper");
 }
 
 // -----------------------------------------------------------------------------
@@ -883,7 +885,6 @@ qca_wif_up(const char* wif)
 #endif
 }
 
-
 void
 gen_qca_wifi_cfgs(void)
 {
@@ -919,19 +920,19 @@ gen_qca_wifi_cfgs(void)
 	memset(wl_mask, 0, sizeof(wl_mask));
 
 #ifdef RTCONFIG_CAPTIVE_PORTAL
-#define CP_IFINDEX 2 
+#define CP_IFINDEX 2
 	int start_idx;
 	char lanifnames[16]={0};
 	for(start_idx=0; start_idx<=CP_IFINDEX; start_idx++){
-		if(start_idx == 0){ 
+		if(start_idx == 0){
 			snprintf(lanifnames, sizeof(lanifnames), "lan_ifnames");
 		}else{
 			if (!nvram_match("cp_enable", "1") && !nvram_match("chilli_enable", "1"))
-				break;	
+				break;
 			snprintf(lanifnames, sizeof(lanifnames), "lan%d_ifnames", start_idx);
 		}
 		foreach (wif, nvram_safe_get(lanifnames), next) {
-#else	
+#else
 	foreach (wif, nvram_safe_get("lan_ifnames"), next) {
 #endif
 		if (!guest_wlif(wif) && (unit = get_wifi_unit(wif)) >= 0 && unit < sizeof(led_onoff)) {
@@ -985,12 +986,18 @@ gen_qca_wifi_cfgs(void)
 	}
 #ifdef RTCONFIG_CAPTIVE_PORTAL
 	}
-#endif 
+#endif
+
 	for (i = 0; i < 2; ++i) {
 		snprintf(main_prefix, sizeof(main_prefix), "wl%d_", i);
 		if (nvram_pf_match(main_prefix, "channel", "0"))
 			fprintf(fp2, "iwconfig %s channel auto\n", __get_wlifname(i, 0, wif));
 	}
+
+#if defined(RTCONFIG_SOC_IPQ8064)
+	fprintf(fp2, "echo 90 > /proc/sys/vm/pagecache_ratio\n");
+	fprintf(fp2, "echo -1 > /proc/net/skb_recycler/max_skbs\n");
+#endif
 
 #if defined(PLN12)
 	//fprintf(fp2, "[ -e /sys/class/net/%s ] && led_ctrl %d %d\n", WIF_2G, LED_2G_GREEN, led_onoff[0]);
@@ -1170,7 +1177,6 @@ set_wlpara_qca(const char* wif, int band)
 	eval("iwpriv", (char *)wif, "set", "IgmpAdd=01:00:5e:00:00:fb");
 */
 }
-
 
 static int
 wlconf_qca(const char* wif)
@@ -1714,6 +1720,66 @@ int is_add_if(const char *ifname)
 }
 #endif
 
+#ifdef RTCONFIG_TAGGED_BASED_VLAN
+void update_subnet_rulelist(void){
+	char *nv, *nvp, *b;
+	char *ip;
+	char *netmask;
+	char *dhcp_enable;
+	char *dhcp_start; 
+	char *dhcp_end;
+	char *lease;
+	char *domainname;
+	char *dns;
+	char *wins;
+	char *ema;
+	char *macipbinding;
+	char *gateway, *lan_ipaddr;
+	char subnet_rulelist[1024];
+	char *tmpbuf;
+	int index = 0;
+
+	nv = nvp = strdup(nvram_safe_get("subnet_rulelist"));
+
+	if (nv) {
+		while ((b = strsep(&nvp, "<")) != NULL) {
+			char count = 0;
+
+			count = vstrsep(b, ">",	&ip, &netmask, &dhcp_enable, 
+									&dhcp_start, &dhcp_end, &lease, &domainname, 
+									&dns, &wins ,&ema ,&macipbinding );
+
+			if (count != 11)
+				continue;
+			else
+				index++;
+
+			if(index == 1){
+				lan_ipaddr = nvram_safe_get("lan_ipaddr");
+				gateway = nvram_safe_get("dhcp_gateway_x");
+				gateway = (*gateway && inet_addr(gateway)) ? gateway : lan_ipaddr;
+
+				sprintf(subnet_rulelist, "<%s>%s>%s>%s>%s>%s>%s>%s>%s>%s>%s", gateway,
+				nvram_safe_get("lan_netmask"), nvram_safe_get("dhcp_enable_x"), nvram_safe_get("dhcp_start"),
+				nvram_safe_get("dhcp_end"), nvram_safe_get("dhcp_lease"), nvram_safe_get("lan_domain"),
+				nvram_safe_get("dhcp_dns1_x"), nvram_safe_get("dhcp_wins_x"), nvram_safe_get("dhcp_static_x"), macipbinding);
+				if(nvp != NULL){
+					tmpbuf = malloc(strlen(subnet_rulelist) + strlen(nvp) + 2);
+					sprintf(tmpbuf, "%s<", subnet_rulelist);
+					strcat(tmpbuf, nvp);
+					nvram_set("subnet_rulelist", tmpbuf);
+					free(tmpbuf);
+				}
+				else
+					nvram_set("subnet_rulelist", subnet_rulelist);
+
+				break;
+			}
+		}
+		free(nv);
+	}
+}
+#endif
 void start_lan(void)
 {
 	char *lan_ifname;
@@ -1747,7 +1813,8 @@ void start_lan(void)
 	int is_dhd;
 #endif /* __CONFIG_DHDAP__ */
 
-#ifdef RTCONFIG_TAGGED_BASED_VLAN			
+#ifdef RTCONFIG_TAGGED_BASED_VLAN
+	update_subnet_rulelist();
 	init_tagged_based_vlan();
 #endif
 
@@ -1783,14 +1850,7 @@ void start_lan(void)
 	}
 #endif
 
-	if (no_need_to_start_wps() ||
-	    wps_band_radio_off(get_radio_band(nvram_get_int("wps_band"))) ||
-	    wps_band_ssid_broadcast_off(get_radio_band(nvram_get_int("wps_band"))))
-		nvram_set("wps_enable", "0");
-	/* recover wps enable option back to original state */
-	else if (nvram_get("wps_enable_old") && !nvram_match("wps_enable", nvram_safe_get("wps_enable_old"))) {
-		nvram_set("wps_enable", nvram_safe_get("wps_enable_old"));
-	}
+	check_wps_enable();
 
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return;
 
@@ -2236,6 +2296,13 @@ gmac3_no_swbr:
 		else lan_up(lan_ifname);
 	}
 
+#if defined(RTCONFIG_USB)
+	/* Save last LAN network if DUT in AP/RP/MB mode. */
+	if (nvram_get_int("sw_mode") == SW_MODE_AP || nvram_get_int("sw_mode") == SW_MODE_REPEATER) {
+		nvram_set("last_lan_ipaddr", nvram_safe_get("lan_ipaddr"));
+		nvram_set("last_lan_netmask", nvram_safe_get("lan_netmask"));
+	}
+#endif
 	free(lan_ifname);
 
 #ifdef RTCONFIG_SHP
@@ -2729,14 +2796,18 @@ NEITHER_WDS_OR_PSTA:
 	else if(!strncmp(interface, "usb", 3)
 			|| !strncmp(interface, "wwan", 4)
 			) {
-		if(nvram_get_int("sw_mode") != SW_MODE_ROUTER)
+		if(nvram_get_int("sw_mode") != SW_MODE_ROUTER
+#ifdef RTCONFIG_MODEM_BRIDGE
+				&& !(nvram_get_int("sw_mode") == SW_MODE_AP && nvram_get_int("modem_bridge"))
+#endif
+				)
 			return;
 
-		if(!strcmp(action, "add")) {
+		if(!strcmp(action, "add")){
 			logmessage("hotplug", "add net %s.", interface);
 			_dprintf("hotplug net: add net %s.\n", interface);
 
-			snprintf(device_path, 128, "%s/%s/device", SYS_NET, interface);
+			snprintf(device_path, sizeof(device_path), "%s/%s/device", SYS_NET, interface);
 
 			memset(usb_path, 0, PATH_MAX);
 			if(realpath(device_path, usb_path) == NULL){
@@ -2768,7 +2839,7 @@ NEITHER_WDS_OR_PSTA:
 			for(modem_unit = MODEM_UNIT_FIRST; modem_unit < MODEM_UNIT_MAX; ++modem_unit){
 				usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-				snprintf(buf, 32, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+				snprintf(buf, sizeof(buf), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
 				if(strlen(buf) > 0 && strcmp(buf, usb_node)){
 					_dprintf("hotplug net(%s): skip 4. port_path %s.\n", interface, port_path);
 					continue;
@@ -2784,16 +2855,18 @@ NEITHER_WDS_OR_PSTA:
 			else if(strlen(buf) <= 0)
 				nvram_set(strcat_r(prefix2, "act_path", tmp2), usb_node); // needed by find_modem_type.sh.
 
+#ifdef RTCONFIG_MODEM_BRIDGE
+			if(!(nvram_get_int("sw_mode") == SW_MODE_AP && nvram_get_int("modem_bridge")))
+#endif
 			{
 				if((unit = get_wanunit_by_type(get_wantype_by_modemunit(modem_unit))) == WAN_UNIT_NONE){
-					usb_dbg("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
 					_dprintf("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
 					return;
 				}
-				snprintf(prefix, 32, "wan%d_", unit);
+				snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 			}
 
-			snprintf(buf, 32, "unit=%d", modem_unit);
+			snprintf(buf, sizeof(buf), "unit=%d", modem_unit);
 			putenv(buf);
 			eval("/usr/sbin/find_modem_type.sh");
 
@@ -2804,7 +2877,7 @@ NEITHER_WDS_OR_PSTA:
 			}
 			unsetenv("unit");
 
-			snprintf(modem_type, 8, "%s", nvram_safe_get(strcat_r(prefix2, "act_type", tmp2)));
+			snprintf(modem_type, sizeof(modem_type), "%s", nvram_safe_get(strcat_r(prefix2, "act_type", tmp2)));
 			_dprintf("hotplug net: %s=%s.\n", tmp2, modem_type);
 			if(!strcmp(modem_type, "mbim")){
 				_dprintf("hotplug net(%s): skip the MBIM interface.\n", interface);
@@ -2833,8 +2906,8 @@ NEITHER_WDS_OR_PSTA:
 				sleep(2);
 #endif
 
-			snprintf(nvram_name, 32, "usb_path%s_act", port_path);
-			snprintf(word, PATH_MAX, "%s", nvram_safe_get(nvram_name));
+			snprintf(nvram_name, sizeof(nvram_name), "usb_path%s_act", port_path);
+			snprintf(word, sizeof(word), "%s", nvram_safe_get(nvram_name));
 			_dprintf("hotplug net(%s): %s %s.\n", interface, nvram_name, word);
 
 			//if(!strcmp(word, "usb1") && strcmp(interface, "usb1")){
@@ -2848,12 +2921,15 @@ NEITHER_WDS_OR_PSTA:
 				logmessage("hotplug", "set net %s.", interface);
 				_dprintf("hotplug net: set net %s.\n", interface);
 				nvram_set(nvram_name, interface);
-				snprintf(buf, 32, "%u", vid);
+				snprintf(buf, sizeof(buf), "%u", vid);
 				nvram_set(strcat_r(prefix2, "act_vid", tmp2), buf);
-				snprintf(buf, 32, "%u", pid);
+				snprintf(buf, sizeof(buf), "%u", pid);
 				nvram_set(strcat_r(prefix2, "act_pid", tmp2), buf);
 				nvram_set(strcat_r(prefix2, "act_dev", tmp2), interface);
 
+#ifdef RTCONFIG_MODEM_BRIDGE
+				if(!(nvram_get_int("sw_mode") == SW_MODE_AP && nvram_get_int("modem_bridge")))
+#endif
 					nvram_set(strcat_r(prefix, "ifname", tmp), interface);
 			}
 
@@ -2866,7 +2942,7 @@ NEITHER_WDS_OR_PSTA:
 			else{
 				// wait that the modem nvrams are ready during booting.
 				// e.q. Huawei E398.
-				snprintf(nvram_name, 32, "usb_path%s", port_path);
+				snprintf(nvram_name, sizeof(nvram_name), "usb_path%s", port_path);
 				i = 0;
 				while(strcmp(nvram_safe_get(nvram_name), "modem") && i++ < 3){
 					_dprintf("%s: waiting %d second for the modem nvrams...\n", __FUNCTION__, i);
@@ -2881,12 +2957,27 @@ NEITHER_WDS_OR_PSTA:
 				return;
 			}
 
+#ifdef RTCONFIG_MODEM_BRIDGE
+			if(nvram_get_int("sw_mode") == SW_MODE_AP && nvram_get_int("modem_bridge")){
+				char *modem_argv[] = {"/usr/sbin/modem_enable.sh", NULL};
+
+				eval("brctl", "addif", lan_ifname, interface);
+
+				snprintf(buf, sizeof(buf), "unit=%d", modem_unit);
+				putenv(buf);
+				_eval(modem_argv, ">>/tmp/usb.log", 0, NULL);
+				unsetenv("unit");
+
+				return;
+			}
+#endif
+
 #ifdef RTCONFIG_DUALWAN
 			// avoid the busy time of every start_wan when booting.
 			if(!strcmp(nvram_safe_get("success_start_service"), "0")
-					&& strcmp(modem_type, "rndis") // rndis modem can't get IP when booting.
-					&& strcmp(modem_type, "qmi") // qmi modem often be blocked when booting.
-					&& (unit == WAN_UNIT_FIRST || (unit != WAN_UNIT_NONE && nvram_match("wans_mode", "lb")))
+					//&& strcmp(modem_type, "rndis") // rndis modem can't get IP when booting.
+					//&& strcmp(modem_type, "qmi") // qmi modem often be blocked when booting.
+					&& (unit == wan_primary_ifunit() || (unit != WAN_UNIT_NONE && nvram_match("wans_mode", "lb")))
 					){
 				_dprintf("%s: start_wan_if(%d)!\n", __FUNCTION__, unit);
 				start_wan_if(unit);
@@ -2905,14 +2996,14 @@ NEITHER_WDS_OR_PSTA:
 
 			usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-			snprintf(usb_node, 32, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+			snprintf(usb_node, sizeof(usb_node), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
 			if(strlen(usb_node) <= 0)
 				return;
 
 			if(get_path_by_node(usb_node, port_path, 8) == NULL)
 				return;
 
-			snprintf(nvram_name, 32, "usb_path%s_act", port_path);
+			snprintf(nvram_name, sizeof(nvram_name), "usb_path%s_act", port_path);
 			if(strcmp(nvram_safe_get(nvram_name), interface))
 				return;
 
@@ -2920,19 +3011,21 @@ NEITHER_WDS_OR_PSTA:
 
 			clean_modem_state(modem_unit, 1);
 
+#ifdef RTCONFIG_MODEM_BRIDGE
+			if(nvram_get_int("sw_mode") == SW_MODE_AP && nvram_get_int("modem_bridge"))
+				return;
+#endif
+
 			if((unit = get_wanunit_by_type(get_wantype_by_modemunit(modem_unit))) == WAN_UNIT_NONE){
-				usb_dbg("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
+				_dprintf("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
 				return;
 			}
-			snprintf(prefix, 32, "wan%d_", unit);
+			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 			nvram_set(strcat_r(prefix, "ifname", tmp), "");
-
-			/* Stop dhcp client */
-			stop_udhcpc(unit);
 		}
 	}
-	// Beceem dongle, ASIX USB to RJ45 converter, ECM, rndis(LU-150: ethX with RNDIS).
+	// Beceem dongle, ASIX USB to RJ45 converter, ECM, RNDIS(LU-150: ethX with RNDIS).
 	else if(!strncmp(interface, "eth", 3)) {
 		if(nvram_get_int("sw_mode") != SW_MODE_ROUTER)
 			return;
@@ -2983,65 +3076,95 @@ NEITHER_WDS_OR_PSTA:
 			if(!strcmp(interface, word))
 				return;
 
-		if(!strcmp(action, "add")) {
-			_dprintf("hotplug net INTERFACE=%s ACTION=%s: wait 2 seconds...\n", interface, action);
-			sleep(2);
+		// Not vlan.
+		if(index(interface, '.') != NULL)
+			return;
 
-			snprintf(device_path, 128, "%s/%s/device", SYS_NET, interface);
+		if(!strcmp(action, "add")){
+			logmessage("hotplug", "add net %s.", interface);
+			_dprintf("hotplug net: add net %s.\n", interface);
 
-			// Huawei E353.
-			if(check_if_dir_exist(device_path)) {
-				memset(usb_path, 0, PATH_MAX);
-				if(realpath(device_path, usb_path) == NULL)
-					return;
+			snprintf(device_path, sizeof(device_path), "%s/%s/device", SYS_NET, interface);
 
-				if(get_usb_node_by_string(usb_path, usb_node, 32) == NULL)
-					return;
-
-				if(get_path_by_node(usb_node, port_path, 8) == NULL)
-					return;
-
-				snprintf(nvram_name, 32, "usb_path%s_act", port_path);
-				nvram_set(nvram_name, interface);
-
-				for(modem_unit = MODEM_UNIT_FIRST; modem_unit < MODEM_UNIT_MAX; ++modem_unit){
-					usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
-
-					snprintf(buf, 32, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
-					if(strlen(buf) > 0 && strcmp(buf, usb_node)){
-						_dprintf("hotplug net(%s): skip 4. port_path %s.\n", interface, port_path);
-						continue;
-					}
-					else
-						break;
-				}
-
-				if(modem_unit == MODEM_UNIT_MAX){
-					_dprintf("hotplug net(%s): Already had %d modem device!\n", interface, MODEM_UNIT_MAX);
-					return;
-				}
-				else if(strlen(buf) <= 0){
-					nvram_set(strcat_r(prefix2, "act_path", tmp2), usb_node); // needed by find_modem_type.sh.
-					nvram_set(strcat_r(prefix2, "act_dev", tmp2), interface);
-
-					if((unit = get_wanunit_by_type(get_wantype_by_modemunit(modem_unit))) == WAN_UNIT_NONE){
-						usb_dbg("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
-						return;
-					}
-					snprintf(prefix, 32, "wan%d_", unit);
-
-					nvram_set(strcat_r(prefix, "ifname", tmp), interface);
-				}
+			i = 0;
+			while(i++ < 3 && !check_if_dir_exist(device_path)){
+				_dprintf("hotplug net INTERFACE=%s ACTION=%s: wait 1 seconds...\n", interface, action);
+				sleep(1);
 			}
+
 			// Beceem dongle.
-			else{
-				// do nothing.
+			if(!check_if_dir_exist(device_path))
+				return;
+
+			memset(usb_path, 0, PATH_MAX);
+			if(realpath(device_path, usb_path) == NULL){
+				_dprintf("hotplug net(%s): skip 1. device_path %s.\n", interface, device_path);
+				return;
 			}
+
+			if(get_usb_node_by_string(usb_path, usb_node, 32) == NULL){
+				_dprintf("hotplug net(%s): skip 2. usb_path %s.\n", interface, usb_path);
+				return;
+			}
+
+			if(get_path_by_node(usb_node, port_path, 8) == NULL){
+				_dprintf("hotplug net(%s): skip 3. usb_node %s.\n", interface, usb_node);
+				return;
+			}
+
+			for(modem_unit = MODEM_UNIT_FIRST; modem_unit < MODEM_UNIT_MAX; ++modem_unit){
+				usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
+
+				snprintf(buf, sizeof(buf), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+				if(strlen(buf) > 0 && strcmp(buf, usb_node)){
+					_dprintf("hotplug net(%s): skip 4. port_path %s.\n", interface, port_path);
+					continue;
+				}
+				else
+					break;
+			}
+
+			if(modem_unit == MODEM_UNIT_MAX){
+				_dprintf("hotplug net(%s): Already had %d modem device!\n", interface, MODEM_UNIT_MAX);
+				return;
+			}
+			else if(strlen(buf) <= 0)
+				nvram_set(strcat_r(prefix2, "act_path", tmp2), usb_node); // needed by find_modem_type.sh.
+
+			if((unit = get_wanunit_by_type(get_wantype_by_modemunit(modem_unit))) == WAN_UNIT_NONE){
+				_dprintf("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
+				return;
+			}
+			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+			snprintf(buf, sizeof(buf), "unit=%d", modem_unit);
+			putenv(buf);
+			eval("/usr/sbin/find_modem_type.sh");
+
+			while(!strcmp(nvram_safe_get(strcat_r(prefix2, "act_type", tmp2)), "") && i++ < 3){
+				_dprintf("hotplug net(%s): wait for the modem driver at %d second...\n", interface, i);
+				eval("/usr/sbin/find_modem_type.sh");
+				sleep(1);
+			}
+			unsetenv("unit");
+
+			snprintf(modem_type, sizeof(modem_type), "%s", nvram_safe_get(strcat_r(prefix2, "act_type", tmp2)));
+			_dprintf("hotplug net: %s=%s.\n", tmp2, modem_type);
+
+			snprintf(nvram_name, sizeof(nvram_name), "usb_path%s_act", port_path);
+			snprintf(word, sizeof(word), "%s", nvram_safe_get(nvram_name));
+			_dprintf("hotplug net(%s): %s %s.\n", interface, nvram_name, word);
+
+			logmessage("hotplug", "set net %s.", interface);
+			_dprintf("hotplug net: set net %s.\n", interface);
+			nvram_set(nvram_name, interface);
+			nvram_set(strcat_r(prefix2, "act_dev", tmp2), interface);
+			nvram_set(strcat_r(prefix, "ifname", tmp), interface);
 
 #ifdef RTCONFIG_DUALWAN
 			// avoid the busy time of every start_wan when booting.
 			if(!strcmp(nvram_safe_get("success_start_service"), "0")
-					&& (unit == WAN_UNIT_FIRST || (unit != WAN_UNIT_NONE && nvram_match("wans_mode", "lb")))
+					&& (unit == wan_primary_ifunit() || (unit != WAN_UNIT_NONE && nvram_match("wans_mode", "lb")))
 					){
 				_dprintf("%s: start_wan_if(%d)!\n", __FUNCTION__, unit);
 				start_wan_if(unit);
@@ -3060,33 +3183,28 @@ NEITHER_WDS_OR_PSTA:
 
 			usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
 
-			if((unit = get_wanunit_by_type(get_wantype_by_modemunit(modem_unit))) == WAN_UNIT_NONE){
-				usb_dbg("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
-				return;
-			}
-			snprintf(prefix, 32, "wan%d_", unit);
-
-			nvram_set(strcat_r(prefix, "ifname", tmp), "");
-
-			stop_wan_if(unit);
-
-			snprintf(usb_node, 32, "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
+			snprintf(usb_node, sizeof(usb_node), "%s", nvram_safe_get(strcat_r(prefix2, "act_path", tmp2)));
 			if(strlen(usb_node) <= 0)
 				return;
 
 			if(get_path_by_node(usb_node, port_path, 8) == NULL)
 				return;
 
-			snprintf(nvram_name, 32, "usb_path%s_act", port_path);
+			snprintf(nvram_name, sizeof(nvram_name), "usb_path%s_act", port_path);
+			if(strcmp(nvram_safe_get(nvram_name), interface))
+				return;
 
-			if(!strcmp(nvram_safe_get(nvram_name), interface)) {
-				nvram_unset(nvram_name);
+			nvram_unset(nvram_name);
 
-				clean_modem_state(modem_unit, 1);
+			clean_modem_state(modem_unit, 1);
+
+			if((unit = get_wanunit_by_type(get_wantype_by_modemunit(modem_unit))) == WAN_UNIT_NONE){
+				_dprintf("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
+				return;
 			}
+			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-			/* Stop dhcp client */
-			stop_udhcpc(unit);
+			nvram_set(strcat_r(prefix, "ifname", tmp), "");
 
 #ifdef RTCONFIG_USB_BECEEM
 			if(strlen(port_path) <= 0)
@@ -3105,14 +3223,14 @@ NEITHER_WDS_OR_PSTA:
 				&& (unit = get_usb2if_dualwan_unit()) < 0
 #endif
 				){
-			usb_dbg("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
+			_dprintf("(%s): in the current dual wan mode, didn't support the USB modem.\n", interface);
 			return;
 		}
 
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 		if(!strcmp(action, "add")){
-			snprintf(usb_node, 32, "%s", nvram_safe_get("usb_modem_act_path"));
+			snprintf(usb_node, sizeof(usb_node), "%s", nvram_safe_get("usb_modem_act_path"));
 			if(strlen(usb_node) <= 0)
 				return;
 			if(get_path_by_node(usb_node, port_path, 8) == NULL)
@@ -3120,7 +3238,7 @@ NEITHER_WDS_OR_PSTA:
 
 			nvram_set(strcat_r(prefix, "ifname", tmp), interface);
 
-			snprintf(nvram_name, 32, "usb_path%s_act", port_path);
+			snprintf(nvram_name, sizeof(nvram_name), "usb_path%s_act", port_path);
 			nvram_set(nvram_name, interface);
 			nvram_set("usb_modem_act_dev", interface);
 
@@ -3503,20 +3621,18 @@ int radio_switch(int subunit)
 	return 0;
 }
 
-int delay_main(int argc, char *argv[])
-{
+int delay_main(int argc, char *argv[]){
 	char buff[100];
 	int i;
-	if(argc>1)
-	{
+
+	if(argc > 1){
 		sleep(atoi(argv[1]));
-		memset(buff,0,sizeof(buff));
-		i=2;
-		while(i<argc)
-		{
-			strcat(buff,argv[i]);
-			strcat(buff," ");
-			i++;
+		memset(buff, 0, sizeof(buff));
+		i = 2;
+		while(i < argc){
+			strcat(buff, argv[i]);
+			strcat(buff, " ");
+			++i;
 		}
 		doSystem(buff);
 	}
@@ -3537,7 +3653,11 @@ HELP:
 		usage_exit(argv[0], "on|off|toggle|switch|join [N]\n");
 	}
 	unit = (argc >= 3) ? atoi(argv[2]) : -1;
+#ifdef RTCONFIG_QCA
+	subunit = (argc >= 4) ? atoi(argv[3]) : -1;
+#else
 	subunit = (argc >= 4) ? atoi(argv[3]) : 0;
+#endif
 
 	if (strcmp(argv[1], "toggle") == 0)
 		op = RADIO_TOGGLE;
@@ -3683,7 +3803,6 @@ update_lan_resolvconf(void)
 	return 0;
 }
 
-
 void
 lan_up(char *lan_ifname)
 {
@@ -3785,6 +3904,25 @@ lan_up(char *lan_ifname)
 #endif
 
 #ifdef RTCONFIG_USB
+	/* Restart Samba if LAN network changes.
+	 * If we don't do this, LAN clients can't access Samba without restarting NAS service.
+	 * Because only clients in OLD network are accepted.
+	 */
+	if (nvram_match("lan_proto", "dhcp") &&
+	    !illegal_ipv4_address(nvram_get("last_lan_ipaddr")) &&
+	    !illegal_ipv4_netmask(nvram_get("last_lan_netmask")) &&
+	    inet_equal(nvram_safe_get("last_lan_ipaddr"), nvram_safe_get("last_lan_netmask"),
+		    nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask")))
+	{
+		logmessage("LAN network changes (%s/%s --> %s/%s).\n",
+			nvram_safe_get("last_lan_ipaddr"), nvram_safe_get("last_lan_netmask"),
+			nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
+		nvram_set("last_lan_ipaddr", nvram_safe_get("lan_ipaddr"));
+		nvram_set("last_lan_netmask", nvram_safe_get("lan_netmask"));
+		stop_samba();
+		start_samba();
+	}
+
 #ifdef RTCONFIG_MEDIA_SERVER
 	if(get_invoke_later()&INVOKELATER_DMS)
 		notify_rc("restart_dms");
@@ -3981,14 +4119,7 @@ void start_lan_wl(void)
 	}
 #endif
 
-	if (no_need_to_start_wps() ||
-	    wps_band_radio_off(get_radio_band(nvram_get_int("wps_band"))) ||
-	    wps_band_ssid_broadcast_off(get_radio_band(nvram_get_int("wps_band"))))
-		nvram_set("wps_enable", "0");
-	/* recover wps enable option back to original state */
-	else if (nvram_get("wps_enable_old") && !nvram_match("wps_enable", nvram_safe_get("wps_enable_old"))) {
-		nvram_set("wps_enable", nvram_safe_get("wps_enable_old"));
-	}
+	check_wps_enable();
 
 	lan_ifname = strdup(nvram_safe_get("lan_ifname"));
 #ifdef RTCONFIG_EMF
@@ -4449,16 +4580,37 @@ void CP_lanaccess_wl(void)
 void lanaccess_wl(void)
 {
 	char *p, *ifname;
-	char *wl_ifnames;
+	char *wl_ifnames, prefix[sizeof("wlX_XXX")];
+	char owif[IFNAMSIZ], lan_subnet[32], lan_hwaddr[sizeof("00:00:00:00:00:00XXX")];
+	int u, unit;
 #ifdef CONFIG_BCMWL5
-	int unit, subunit;
+	int subunit;
 #endif
 
+	snprintf(lan_subnet, sizeof(lan_subnet), "%s/%s", nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
+	strlcpy(lan_hwaddr, get_lan_hwaddr(), sizeof(lan_hwaddr));
 	if ((wl_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
 		p = wl_ifnames;
 		while ((ifname = strsep(&p, " ")) != NULL) {
 			while (*ifname == ' ') ++ifname;
 			if (*ifname == 0) break;
+
+			/* AP isolate */
+			if (!guest_wlif(ifname) && (unit = get_wifi_unit(ifname)) >= 0) {
+				snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+				if (!nvram_pf_get_int(prefix, "ap_isolate"))
+					continue;
+
+				eval("ebtables", "-A", "INPUT", "-i", ifname, "-d", lan_hwaddr, "-p", "ipv4", "--ip-dst", nvram_safe_get("lan_ipaddr"), "-j", "ACCEPT");
+				eval("ebtables", "-A", "INPUT", "-i", ifname, "-d", lan_hwaddr, "-p", "ipv4", "--ip-dst", lan_subnet, "-j", "DROP");
+
+				for (u = 0; u < MAX_NR_WL_IF; ++u) {
+					if (u == unit || !get_wlxy_ifname(u, 0, owif))
+						continue;
+					eval("ebtables", "-A", "FORWARD", "-p", "arp", "-i", ifname, "-o", owif, "-j", "DROP");
+				}
+			}
+
 #ifdef CONFIG_BCMWL5
 			if (guest_wlif(ifname)) {
 				if (get_ifname_unit(ifname, &unit, &subunit) < 0)
@@ -4834,7 +4986,9 @@ void restart_wireless_wps(void)
 	) setup_dnsmq(1);
 #endif
 
+#ifndef RTCONFIG_QCA
 	nvram_set_int("wlready", 1);
+#endif
 
 	file_unlock(lock);
 }

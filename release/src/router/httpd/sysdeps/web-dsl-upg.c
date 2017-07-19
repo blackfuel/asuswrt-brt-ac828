@@ -98,9 +98,8 @@ typedef struct {
 	unsigned char ih_name[IH_NMLEN];
 } IMAGE_HEADER_TRX;
 
-int separate_tc_fw_from_trx()
+int separate_tc_fw_from_trx(char* trxpath)
 {
-	IMAGE_HEADER_TRX* TrxHdr;
 	FILE* FpTrx;
 	char TrxHdrBuf[512];
 	char buf[4096];
@@ -108,26 +107,39 @@ int separate_tc_fw_from_trx()
 	unsigned int TrxSize;
 	unsigned int filelen;
 	unsigned int TcFwSize;	
-	int TcFwExist = 0;
 	int RetVal = 0;
+	size_t r_counts = 0;
+	size_t TrxHdrBuf_size = sizeof(TrxHdrBuf);
 
 	FILE* fpSrc = NULL;
 	FILE* fpDst = NULL;	
 
-	FpTrx = fopen("/tmp/linux.trx","rb");
-	if (FpTrx == NULL) goto err;
-	fread(TrxHdrBuf,1,sizeof(TrxHdrBuf),FpTrx);	  
-	fseek( FpTrx, 0, SEEK_END);
-	filelen = ftell( FpTrx );
-	fclose(FpTrx);
+	FpTrx = fopen(trxpath,"rb");
+	if (FpTrx == NULL)
+	{
+		goto err;
+	}
 
-	pTrxSize = &TrxHdrBuf[12];
+	r_counts = fread(TrxHdrBuf,1,TrxHdrBuf_size,FpTrx);
+	if(r_counts == TrxHdrBuf_size)
+	{
+		fseek( FpTrx, 0, SEEK_END);
+		filelen = ftell( FpTrx );
+		fclose(FpTrx);
+	}
+	else
+	{
+		cprintf("Cannot read trx header correctly!\n");
+		fclose(FpTrx);
+		goto err;
+	}
+	pTrxSize = (unsigned int*)&TrxHdrBuf[12];
 	TrxSize = SWAP_LONG(*pTrxSize) + 64;
-	printf("trx size %x , file size %x\n",TrxSize,filelen);
+	cprintf("trx size %x , file size %x\n",TrxSize,filelen);
 	if (filelen > TrxSize)
 	{
 		TcFwSize = filelen - TrxSize;
-		printf("tcfw size %x\n",TcFwSize);	
+		cprintf("tcfw size %x\n",TcFwSize);
 
 		//
 		// linux trx has several bytes garbage in the file tail
@@ -135,7 +147,7 @@ int separate_tc_fw_from_trx()
 		//
 		if (TcFwSize > 0x100)
 		{
-			fpSrc = fopen("/tmp/linux.trx", "rb");
+			fpSrc = fopen(trxpath, "rb");
 			if (fpSrc==NULL) goto err;
 			fpDst = fopen("/tmp/tcfw.bin", "wb");
 			if (fpDst==NULL) goto err;
@@ -158,17 +170,25 @@ int separate_tc_fw_from_trx()
 			}
 
 			update_tc_fw = 1;
-		}			
+		}
+		else {
+			cprintf("no tc fw\n");
+			goto err;
+		}
 	}
 	else if (TrxSize == filelen)
 	{
 		// only trx, no tc fw
-		printf("no tc fw\n");			
+		cprintf("no tc fw\n");
+		goto err;
 	}
 
 	RetVal = 1;
 	
 err:
+	if(TrxSize)
+		truncate(trxpath, TrxSize);
+
 	if (fpSrc)
 		fclose(fpSrc);
 
@@ -237,12 +257,13 @@ int check_tc_firmware_crc()
 	long filelen, *filelenptr;
 	int cmpHeaderErr = 0;
 	int RetVal = 0;
-	char buf[4096];
+	char buf[4096] = {0};
 	int new_modem_trx_ver;
 	int curr_modem_trx_ver;
-	unsigned char bBuf[4096];
+	unsigned char bBuf[4096] = {0};
 	unsigned char tag[] = {0x3C, 0x23, 0x24, 0x3E};	//<#$>
 	int bBufsize = sizeof(bBuf);
+	size_t r_counts = 0;
 
 	if (update_tc_fw == 0) return 0;
 	
@@ -260,10 +281,16 @@ int check_tc_firmware_crc()
 		goto exit;
 	}
 
-	fread(buf, 1, 0x100, fpSrc);
-
-	printf("TC FW VER : %c%c%c , %s , %s\n",buf[0],buf[1],buf[2],TC_DSL_FW_VER,TC_DSL_FW_VER_FROM_MODEM);
-
+	r_counts = fread(buf, 1, 0x100, fpSrc);
+	if(r_counts == 0x100)
+	{
+		cprintf("TC FW VER : %c%c%c , %s , %s\n",buf[0],buf[1],buf[2],TC_DSL_FW_VER,TC_DSL_FW_VER_FROM_MODEM);
+	}
+	else
+	{
+		RetVal = -1;
+		goto exit;
+	}
 
 	//read tcfw.bin and find the driver ras info, date ...
 	fseek(fpSrc, 0xF000, SEEK_SET);
@@ -285,17 +312,32 @@ int check_tc_firmware_crc()
 		else
 			continue;
 	}
-	printf("bin date: %s\n", (char*)bBuf+read_idx-14);
-	printf("bin ras: %s\n", (char*)bBuf+read_idx+4);
-	
+	if((read_idx-14 >= 0)&&(read_idx-14 < bBufsize))
+	{
+		cprintf("bin date: %s\n", (char*)bBuf+read_idx-14);
+	}
+	else
+	{
+		goto exit;
+	}
+
+	if((read_idx+4 >= 0)&&(read_idx+4 < bBufsize))
+	{
+		cprintf("bin ras: %s\n", (char*)bBuf+read_idx+4);
+	}
+	else
+	{
+		goto exit;
+	}
+
 	fseek(fpSrc, 0x0100, SEEK_SET);
-	
+
 	//check Annex mode
 #ifdef RTCONFIG_DSL_ANNEX_B
 	if(bBuf[read_idx+14] != 'B') {	//ASUS_Annex'B'_..
 		if(bBuf[read_idx+9] != '1') {	//check for the old ras info ASUS_1020
 			RetVal = -1;
-			printf("check annex failed\n");
+			cprintf("check annex failed\n");
 			goto exit;
 		}
 	}
@@ -303,7 +345,7 @@ int check_tc_firmware_crc()
 	if(bBuf[read_idx+14] != 'A') {	//ASUS_ANNEX'A'IJLM_..
 		if(bBuf[read_idx+9] != '1') {	//check for the old ras info ASUS_1020
 			RetVal = -1;
-			printf("check annex failed\n");
+			cprintf("check annex failed\n");
 			goto exit;
 		}
 	}
@@ -314,7 +356,7 @@ int check_tc_firmware_crc()
 		// RAS:ASUS_ANNEXAIJLM_20120423
 		// System:3.6.18.0(BE.C3)3.16.18.0| 2011/10/31   20111031_v012  [Oct 31 2011 12:53:59]
 	FILE *fpCur;
-	char ver_info_buf[256];
+	char ver_info_buf[256] = {0};
 	int line_idx = 3;
 	int ver_idx = 0;
 	fpCur = fopen("/tmp/adsl/tc_ver_info.txt", "r");
@@ -322,10 +364,10 @@ int check_tc_firmware_crc()
 		while(line_idx--)
 			fgets(ver_info_buf, 256, fpCur);
 		fclose(fpCur);
-		while(++ver_idx < 256) {
+		while(++ver_idx < 256 - 12) {
 			if(ver_info_buf[ver_idx] == 0x7C) {
 				*(ver_info_buf + ver_idx + 12) = '\0';
-				printf("cur date: %s\n", ver_info_buf+ver_idx+2);
+				cprintf("cur date: %s\n", ver_info_buf+ver_idx+2);
 				if(!strncmp(ver_info_buf+ver_idx+2, (char*)bBuf+read_idx-14, 10))
 					update_tc_fw = 0;
 				else
@@ -335,13 +377,14 @@ int check_tc_firmware_crc()
 				continue;
 		}
 	}
-	
+
+	memset(ver_info_buf, 0, sizeof(ver_info_buf));
 	//check RAS
 	fpCur = fopen("/tmp/adsl/tc_ras_ver.txt", "r");
 	if(fpCur != NULL) {
 		fgets(ver_info_buf, 256, fpCur);
 		fclose(fpCur);
-		printf("cur ras: %s\n", ver_info_buf);
+		cprintf("cur ras: %255s\n", ver_info_buf);
 #ifdef RTCONFIG_DSL_ANNEX_B
 		if(!strncmp(ver_info_buf, (char*)bBuf+read_idx+4, 20))	//ASUS_AnnexB_20111031
 #else
@@ -351,121 +394,9 @@ int check_tc_firmware_crc()
 		else
 			update_tc_fw = 1;
 	}
-	printf("update tc fw or not: %d (0 is not)\n", update_tc_fw);
-	
-#if 0	//disable by Sam, 2012/07/12
-	
-// There are two firmware on single TRX.  One is router firmware and the other is modem firmware.
-// Router firmware could upgrade or downgrade depends on end-user. 
-// For ADSL firmware , we will allow end-user to upgrade only because modem firmware updating is really dangerous.
-// That¡¦s okay even uses new modem firmware on old router firmware.
-// End-user could downgrade router firmware below 1.021 first and then upgrade old TRX again. The modem firmware will be downgraded.
+	cprintf("update tc fw or not: %d (0 is not)\n", update_tc_fw);
 
-	// get ver number from trx
-	buf[3] = 0;
-	new_modem_trx_ver = atoi(buf);
-#ifdef DSL_N55U_ANNEX_B	
-	curr_modem_trx_ver = atoi(TC_DSL_FW_VER_ANNEX_B);	
-#else
-	curr_modem_trx_ver = atoi(TC_DSL_FW_VER);
-#endif
-	if(curr_modem_trx_ver > new_modem_trx_ver)
-	{
-		update_tc_fw = 0;
-	}
-	else
-	{
-#define TC_BUF_SZIE 256	
-		int buf_idx;
-		int tc_fw_ver_diff = 0;
-		int tc_ras_ver_diff = 0;		
-		char buf_tc_fw_ver[TC_BUF_SZIE];
-		FILE *fp;
-		fp = fopen("/tmp/adsl/tc_fw_ver_short.txt", "r");
-		if (fp != NULL) {
-			memset(buf_tc_fw_ver, 0, TC_BUF_SZIE);		
-			fgets(buf_tc_fw_ver, TC_BUF_SZIE, fp);
-			fclose(fp);		
-			// normalize string
-			for (buf_idx=0; buf_idx<TC_BUF_SZIE; buf_idx++) {
-				if (buf_tc_fw_ver[buf_idx]==0x0d || buf_tc_fw_ver[buf_idx]==0x0a) buf_tc_fw_ver[buf_idx] = 0;
-				if (buf_tc_fw_ver[buf_idx] == 0) break;
-			}
-#ifdef DSL_N55U_ANNEX_B
-			if(strcmp(buf_tc_fw_ver, TC_DSL_FW_VER_FROM_MODEM_ANNEX_B) == 0)
-			{
-				printf("annex b firmware is the same\n");
-			}
-			else
-			{
-				tc_fw_ver_diff = 1;
-			}
-#else
-			if(strcmp(buf_tc_fw_ver, TC_DSL_FW_VER_FROM_MODEM) == 0)
-			{
-				printf("annex a firmware is the same\n");
-			}
-			else
-			{
-				tc_fw_ver_diff = 1;
-			}			
-#endif
-		}
-
-		fp = fopen("/tmp/adsl/tc_ras_ver.txt", "r");
-		if (fp != NULL) {
-			memset(buf_tc_fw_ver, 0, TC_BUF_SZIE);		
-			fgets(buf_tc_fw_ver, TC_BUF_SZIE, fp);
-			fclose(fp);		
-			// normalize string
-			for (buf_idx=0; buf_idx<TC_BUF_SZIE; buf_idx++) {
-				if (buf_tc_fw_ver[buf_idx]==0x0d || buf_tc_fw_ver[buf_idx]==0x0a) buf_tc_fw_ver[buf_idx] = 0;
-				if (buf_tc_fw_ver[buf_idx] == 0) break;
-			}
-#ifdef DSL_N55U_ANNEX_B
-			if(strcmp(buf_tc_fw_ver, TC_DSL_RAS_VER_FROM_MODEM_ANNEX_B) == 0)
-			{
-				printf("annex b firmware is the same\n");
-			}
-			else
-			{
-				tc_ras_ver_diff = 1;
-			}
-			//check Annex mode, Sam 2012/06/20
-			if(buf_tc_fw_ver[10] != 'B') {	//ASUS_Annex'B'_..
-				RetVal = -1;
-				goto exit;
-			}
-#else
-			if(strcmp(buf_tc_fw_ver, TC_DSL_RAS_VER_FROM_MODEM) == 0)
-			{
-				printf("annex a firmware is the same\n");
-			}
-			else
-			{
-				tc_ras_ver_diff = 1;
-			}
-			//check Annex mode, Sam 2012/06/20
-			if(buf_tc_fw_ver[10] != 'A') {	//ASUS_ANNEX'A'IJLM_..
-				RetVal = -1;
-				goto exit;
-			}
-#endif
-		}		
-
-		if (tc_fw_ver_diff || tc_ras_ver_diff)
-		{			
-			// fw ver or ras ver is differnt
-			// then , upgrade the modem firmware
-		}
-		else
-		{
-			update_tc_fw = 0;
-		}
-	}
-#endif	//#if 0
-
-	printf("tcfw magic : %x %x %x\n",buf[4],buf[5],buf[6]);
+	cprintf("tcfw magic : %x %x %x\n",buf[4],buf[5],buf[6]);
 
 	if (strncmp(&buf[4], TC_DSL_MAGIC_NUMBER, 3) == 0)
 	{
@@ -480,13 +411,13 @@ int check_tc_firmware_crc()
 
 	filelenptr=(long*)(buf+22);
 	filelen=*filelenptr;
-	printf("tcfw Filelen: %d\n", filelen);
+	cprintf("tcfw Filelen: %ld\n", filelen);
 	tcfilelen=filelen-0x100;
 
 	crc_value_ptr=(unsigned long*)(buf+34);
 	crc_value=*crc_value_ptr;
 	crc_value=SWAP_LONG(crc_value);
-	printf("tcfw crc: %x\n", crc_value);	
+	cprintf("tcfw crc: %lx\n", crc_value);
 
 	calc_crc = 0xffffffff;
 
@@ -509,8 +440,8 @@ int check_tc_firmware_crc()
 	}
 
 
-	printf("tcfw calc crc is %x\n", calc_crc);
-	printf("tcfw done\n");
+	cprintf("tcfw calc crc is %lx\n", calc_crc);
+	cprintf("tcfw done\n");
 
 
 exit:
@@ -531,66 +462,12 @@ exit:
 	return RetVal;		
 }
 
-/* 
- * 0: illegal image
- * 1: legal image
- *
- * check product id, crc ..
- */
-
-// ANNEX A
-//DSL-N55U_1.0.0.9_Annex_A.trx
-// ANNEX B
-//DSL-N55U_1.0.0.9_Annex_B.trx
-
-
-int dsl_check_imagefile_str(char *fname)
-{
-	int len;
-	char end_char;
-	len = strlen(fname);
-	if (len > 0) len--;
-	end_char = *(fname+len);
-#ifdef DSL_N55U_ANNEX_B
-	if (end_char != 'B') return 0;
-#else
-	if (end_char != 'A') return 0;
-#endif
-	return 1;
-}
-
-
-int truncate_trx(void)
-{
-	IMAGE_HEADER_TRX* TrxHdr;
-	FILE* FpTrx;
-	char TrxHdrBuf[512];
-	unsigned int* pTrxSize;
-	unsigned int TrxSize;
-
-//	if (update_tc_fw == 0) return 0;
-
-	FpTrx = fopen("/tmp/linux.trx","rb");
-	if (FpTrx == NULL) return 0;
-	fread(TrxHdrBuf,1,sizeof(TrxHdrBuf),FpTrx);	  
-	fclose(FpTrx);
-	pTrxSize = &TrxHdrBuf[12];
-	TrxSize = SWAP_LONG(*pTrxSize);
-	//printf("trx size %x\n",TrxSize);
-	truncate("/tmp/linux.trx",TrxSize + 64);
-	// 64 is trx header size
-	return 1;	
-}	
-
 #define ADSL_FW_IP_PREFIX "194.255.255."
-
 
 void do_upgrade_adsldrv(void)
 {
-	int ret;
 	char UpdateFwBuf[256];
 	char PingBuf[256];
-	char OneLine[80];
 	char ipaddr[80];
 	FILE* fp;
 	int WaitCnt;
@@ -606,27 +483,27 @@ void do_upgrade_adsldrv(void)
 	// if adsl fw IP address is different, user should update to a new router fw first
 	if (strncmp(ipaddr,ADSL_FW_IP_PREFIX,sizeof(ADSL_FW_IP_PREFIX)-1)!=0) chk_image_err = 1;
 
-	strcpy(UpdateFwBuf,"cd /tmp; tftp -p -l ras.bin ");
-	strcat(UpdateFwBuf,ipaddr);
+	snprintf(UpdateFwBuf, sizeof(UpdateFwBuf), "cd /tmp; tftp -p -l ras.bin ");
+	snprintf(UpdateFwBuf+strlen(UpdateFwBuf), sizeof(UpdateFwBuf)-strlen(UpdateFwBuf), "%s", ipaddr);
 
-	printf("## upgrade tc fw\n");
+	cprintf("## upgrade tc fw\n");
 	
 	if (chk_image_err == 0)
 	{
-		printf("IP alias for ADSL firmware update\n");
+		cprintf("IP alias for ADSL firmware update\n");
 		// this command will stop tp_init
 		system("adslate waitadsl;adslate quitdrv");
 		system("ifconfig eth2.1:0 194.255.255.1 netmask 255.255.255.0;ifconfig eth2.1:0 up");
 		// wait if up
-		strcpy(PingBuf,"ping ");
-		strcat(PingBuf,ipaddr);
-		strcat(PingBuf," -c 1");
+		snprintf(PingBuf, sizeof(PingBuf), "ping ");
+		snprintf(PingBuf+strlen(PingBuf), sizeof(PingBuf)-strlen(PingBuf), "%s", ipaddr);
+		snprintf(PingBuf+strlen(PingBuf), sizeof(PingBuf)-strlen(PingBuf), " -c 1");
 		for (WaitCnt=0; WaitCnt<3; WaitCnt++)
 		{
 			system(PingBuf);
 		}
-		printf("Start to update\n");
-		printf(UpdateFwBuf);
+		cprintf("Start to update\n");
+		cprintf(UpdateFwBuf);
 		system(UpdateFwBuf);
 		printf("tftp done\n");
 		//usleep(1000*1000*5);
@@ -639,7 +516,7 @@ void do_upgrade_adsldrv(void)
 		system("tp_init clear_modem_var");
 		// wait tc flash write completed
 		usleep(1000*1000*2);
-		printf("\nupgrade done\n");
+		cprintf("\nupgrade done\n");
 	}
 }
 

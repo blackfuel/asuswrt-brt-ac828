@@ -1,6 +1,4 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<html xmlns:v>
+﻿<html>
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=Edge"/>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -85,14 +83,14 @@
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
 <script>
 var isFirst = ('<% nvram_get("x_Setting"); %>' == '1') ? false : true;;
-var header_info = [<% get_header_info(); %>];
-var ROUTERHOSTNAME = header_info[0].host;
-var iAmAlive = function(ret){if(ret.isdomain) top.location.href="http://" + ROUTERHOSTNAME + "/QIS_default.cgi?flag=welcome";};
+var header_info = [<% get_header_info(); %>][0];
+var ROUTERHOSTNAME = '<% nvram_get("local_domain"); %>';
+var domainNameUrl = ((header_info.host.split(":").length==2)?"https":"http")+"://"+header_info.host.replace(header_info.host.split(":")[0], ROUTERHOSTNAME);
+var chdom = function(){window.location.href=domainNameUrl};
 (function(){
-	var locationOrigin = get_protocol() + "//" + ROUTERHOSTNAME + (window.location.port ? ':' + window.location.port : '');
-	if(location.hostname !== ROUTERHOSTNAME && ROUTERHOSTNAME != "" && isFirst){
+	if(ROUTERHOSTNAME !== header_info.host && ROUTERHOSTNAME != "" && isFirst){
 		setTimeout(function(){
-			var s=document.createElement("script");s.type="text/javascript";s.src=locationOrigin+"/httpd_check.json?hostname="+location.hostname;var h=document.getElementsByTagName("script")[0];h.parentNode.insertBefore(s,h);
+			var s=document.createElement("script");s.type="text/javascript";s.src=domainNameUrl+"/chdom.json?hostname="+header_info.host.split(":")[0];var h=document.getElementsByTagName("script")[0];h.parentNode.insertBefore(s,h);
 		}, 1);
 	}
 })();
@@ -812,6 +810,7 @@ function detect_httpd(){
 	<!--USB Modem-->
 	<input type="hidden" name="wans_dualwan" value="wan usb" disabled>
 	<input type="hidden" name="modem_enable" value="<% nvram_get("modem_enable"); %>">
+	<input type="hidden" name="modem_autoapn" value="<% nvram_get("modem_autoapn"); %>">
 	<input type="hidden" name="modem_country" value="<% nvram_get("modem_country"); %>">
 	<input type="hidden" name="modem_isp" value="<% nvram_get("modem_isp"); %>">
 	<input type="hidden" name="modem_apn" value="<% nvram_get("modem_apn"); %>">
@@ -821,6 +820,8 @@ function detect_httpd(){
 	<input type="hidden" name="modem_pass" value="<% nvram_get("modem_pass"); %>">
 	<input type="hidden" name="modem_ttlsid" value="<% nvram_get("modem_ttlsid"); %>">
 	<input type="hidden" name="Dev3G" value="<% nvram_get("Dev3G"); %>">
+	<input type="hidden" name="modem_authmode" value="<% nvram_get("modem_authmode"); %>">
+	<input type="hidden" name="modem_mtu" value="<% nvram_get("modem_mtu"); %>">
 </form>
 
 <form method="post" name="redirectForm" action="" target="contentM">

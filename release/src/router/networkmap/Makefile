@@ -1,33 +1,77 @@
 include ../.config
 
 EXEC = networkmap
-OBJS = function.o networkmap.o
+OBJS = function.o connections.o sm.o networkmap.o
 
-CFLAGS  += -Wall -DASUS -DBCMNVRAM -I. -I$(TOP)/shared -I$(TOP)/kernel_header/include -I$(SRCBASE)/include
+ifeq ($(HND_ROUTER),y)
+CFLAGS += -Werror=return-type -Werror=uninitialized -Wno-date-time 
+endif
+CFLAGS  += -I. -I$(TOP)/shared -I$(TOP)/kernel_header/include -I$(SRCBASE)/include -I$(TOP)/json-c
 CFLAGS  += -s -O2 -DNO_PARALLEL
 
+ifeq ($(RTCONFIG_RALINK),y)
+CFLAGS += -I$(TOP)/shared/sysdeps/ralink -I$(TOP)/wireless_tools
+endif
+
+ifeq ($(RTCONFIG_QCA),y)
+CFLAGS += -I$(TOP)/shared/sysdeps/qca -I$(TOP)/wireless_tools
+CFLAGS += $(if $(RTCONFIG_SAMBA36X),-DSMP)
+endif
+
+ifeq ($(CONFIG_REALTEK),y)
+CFLAGS += -I$(TOP)/shared/sysdeps/realtek
+endif
+
+ifeq ($(RTCONFIG_ALPINE),y)
+CFLAGS += -DALPINE_WPS
+CFLAGS += -I$(TOP)/httpd/sysdeps -I$(TOP)/shared/sysdeps/alpine -I$(TOP)/wireless_tools
+endif
+
+ifeq ($(RTCONFIG_LANTIQ),y)
+CFLAGS += -DLANTIQ_WPS
+CFLAGS += -I$(TOP)/shared/sysdeps/lantiq -I$(TOP)/wireless_tools
+endif
+ifeq ($(RTCONFIG_BCMARM),y)
+CFLAGS += -I$(SRCBASE)/shared/bcmwifi/include -DTYPEDEF_FLOAT_T
+CFLAGS += -I$(SRCBASE)/common/include
+#LDFLAGS += -L$(TOP)/libbcm -lbcm
+LDFLAGS += -lgcc_s
+ifeq ($(RTCONFIG_QTN),y)
+CFLAGS += -I$(TOP)/libqcsapi_client -I$(TOP)/shared/sysdeps/qtn
+LDFLAGS += -L$(TOP)/libqcsapi_client -lqcsapi_client
+endif
+endif
+
+ifeq ($(RTCONFIG_BWDPI),y)
+CFLAGS += -I$(TOP)/sqlite -I$(TOP)/httpd
+CFLAGS += -I$(TOP)/bwdpi_source/src/tdts_udb_sample
+CFLAGS += -I$(TOP)/bwdpi_source/src/tdts_udb_sample/linux
+CFLAGS += -I$(TOP)/bwdpi_source/include
+CFLAGS += -I$(TOP)/bwdpi_source/asus_include
+endif
 ifeq ($(RTCONFIG_BWDPI_DEP),y)
 CFLAGS += -I$(TOP)/httpd
 CFLAGS += -I$(TOP)/bwdpi_dep/bwdpi
 endif
 
-LDFLAGS += -L$(TOP)/shared -lshared -L$(TOP)/nvram${BCMEX} -lnvram 
+LDFLAGS += -lm -L$(TOP)/shared -lshared -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/json-c/.libs -ljson-c
+LDFLAGS += -L$(TOP)/shared -lshared -L$(TOP)/nvram${BCMEX}${EX7} -lnvram 
+ifeq ($(HND_ROUTER),y)
+LDFLAGS += -L$(TOP)/wlcsm -lwlcsm
+endif
 
-ifeq ($(RTCONFIG_BCMARM),y)
-LDFLAGS += -lgcc_s
+ifeq ($(RTCONFIG_BWDPI),y)
+LDFLAGS += -L$(TOP)/bwdpi_source/asus -lbwdpi
 endif
-ifeq ($(RTCONFIG_BWDPI)$(RTCONFIG_BWDPI_DEP),y)
+ifeq ($(RTCONFIG_BWDPI_DEP),y)
 LDFLAGS += -L$(TOP)/bwdpi_dep/bwdpi -lbwdpi
-endif
-ifeq ($(RTCONFIG_QTN),y)
-LDFLAGS += -L$(TOP)/libqcsapi_client -lqcsapi_client
 endif
 
 ifeq ($(RTCONFIG_NOTIFICATION_CENTER),y)
 CFLAGS  += -I$(TOP)/sqlite
 CFLAGS  += -I$(TOP)/nt_center/lib
 CFLAGS  += -DASUSWRT_SDK
-LDFLAGS += -L$(TOP)/nt_center/lib/ -lnt
+LDFLAGS += -L$(TOP)/nt_center/lib/ -lnt -lm
 LDFLAGS += -L$(TOP)/sqlite/.libs -lsqlite3
 LDFLAGS += -lpthread
 endif
@@ -43,28 +87,62 @@ endif
 
 include $(SRCBASE)/.config
 
-#CFLAGS	+= -DDEBUG #-DDEBUG_MORE #-DDEBUG_FUNCTION
+#CFLAGS += -DPROTOCOL_QUERY
 CFLAGS += -DNMP_DB
 CFLAGS += -DBTN_SETUP
+ifeq ($(HND_ROUTER),y)
+CFLAGS += -DHND_ROUTER
+endif
 
-all: $(EXEC) asusdiscovery arpstorm
+ifeq ($(RTCONFIG_QSR10G),y)
+CFLAGS += -I$(TOP)/libqcsapi_client_10g
+LIBS += -L$(TOP)/libqcsapi_client_10g -lqcsapi_client
+endif
+
+#all: $(EXEC) asusdiscovery arpstorm
+ifneq ($(AC2900),y)
+ifeq ($(wildcard $(SRCBASE)/router/networkmap/*.c),)
+all: 
+	-cp -f prebuilt/networkmap networkmap
+	-cp -f prebuilt/asusdiscovery asusdiscovery
+else
+all: $(EXEC) asusdiscovery
+endif
+else
+ifeq ($(wildcard $(SRCBASE)/router/networkmap/*.c),)
+all: 
+	-cp -f prebuilt/networkmap networkmap
+else
+all: $(EXEC)
+endif
+endif
 
 $(EXEC): $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(CFLAGS)
 
-arpstorm: shutils.o arpstorm.o
-	$(CC) -o $@ $^ $(LDFLAGS) $(CFLAGS)
+#arpstorm: shutils.o arpstorm.o
+#	$(CC) -o $@ $^ $(LDFLAGS) $(CFLAGS)
 
-asusdiscovery: shutils.o packet.o ASUS_Discovery.o ASUS_Discovery_Debug.o
+ifneq ($(AC2900),y)
+asusdiscovery: packet.o ASUS_Discovery.o ASUS_Discovery_Debug.o
 	$(CC) -o $@ $^ $(LDFLAGS) $(CFLAGS)
+endif
 
 install:
 	install -D $(EXEC) $(INSTALLDIR)/usr/sbin/$(EXEC)
 	$(STRIP) $(INSTALLDIR)/usr/sbin/$(EXEC)
-	install -D arpstorm $(INSTALLDIR)/usr/sbin/arpstorm
-	$(STRIP) $(INSTALLDIR)/usr/sbin/arpstorm
+#	install -D arpstorm $(INSTALLDIR)/usr/sbin/arpstorm
+#	$(STRIP) $(INSTALLDIR)/usr/sbin/arpstorm
+ifneq ($(AC2900),y)
 	install -D asusdiscovery $(INSTALLDIR)/usr/sbin/asusdiscovery
 	$(STRIP) $(INSTALLDIR)/usr/sbin/asusdiscovery
+endif
+	install -d $(TARGETDIR)/usr/networkmap
+	cp -f networkmap.oui.js $(TARGETDIR)/usr/networkmap/networkmap.oui.js
 
-clean: 
-	rm -rf *.o $(EXEC) *~ arpstorm asusdiscovery
+clean:
+ifneq ($(AC2900),y)
+	rm -rf *.o $(EXEC) *~ asusdiscovery
+else
+	rm -rf *.o $(EXEC) *~
+endif

@@ -28,8 +28,11 @@
 <style>
 </style>
 <script>
-var radio_2 = '<% nvram_get("wl0_radio"); %>';
-var radio_5 = '<% nvram_get("wl1_radio"); %>';
+if(!Qcawifi_support)
+{
+	var radio_2 = '<% nvram_get("wl0_radio"); %>';
+	var radio_5 = '<% nvram_get("wl1_radio"); %>';
+}
 <% radio_status(); %>
 
 var wl1_nmode_x = '<% nvram_get("wl1_nmode_x"); %>';
@@ -42,6 +45,10 @@ if(wl_info.band5g_2_support){
 
 wl_channel_list_2g = '<% channel_list_2g(); %>';
 wl_channel_list_5g = '<% channel_list_5g(); %>';
+
+var QoS_enable_orig = '<% nvram_get("qos_enable"); %>';
+var QoS_type_orig = '<% nvram_get("qos_type"); %>';
+var ctf_disable_orig = '<% nvram_get("ctf_disable"); %>';
 
 var gn_array = gn_array_2g;
 var wl_maclist_x_array = gn_array[0][16];
@@ -145,6 +152,13 @@ function get_wl_vlan_id(wireless_unit, wireless_subunit){
 
 function initial(){
 	show_menu();
+
+	if(Qcawifi_support)
+	{
+		radio_2 = '<% nvram_get("wl0_radio"); %>';
+		radio_5 = '<% nvram_get("wl1_radio"); %>';
+	}
+
 	//insertExtChannelOption();
 	if(tagged_based_vlan && vlan_enable)
 		parse_vlan_rulelist();
@@ -212,6 +226,17 @@ function change_wl_expire_radio(){
 		document.form.wl_expire_min.value = "";
 		document.form.wl_expire_radio[0].checked = 1;
 		document.form.wl_expire_radio[1].checked = 0;
+	}
+}
+
+function change_wl_lanaccess(){
+	if(document.form.wl_lanaccess.value == "on") {
+		document.form.wl_lanaccess[0].checked = 1;
+		document.form.wl_lanaccess[1].checked = 0;
+	}
+	else{	
+		document.form.wl_lanaccess[0].checked = 0;
+		document.form.wl_lanaccess[1].checked = 1;
 	}
 }
 
@@ -293,15 +318,31 @@ function copyOtherSetting(_unit, _subunit) {
 	document.form.wl_phrase_x.value = decodeURIComponent(gn_array[idx][17]);
 	document.form.wl_expire.value = decodeURIComponent(gn_array[idx][11]);
 	document.form.wl_lanaccess.value = decodeURIComponent(gn_array[idx][12]);
-	document.form.wl_guest_num.value = (decodeURIComponent(gn_array[idx][18]) == "") ? 10 : decodeURIComponent(gn_array[idx][18]);
+	if(decodeURIComponent(gn_array[idx][18]) == 1)
+		document.form.bw_enabled_x[0].checked = true;
+	else
+		document.form.bw_enabled_x[1].checked = true;
+	unit_bw_enabled = decodeURIComponent(gn_array[idx][18]);
+	document.form.wl_bw_dl_x.value = decodeURIComponent(gn_array[idx][19])/1024;
+	unit_bw_dl = decodeURIComponent(gn_array[idx][19]);
+	document.form.wl_bw_ul_x.value = decodeURIComponent(gn_array[idx][20])/1024;
+	unit_bw_ul = decodeURIComponent(gn_array[idx][20]);
+	document.form.wl_guest_num.value = (decodeURIComponent(gn_array[idx][21]) == "") ? 10 : decodeURIComponent(gn_array[idx][21]);
 
 	wl_wep_change();
 
 	change_wl_expire_radio();
+	show_bandwidth(unit_bw_enabled);
+	change_wl_lanaccess();
 
 	updateMacModeOption(gn_array[idx]);
 
 }
+
+var unit_bw_enabled = "";
+var unit_bw_ul = "";
+var unit_bw_dl = "";
+var edit_unit = "";
 function edit_guest_unit(_unit, _subunit) {
 	var wl_vifnames = '<% nvram_get("wl0_vifnames"); %>';
 	var nr_mssid = wl_vifnames.split(" ").length + 1;
@@ -371,14 +412,17 @@ function edit_guest_unit(_unit, _subunit) {
 	var idx;
 	switch(parseInt(_unit)){
 		case 0:
+			edit_unit=0;
 			gn_array = gn_array_2g;
 			document.form.wl_nmode_x.value = wl0_nmode_x;
 			break;
 		case 1:			
+			edit_unit=1;
 			gn_array = gn_array_5g;
 			document.form.wl_nmode_x.value = wl1_nmode_x;
 			break;
 		case 2:
+			edit_unit=2;
 			gn_array = gn_array_5g_2;
 			document.form.wl_nmode_x.value = wl2_nmode_x;
 			break;
@@ -389,6 +433,8 @@ function edit_guest_unit(_unit, _subunit) {
 	document.form.wl_subunit.value = _subunit;
 	document.form.wl_bss_enabled.value = decodeURIComponent(gn_array[idx][0]);
 	document.form.wl_ssid.value = decodeURIComponent(gn_array[idx][1]);
+	wl_x_y_bss_enabled = 1;
+
 	document.form.wl_auth_mode_x.value = decodeURIComponent(gn_array[idx][2]);
 	wl_auth_mode_change(1); //setting wl_crypto, wl_wpa_psk item display mode
 	document.form.wl_crypto.value = decodeURIComponent(gn_array[idx][3]);
@@ -402,6 +448,16 @@ function edit_guest_unit(_unit, _subunit) {
 	document.form.wl_phrase_x.value = decodeURIComponent(gn_array[idx][17]);
 	document.form.wl_expire.value = decodeURIComponent(gn_array[idx][11]);
 	document.form.wl_lanaccess.value = decodeURIComponent(gn_array[idx][12]);
+	if(decodeURIComponent(gn_array[idx][18]) == 1)
+		document.form.bw_enabled_x[0].checked = true;
+	else
+		document.form.bw_enabled_x[1].checked = true;
+	unit_bw_enabled = decodeURIComponent(gn_array[idx][18]);
+	document.form.wl_bw_dl_x.value = decodeURIComponent(gn_array[idx][19])/1024;
+	unit_bw_dl = decodeURIComponent(gn_array[idx][19]);
+	document.form.wl_bw_ul_x.value = decodeURIComponent(gn_array[idx][20])/1024;
+	unit_bw_ul = decodeURIComponent(gn_array[idx][20]);
+
 	if(tagged_based_vlan && vlan_enable){
 		var vlan_id = get_wl_vlan_id(_unit, _subunit);
 		if(vlan_id != ""){
@@ -417,6 +473,8 @@ function edit_guest_unit(_unit, _subunit) {
 	wl_wep_change();
 
 	change_wl_expire_radio();
+	show_bandwidth(unit_bw_enabled);
+	change_wl_lanaccess();
 
 	updateMacModeOption(gn_array[idx]);
 
@@ -439,7 +497,7 @@ function edit_guest_unit(_unit, _subunit) {
 	for(var i = 0; i < g_maxsta; i += 1) {
 		document.form.wl_guest_num[i] = new Option((i+1), (i+1));
 	}
-	document.form.wl_guest_num.value = (decodeURIComponent(gn_array[idx][18]) == "") ? 10 : decodeURIComponent(gn_array[idx][18]);
+	document.form.wl_guest_num.value = (decodeURIComponent(gn_array[idx][21]) == "") ? 10 : decodeURIComponent(gn_array[idx][21]);
 
 	document.getElementById("unused_item").style.display = "none";
 
@@ -450,12 +508,16 @@ function edit_guest_unit(_unit, _subunit) {
 		document.getElementById("gnset_wl_guest_num").style.display = "none";
 		document.getElementById("gnset_wl_expire").style.display = "none";
 		document.getElementById("gnset_wl_lanaccess").style.display = "none";
+		document.getElementById("gnset_wl_bw_enabled").style.display = "none";
+		document.getElementById("gnset_wl_bw_setting").style.display = "none";
 	}
 	else {
 		document.getElementById("gnset_wl_captive_portal").style.display = "none";
 		document.getElementById("gnset_wl_guest_num").style.display = "";
 		document.getElementById("gnset_wl_expire").style.display = "";
 		document.getElementById("gnset_wl_lanaccess").style.display = "";
+		document.getElementById("gnset_wl_bw_enabled").style.display = "";
+		document.getElementById("gnset_wl_bw_setting").style.display = "";
 	}
 
 	$('#full_screen_bg').fadeIn();
@@ -555,10 +617,10 @@ function gen_gntable(){
 		if(show_str.length > 25) {
 			var show_str_temp = show_str;
 			show_str_temp = show_str_temp.substr(0, 23) + "..";
-			html += "<div class='guestNetwork_content_edited' title='" + show_str + "'>" + show_str_temp + "</div>";
+			html += "<div class='guestNetwork_content_edited' title='" + htmlEnDeCode.htmlEncode(show_str) + "'>" + htmlEnDeCode.htmlEncode(show_str_temp) + "</div>";
 		}
 		else {
-			html += "<div class='guestNetwork_content_edited'>" + show_str + "</div>";
+			html += "<div class='guestNetwork_content_edited'>" + htmlEnDeCode.htmlEncode(show_str) + "</div>";
 		}
 		html += "<div class='guest_line'></div>";
 		html += "<div  class='guestNetwork_titleName_edited'><#WLANConfig11b_AuthenticationMethod_itemname#></div>";
@@ -577,16 +639,15 @@ function gen_gntable(){
 			show_str = _gn_array[key_index];
 		}
 		show_str = decodeURIComponent(show_str);
-		show_str = handle_show_str(show_str);
 		if(show_str.length <= 0)
 			show_str = "&nbsp; ";
 		if(show_str.length > 25) {
 			var show_str_temp = show_str;
 			show_str_temp = show_str_temp.substr(0, 23) + "..";
-			html += "<div class='guestNetwork_content_edited' title='" + show_str + "'>" + show_str_temp + "</div>";
+			html += "<div class='guestNetwork_content_edited' title='" + htmlEnDeCode.htmlEncode(show_str) + "'>" + htmlEnDeCode.htmlEncode(show_str_temp) + "</div>";
 		}
 		else {
-			html += "<div class='guestNetwork_content_edited'>" + show_str + "</div>";
+			html += "<div class='guestNetwork_content_edited'>" + htmlEnDeCode.htmlEncode(show_str) + "</div>";
 		}
 		if(captive_portal_used_wl_array[_gn_unit_subunit] == undefined) {
 			html += "<div class='guest_line'></div>";
@@ -845,22 +906,16 @@ function applyRule(){
 		document.form.wl_wpa_psk.value = "";
 
 	if(validForm()){
-		showLoading();
 		updateMacList();
-		
-		inputCtrl(document.form.wl_crypto, 1);
-		inputCtrl(document.form.wl_wpa_psk, 1);
-		inputCtrl(document.form.wl_wep_x, 1);
-		inputCtrl(document.form.wl_key, 1);
-		inputCtrl(document.form.wl_key1, 1);
-		inputCtrl(document.form.wl_key2, 1);
-		inputCtrl(document.form.wl_key3, 1);
-		inputCtrl(document.form.wl_key4, 1);
-		inputCtrl(document.form.wl_phrase_x, 1);
 		if(document.form.wl_expire_radio[1].checked)
 			document.form.wl_expire.value = document.form.wl_expire_day.value*86400 + document.form.wl_expire_hr.value*3600 + document.form.wl_expire_min.value*60;
 		else
 			document.form.wl_expire.value = 0;
+
+		if(based_modelid == "RT-AC87U") //MODELDEP: RT-AC87U need to extend waiting time to get new wl value
+			document.form.action_wait.value = parseInt(document.form.action_wait.value)+5;
+		if(based_modelid == "BRT-AC828")
+			document.form.action_wait.value = 50;
 
 		if(auth_mode == "wpa" || auth_mode == "wpa2" || auth_mode == "wpawpa2" || auth_mode == "radius") {
 			document.form.next_page.value = "/Advanced_WSecurity_Content.asp";
@@ -868,8 +923,43 @@ function applyRule(){
 			document.form.gwlu.disabled = false;
 		}
 
-		if(based_modelid == "RT-AC87U") //MODELDEP: RT-AC87U need to extend waiting time to get new wl value
-			document.form.action_wait.value = parseInt(document.form.action_wait.value)+3;
+		if(document.form.bw_enabled_x[0].checked)
+			document.form.wl_bw_enabled.value = 1;
+		else
+			document.form.wl_bw_enabled.value = 0;	
+		document.form.wl_bw_dl.value = document.form.wl_bw_dl_x.value*1024;
+		document.form.wl_bw_ul.value = document.form.wl_bw_ul_x.value*1024;		
+				
+		if((QoS_enable_orig == "0" || QoS_type_orig != "2") && (document.form.bw_enabled_x.value == "1" || document.form.bw_enabled_x[0].checked))
+		{
+			document.form.qos_enable.value = 1;
+			document.form.qos_type.value = 2;
+			if(confirm("QoS function of traffic manager will be enable and set as bandwidth limiter mode by default.")){	/* Untranslated */
+				if(ctf_disable_orig == '0'){	//brcm NAT Acceleration turned ON
+					document.form.action_script.value = "saveNvram;reboot";
+					document.form.action_wait.value = "<% get_default_reboot_time(); %>";
+				}
+				else{
+					document.form.action_script.value = "restart_wireless;restart_qos;restart_firewall;";
+				}	
+			}
+			else{
+				return;	
+			}		
+		}
+		else if(unit_bw_enabled != document.form.wl_bw_enabled.value //bandwidth limiter settings changed OR re-enable mSSID with bandwidth limiter
+				|| unit_bw_ul != document.form.wl_bw_ul.value 
+				|| unit_bw_dl != document.form.wl_bw_dl.value
+				|| (wl_x_y_bss_enabled == 1 && (document.form.bw_enabled_x.value == "1" || document.form.bw_enabled_x[0].checked)))	
+		{	
+			if(ctf_disable_orig == '0' && document.form.wl_bw_enabled.value == 1){
+				document.form.action_script.value = "saveNvram;reboot";
+				document.form.action_wait.value = "<% get_default_reboot_time(); %>";
+			}
+			else{
+				document.form.action_script.value = "restart_wireless;restart_qos;restart_firewall;";
+			}
+		}
 
 		var _unit_subunit = "wl" + document.form.wl_unit.value + "." + document.form.wl_subunit.value;
 		if(captive_portal_used_wl_array[_unit_subunit] != undefined) {
@@ -884,19 +974,33 @@ function applyRule(){
 			document.getElementById("lanaccess_off").disabled = true;
 			document.form.wl_expire.disabled = true;
 			document.form.wl_guest_num.disabled = true;
-			document.form.action_wait.value = 50;
+			document.form.wl_bw_enabled.disabled = true;
+			document.form.wl_bw_dl.disabled = true;
+			document.form.wl_bw_ul.disabled = true;	
 			switch(captive_portal_used_wl_array[_unit_subunit]) {
 				case "Facebook Wi-Fi" :
-					document.form.action_script.value = "overwrite_fbwifi_ssid;restart_wireless;";
+					document.form.action_script.value = "overwrite_fbwifi_ssid;" + document.form.action_script.value;
 					break;
 				case "Free Wi-Fi" :
-					document.form.action_script.value = "overwrite_captive_portal_ssid;restart_wireless;";
+					document.form.action_script.value = "overwrite_captive_portal_ssid;" + document.form.action_script.value;
 					break;
 				case "Captive Portal Wi-Fi" :
-					document.form.action_script.value = "overwrite_captive_portal_adv_ssid;restart_wireless;";
+					document.form.action_script.value = "overwrite_captive_portal_adv_ssid;" + document.form.action_script.value;
 					break;
 			}
 		}
+
+		inputCtrl(document.form.wl_crypto, 1);
+		inputCtrl(document.form.wl_wpa_psk, 1);
+		inputCtrl(document.form.wl_wep_x, 1);
+		inputCtrl(document.form.wl_key, 1);
+		inputCtrl(document.form.wl_key1, 1);
+		inputCtrl(document.form.wl_key2, 1);
+		inputCtrl(document.form.wl_key3, 1);
+		inputCtrl(document.form.wl_key4, 1);
+		inputCtrl(document.form.wl_phrase_x, 1);
+
+		showLoading();
 		document.form.submit();
 	}
 }
@@ -943,6 +1047,34 @@ function validForm(){
 			document.form.wl_expire_min.focus();
 			return false;
 		}	
+	}
+
+	//bandwidth limiter
+	if(document.form.bw_enabled_x[0].checked){
+		
+		if(document.form.wl_bw_dl_x.value == ""){
+			alert("<#JS_fieldblank#>");
+			document.form.wl_bw_dl_x.focus();
+			return false;
+		}
+	
+		if(document.form.wl_bw_dl_x.value.split(".").length > 2 || document.form.wl_bw_dl_x.value < 0.1){
+			alert("<#min_bound#> : 0.1 Mb/s");
+			document.form.wl_bw_dl_x.focus();
+			return false;
+		}
+		
+		if(document.form.wl_bw_ul_x.value == ""){
+			alert("<#JS_fieldblank#>");
+			document.form.wl_bw_ul_x.focus();
+			return false;
+		}
+	
+		if(document.form.wl_bw_ul_x.value.split(".").length > 2 || document.form.wl_bw_ul_x.value < 0.1){
+			alert("<#min_bound#> : 0.1 Mb/s");
+			document.form.wl_bw_ul_x.focus();
+			return false;
+		}
 	}		
 	
 	return true;
@@ -961,14 +1093,18 @@ function validate_wlphrase(s, v, obj){
 	return true;
 }
 
+var wl_x_y_bss_enabled = 0;
 function en_dis_guest_unit(_unit, _subunit, _setting){
 	var NewInput = document.createElement("input");
 	NewInput.type = "hidden";
 	NewInput.name = "wl"+ _unit + "." + _subunit +"_bss_enabled";
 	NewInput.value = _setting;
+	wl_x_y_bss_enabled = _setting;	
 	document.unitform.appendChild(NewInput);
 	document.unitform.wl_unit.value = _unit;
 	document.unitform.wl_subunit.value = _subunit;
+	if(based_modelid == "BRT-AC828")
+		document.form.action_wait.value = 50; //MODELDEP: BRT-AC828
 	document.unitform.submit();
 }
 function updateLanaccess() {
@@ -1182,6 +1318,44 @@ function setClientmac(macaddr){
 	hideClients_Block();
 }
 // end
+
+function show_bandwidth(flag){	
+	if(flag == "1"){
+		document.form.bw_enabled_x[0].checked = true;
+		if(ctf_disable_orig == '0'){	//brcm NAT Acceleration turned ON
+			document.getElementById("QoS_hint").innerHTML = "NAT acceleration will be disable for more precise packet inspection.";	/* untranslated */
+			document.getElementById("QoS_hint").style.display = "";	
+		}
+		else{
+			document.getElementById("QoS_hint").style.display = "none";	
+		}
+		document.getElementById("gnset_wl_bw_setting").style.display = "";
+	}
+	else{		
+		document.form.bw_enabled_x[1].checked = true;
+		document.getElementById("QoS_hint").style.display = "none";
+		document.getElementById("gnset_wl_bw_setting").style.display = "none";
+	}	
+}
+
+function bandwidth_code(o,event){
+	var keyPressed = event.keyCode ? event.keyCode : event.which;
+	var target = o.value.split(".");
+	
+	if (validator.isFunctionButton(event))
+		return true;	
+		
+	if((keyPressed == 46) && (target.length > 1))
+		return false;
+
+	if((target.length > 1) && (target[1].length > 0))
+		return false;	
+		
+	if ((keyPressed == 46) || (keyPressed > 47 && keyPressed < 58))
+		return true;
+	else
+		return false;		
+}
 </script>
 </head>
 
@@ -1217,7 +1391,7 @@ function setClientmac(macaddr){
 <input type="hidden" name="wl_unit" value="<% nvram_get("wl_unit"); %>">
 <input type="hidden" name="wl_subunit" value="<% nvram_get("wl_subunit"); %>">
 <input type="hidden" name="action_mode" value="apply_new">
-<input type="hidden" name="action_script" value="restart_wireless">
+<input type="hidden" name="action_script" value="restart_wireless;restart_qos;restart_firewall;">
 <input type="hidden" name="action_wait" value="15">
 <input type="hidden" name="wl_mbss" value="1">
 </form>
@@ -1246,6 +1420,11 @@ function setClientmac(macaddr){
 <input type="hidden" name="wl_key_type" value='<% nvram_get("wl_key_type"); %>'> <!--Lock Add 2009.03.10 for ralink platform-->
 <input type="hidden" name="wl_channel_orig" value='<% nvram_get("wl_channel"); %>'>
 <input type="hidden" name="wl_expire" value='<% nvram_get("wl_expire"); %>'>
+<input type="hidden" name="qos_enable" value='<% nvram_get("qos_enable"); %>'>
+<input type="hidden" name="qos_type" value='<% nvram_get("qos_type"); %>'>
+<input type="hidden" name="wl_bw_enabled" value="">
+<input type="hidden" name="wl_bw_dl" value="">
+<input type="hidden" name="wl_bw_ul" value="">
 <input type="hidden" name="wl_mbss" value="1">
 <input type="hidden" name="wl_gmode_protection" value="<% nvram_get("wl_gmode_protection"); %>" disabled>
 <input type="hidden" name="wl_mode_x" value="<% nvram_get("wl_mode_x"); %>" disabled>
@@ -1409,9 +1588,42 @@ function setClientmac(macaddr){
 				</div>
 			</div>
 		</div>
+		<div id="gnset_wl_bw_enabled" class="gnset_setting_item_bg">
+			<div class='gnset_setting_item_titleName'>
+				Enable Bandwidth Limiter<!-- Untranslated -->
+			</div>
+			<div class='gnset_setting_item_content'>
+				<div class="gnset_setting_content_bg">
+					<input type="radio" name="bw_enabled_x" id="bw_enabled_x_on" value="1" onchange="show_bandwidth(1);">
+					<label for="bw_enabled_x_on" class="gnset_setting_content"><#checkbox_Yes#></label>
+				</div>
+				<div class="gnset_setting_content_bg">
+					<input type="radio" name="bw_enabled_x" id="bw_enabled_x_off" value="0" onchange="show_bandwidth(0);">
+					<label for="bw_enabled_x_off" class="gnset_setting_content"><#checkbox_No#></label>
+				</div>
+				<span id="QoS_hint" style="color:#FC0;display:none;"></span>
+			</div>
+		</div>
+		<div id="gnset_wl_bw_setting" class="gnset_setting_item_bg">
+			<div class='gnset_setting_item_titleName'>
+				<#Bandwidth_Limiter#>
+			</div>
+			<div class='gnset_setting_item_content'>
+				<div class="gnset_setting_content_bg">
+					<span class="gnset_setting_content"><#option_download#></span>
+					<input type="text" id="wl_bw_dl_x" name="wl_bw_dl_x" maxlength="12" onkeypress="return bandwidth_code(this, event);" class="gnset_setting_input_text_short" value="">
+					<span class="gnset_setting_content">Mb/s</span>
+				</div>
+				<div class="gnset_setting_content_bg">
+					<span class="gnset_setting_content"><#option_upload#></span>
+					<input type="text" id="wl_bw_ul_x" name="wl_bw_ul_x" maxlength="12" onkeypress="return bandwidth_code(this, event);" class="gnset_setting_input_text_short" value="">
+					<span class="gnset_setting_content">Mb/s</span>
+				</div>
+			</div>
+		</div>
 		<div id="gnset_wl_lanaccess" class="gnset_setting_item_bg">
 			<div class='gnset_setting_item_titleName'>
-				Access limit
+				Access limit<!-- Untranslated -->
 			</div>
 			<div class='gnset_setting_item_content'>
 				<div class="gnset_setting_content_bg">
@@ -1420,7 +1632,7 @@ function setClientmac(macaddr){
 				</div>
 				<div class="gnset_setting_content_bg">
 					<input type="radio" name="wl_lanaccess" id="lanaccess_off" value="off" onchange="updateLanaccess()">
-					<label for="lanaccess_off" class="gnset_setting_content">Only access internet</label>
+					<label for="lanaccess_off" class="gnset_setting_content">Only access internet<!-- Untranslated --></label>
 				</div>
 				<!--div class="gnset_setting_content_bg">
 					<input type="radio" name="wl_lanaccess" id="lanaccess_vlan" value="vlan" onchange="updateLanaccess()">

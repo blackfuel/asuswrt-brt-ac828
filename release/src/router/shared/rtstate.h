@@ -311,6 +311,7 @@ extern int wan_primary_ifunit_ipv6(void);
 extern int get_wan_state(int unit);
 extern int get_wan_sbstate(int unit);
 extern int get_wan_auxstate(int unit);
+extern char *link_wan_nvname(int unit, char *buf, int size);
 extern int is_wan_connect(int unit);
 extern int is_phy_connect(int unit);
 extern int is_ip_conflict(int unit);

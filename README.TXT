@@ -66,6 +66,9 @@ Set Up Environment(Tested in Fedora 8/9 and Ubuntu)
 			libstdc++.i686
 			zlib.i686
    
+		If you are using Fedora 24+ x86_64, you may need to install 32-bit packages listed below.
+			ncurses-compat-libs.i686
+   
    2. prepare source to, ex, $HOME/asuswrt
 
 	cd $HOME

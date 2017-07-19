@@ -25,11 +25,6 @@ time_mon = uptimeStr.substring(9,12);
 time_time = uptimeStr.substring(18,20);
 dstoffset = '<% nvram_get("time_zone_dstoff"); %>';
 
-var isFromHTTPS = false;
-if((location.href.search('https://') >= 0) || (location.href.search('HTTPS://') >= 0)){
-        isFromHTTPS = true;
-}
-
 var orig_http_clientlist = decodeURIComponent("<% nvram_char_to_ascii("","http_clientlist"); %>");
 var http_clientlist_array = decodeURIComponent("<% nvram_char_to_ascii("","http_clientlist"); %>");
 var accounts = [<% get_all_accounts(); %>];
@@ -185,6 +180,20 @@ var time_zone_withdst="";
 
 function applyRule(){
 	if(validForm()){
+		var isFromHTTPS = (function(){
+			if(location.protocol.toLowerCase() == "https:") return true;
+			else return false;
+		})();
+
+		var isFromWAN = (function(){
+			var lanIpAddr = '<% nvram_get("lan_ipaddr"); %>';
+			if(location.hostname == lanIpAddr) return false;
+			else if(location.hostname == "router.asus.com") return false;
+			else if(location.hostname == "repeater.asus.com") return false;
+			else if(location.hostname == "cellspot.asus.com") return false;
+			else return true;
+		})();
+	
 		var rule_num = document.getElementById('http_clientlist_table').rows.length;
 		var item_num = document.getElementById('http_clientlist_table').rows[0].cells.length;
 		var tmp_value = "";

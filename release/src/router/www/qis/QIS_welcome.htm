@@ -182,8 +182,13 @@ function QKinternettype_load_body(){
 		document.getElementById("Productdesc_4").style.display = "none";
 
 	setTimeout(function() {document.getElementById("btn_next_step").focus();}, 10);
+
 	if(wanauxstate != 1){
 		//submitForm(1);
+		location.href = "/qis/QIS_admin_pass.htm";
+	}
+	else if(parent.hadPlugged("modem")){
+		parent.flag_manual = "modem";
 		location.href = "/qis/QIS_admin_pass.htm";
 	}
 	else{

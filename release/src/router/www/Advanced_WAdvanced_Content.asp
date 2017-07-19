@@ -339,7 +339,6 @@ function initial(){
 			$('wl_txbf_desc').innerHTML = "<#WLANConfig11b_x_ExpBeam#>";
 			inputCtrl(document.form.wl_txbf, 1);
 			inputCtrl(document.form.wl_turbo_qam, 1);
-			inputCtrl(document.form.wl_turbo_qam_brcm_intop, 1);
 		}
 	}
 
@@ -580,6 +579,13 @@ function validForm(){
 				){
 			return false;
 		}	
+		if(Qcawifi_support){
+			min_bcn=40;
+			if(based_modelid == "BRT-AC828")
+				min_bcn=100;
+			if(!validator.range(document.form.wl_bcn, min_bcn, 1000))
+				return false;
+		}
 	}
 		
 	if(power_support && !Rawifi_support && !Qcawifi_support){

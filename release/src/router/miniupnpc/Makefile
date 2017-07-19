@@ -57,7 +57,7 @@ JNAERATOR = jnaerator-0.11-shaded.jar
 JNAERATORARGS = -mode StandaloneJar -runtime JNAerator -library miniupnpc
 JNAERATORBASEURL = http://jnaerator.googlecode.com/files/
 
-CFLAGS += -I$(TOP)/shared -I$(SRCBASE)/include
+CFLAGS += -I$(TOP)/shared -I$(SRCBASE)/include -I$(TOP)/networkmap
 LDFLAGS += -L$(TOP)/shared -lshared  -L$(TOP)/nvram${BCMEX} -lnvram
 
 ifeq ($(RTCONFIG_BCMARM),y)

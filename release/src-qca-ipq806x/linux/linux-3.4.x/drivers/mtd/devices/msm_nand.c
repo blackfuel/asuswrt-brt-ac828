@@ -78,6 +78,7 @@ struct msm_nand_chip {
 	uint8_t *dma_buffer;
 	dma_addr_t dma_addr;
 	unsigned CFG0, CFG1, CFG0_RAW, CFG1_RAW;
+	uint8_t *bounce_buf;
 	uint32_t ecc_buf_cfg;
 	uint32_t ecc_bch_cfg;
 	uint32_t ecc_parity_bytes;
@@ -921,7 +922,7 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 
 		/* Check for errors, protection violations etc */
 		if (dma_buffer->data.flash_status & 0x110) {
-			pr_info("MPU/OP error (0x%x) during "
+			pr_notice("MPU/OP error (0x%x) during "
 					"ONFI probe\n",
 					dma_buffer->data.flash_status);
 			err = -EIO;
@@ -933,7 +934,7 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 				(&(onfi_identifier_buf[0]));
 			if (onfi_param_page_ptr->parameter_page_signature !=
 					ONFI_PARAMETER_PAGE_SIGNATURE) {
-				pr_info("ONFI probe : Found a non"
+				pr_notice("ONFI probe : Found a non"
 						"ONFI Compliant device \n");
 				err = -EIO;
 				break;
@@ -957,7 +958,7 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 			}
 			if (crc_chk_count >= ONFI_PARAM_INFO_LENGTH
 					/ ONFI_PARAM_PAGE_LENGTH) {
-				pr_info("ONFI probe : CRC Check "
+				pr_notice("ONFI probe : CRC Check "
 						"failed on ONFI Parameter "
 						"data \n");
 				err = -EIO;
@@ -986,7 +987,7 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 					onfi_param_page_ptr->
 					number_of_bits_ecc_correctability;
 
-				pr_info("ONFI probe : Found an ONFI "
+				pr_notice("ONFI probe : Found an ONFI "
 					"compliant device %s\n",
 					onfi_param_page_ptr->device_model);
 
@@ -1056,6 +1057,8 @@ static int _msm_nand_read_oob(struct mtd_info *mtd,
 	uint32_t ecc_errors;
 	uint32_t total_ecc_errors = 0;
 	unsigned cwperpage;
+	uint8_t *orig_datbuf = NULL, *orig_oobbuf = NULL;
+	size_t orig_len = 0, orig_ooblen = 0;
 #if VERBOSE
 	pr_info("================================================="
 			"================\n");
@@ -1064,6 +1067,31 @@ static int _msm_nand_read_oob(struct mtd_info *mtd,
 			__func__, from, ops->mode, ops->datbuf, ops->len,
 			ops->oobbuf, ops->ooblen);
 #endif
+
+	if (!ops->datbuf)
+		ops->len = 0;
+	if (!ops->oobbuf)
+		ops->ooblen = 0;
+	if (ops->mode == MTD_OPS_RAW) {
+		/* convert nandwrite style to msm_nand style.
+		 * copy ops->datbuf and ops->oobbuf to a single buffer.
+		 */
+		orig_datbuf = ops->datbuf;
+		orig_oobbuf = ops->oobbuf;
+		orig_len = ops->len;
+		orig_ooblen = ops->ooblen;
+		ops->datbuf = chip->bounce_buf;
+		if (!orig_datbuf)
+			ops->len += mtd->writesize;
+
+		if (ops->oobbuf) {
+			ops->len += ops->ooblen;
+			ops->oobbuf = NULL;
+			ops->ooblen = 0;
+		} else {
+			ops->len += mtd->oobsize;
+		}
+	}
 
 	if (mtd->writesize == 2048)
 		page = from >> 11;
@@ -1074,31 +1102,29 @@ static int _msm_nand_read_oob(struct mtd_info *mtd,
 	oob_len = ops->ooblen;
 	cwperpage = (mtd->writesize >> 9);
 
-	if (from & (mtd->writesize - 1)) {
-		pr_err("%s: unsupported from, 0x%llx\n",
-		       __func__, from);
-		return -EINVAL;
-	}
 	if (ops->mode != MTD_OPS_RAW) {
 		if (ops->datbuf != NULL && (ops->len % mtd->writesize) != 0) {
 			/* when ops->datbuf is NULL, ops->len can be ooblen */
 			pr_err("%s: unsupported ops->len, %d\n",
 			       __func__, ops->len);
-			return -EINVAL;
+			err = -EINVAL;
+			goto exit__msm_nand_read_oob;
 		}
 	} else {
 		if (ops->datbuf != NULL &&
 			(ops->len % (mtd->writesize + mtd->oobsize)) != 0) {
 			pr_err("%s: unsupported ops->len,"
 				" %d for MTD_OPS_RAW\n", __func__, ops->len);
-			return -EINVAL;
+			err = -EINVAL;
+			goto exit__msm_nand_read_oob;
 		}
 	}
 
 	if (ops->mode != MTD_OPS_RAW && ops->ooblen != 0 && ops->ooboffs != 0) {
 		pr_err("%s: unsupported ops->ooboffs, %d\n",
 		       __func__, ops->ooboffs);
-		return -EINVAL;
+		err = -EINVAL;
+		goto exit__msm_nand_read_oob;
 	}
 
 	if (ops->oobbuf && !ops->datbuf && ops->mode == MTD_OPS_AUTO_OOB)
@@ -1121,7 +1147,8 @@ static int _msm_nand_read_oob(struct mtd_info *mtd,
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
 			pr_err("msm_nand_read_oob: failed to get dma addr "
 			       "for %p\n", ops->datbuf);
-			return -EIO;
+			err = -EIO;
+			goto exit__msm_nand_read_oob;
 		}
 	}
 	if (ops->oobbuf) {
@@ -1429,6 +1456,37 @@ err_dma_map_oobbuf_failed:
 	pr_info("==================================================="
 			"==============\n");
 #endif
+
+	if (ops->mode == MTD_OPS_RAW) {
+		if (orig_datbuf && orig_len)
+			memcpy(orig_datbuf, ops->datbuf, orig_len);
+		if (orig_oobbuf && orig_ooblen)
+			memcpy(orig_oobbuf, ops->datbuf + mtd->writesize, orig_ooblen);
+
+		if (!orig_datbuf) {
+			ops->len -= mtd->writesize;
+			ops->retlen -= mtd->writesize;
+		}
+
+		if (orig_ooblen) {
+			ops->len -= orig_ooblen;
+			ops->retlen -= orig_ooblen;
+			ops->oobretlen = orig_ooblen;
+		} else if (!orig_ooblen) {
+			ops->len -= mtd->oobsize;
+			ops->retlen -= mtd->oobsize;
+			ops->oobretlen = 0;
+		}
+	}
+
+exit__msm_nand_read_oob:
+	if (ops->mode == MTD_OPS_RAW) {
+		ops->datbuf = orig_datbuf;
+		ops->len = orig_len;
+		ops->oobbuf = orig_oobbuf;
+		ops->ooblen = orig_ooblen;
+	}
+
 	return err;
 }
 
@@ -2375,6 +2433,8 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 	unsigned page_count;
 	unsigned pages_written = 0;
 	unsigned cwperpage;
+	uint8_t *orig_datbuf = NULL, *orig_oobbuf = NULL;
+	size_t orig_len = 0, orig_ooblen = 0;
 #if VERBOSE
 	pr_info("================================================="
 			"================\n");
@@ -2398,34 +2458,57 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 		return -EINVAL;
 	}
 
+	if (ops->datbuf == NULL) {
+		pr_err("%s: unsupported ops->datbuf == NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (ops->mode == MTD_OPS_RAW) {
+		/* convert nandwrite style to msm_nand style.
+		 * copy ops->datbuf and ops->oobbuf to a single buffer.
+		 */
+		orig_datbuf = ops->datbuf;
+		orig_oobbuf = ops->oobbuf;
+		orig_len = ops->len;
+		orig_ooblen = ops->ooblen;
+		memcpy(chip->bounce_buf, ops->datbuf, ops->len);
+		ops->datbuf = chip->bounce_buf;
+
+		if (ops->oobbuf) {
+			memcpy(chip->bounce_buf + ops->len, ops->oobbuf, ops->ooblen);
+			ops->len += ops->ooblen;
+			ops->oobbuf = NULL;
+			ops->ooblen = 0;
+		}
+	}
+
 	if (ops->mode != MTD_OPS_RAW) {
 		if (ops->ooblen != 0 && ops->mode != MTD_OPS_AUTO_OOB) {
 			pr_err("%s: unsupported ops->mode,%d\n",
 					 __func__, ops->mode);
-			return -EINVAL;
+			err = -EINVAL;
+			goto exit_msm_nand_write_oob;
 		}
 		if ((ops->len % mtd->writesize) != 0) {
 			pr_err("%s: unsupported ops->len, %d\n",
 					__func__, ops->len);
-			return -EINVAL;
+			err = -EINVAL;
+			goto exit_msm_nand_write_oob;
 		}
 	} else {
 		if ((ops->len % (mtd->writesize + mtd->oobsize)) != 0) {
 			pr_err("%s: unsupported ops->len, "
 				"%d for MTD_OPS_RAW mode\n",
 				 __func__, ops->len);
-			return -EINVAL;
+			err = -EINVAL;
+			goto exit_msm_nand_write_oob;
 		}
 	}
 
-	if (ops->datbuf == NULL) {
-		pr_err("%s: unsupported ops->datbuf == NULL\n", __func__);
-		return -EINVAL;
-	}
 	if (ops->mode != MTD_OPS_RAW && ops->ooblen != 0 && ops->ooboffs != 0) {
 		pr_err("%s: unsupported ops->ooboffs, %d\n",
 		       __func__, ops->ooboffs);
-		return -EINVAL;
+		err = -EINVAL;
+		goto exit_msm_nand_write_oob;
 	}
 
 	if (ops->datbuf) {
@@ -2436,7 +2519,8 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
 			pr_err("msm_nand_write_oob: failed to get dma addr "
 			       "for %p\n", ops->datbuf);
-			return -EIO;
+			err = -EIO;
+			goto exit_msm_nand_write_oob;
 		}
 	}
 	if (ops->oobbuf) {
@@ -2678,6 +2762,15 @@ err_dma_map_oobbuf_failed:
 		pr_info("==================================================="
 				"==============\n");
 #endif
+
+exit_msm_nand_write_oob:
+	if (ops->mode == MTD_OPS_RAW) {
+		ops->datbuf = orig_datbuf;
+		ops->len = orig_len;
+		ops->oobbuf = orig_oobbuf;
+		ops->ooblen = orig_ooblen;
+	}
+
 	return err;
 }
 
@@ -7193,6 +7286,11 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 		return -ENODEV;
 	}
 
+	if (!(chip->bounce_buf= kmalloc(mtd->writesize + mtd->oobsize + 32, GFP_KERNEL|GFP_DMA))) {
+		pr_err("%s: allocate bounce buffer fail\n", __func__);
+		return -ENOMEM;
+	}
+
 	/* Size of each codeword is 532Bytes incase of 8bit BCH ECC*/
 	chip->cw_size = enable_bch_ecc ? 532 : 528;
 	chip->CFG0 = (((mtd_writesize >> 9)-1) << 6) /* 4/8 cw/pg for 2/4k */
@@ -7302,7 +7400,10 @@ EXPORT_SYMBOL_GPL(msm_nand_scan);
  */
 void msm_nand_release(struct mtd_info *mtd)
 {
-	/* struct msm_nand_chip *this = mtd->priv; */
+	struct msm_nand_chip *chip = mtd->priv;
+
+	if (chip->bounce_buf)
+		kfree(chip->bounce_buf);
 
 	/* Deregister the device */
 	mtd_device_unregister(mtd);
@@ -7361,6 +7462,9 @@ static int setup_asus_mtd_device(struct msm_nand_info *info)
 	struct mtd_info *mtd = &info->mtd;
 
 #if defined(CONFIG_MTD_UBI)
+	/* Disable write in Bootloader area. */
+	msm_nand_partitions[0].mask_flags |= MTD_WRITEABLE;
+
 	printk("MTD_BOOT_PART_SIZE %x MTD_CONFIG_PART_SIZE %x msm_nand_partitions[0].size %lx mtd->erasesize %lx\n",
 		MTD_BOOT_PART_SIZE, MTD_CONFIG_PART_SIZE, (unsigned long)msm_nand_partitions[0].size, (unsigned long)mtd->erasesize);
 	msm_nand_partitions[1].offset = ALIGN(msm_nand_partitions[0].size + MTD_CONFIG_PART_SIZE, mtd->erasesize);

@@ -44,8 +44,10 @@ define platformRouterOptions
 	if [ "$(QCA)" = "y" ]; then \
 		sed -i "/RTCONFIG_QCA\>/d" $(1); \
 		echo "RTCONFIG_QCA=y" >>$(1); \
-		sed -i "/RTCONFIG_SOC_IPQ8064/d" $(1); \
-		echo "RTCONFIG_SOC_IPQ8064=y" >>$(1); \
+		if [ "$(IPQ806X)" = "y" ] ; then \
+			sed -i "/RTCONFIG_SOC_IPQ8064/d" $(1); \
+			echo "RTCONFIG_SOC_IPQ8064=y" >>$(1); \
+		fi; \
 		if [ "$(WIFI_CHIP)" = "BEELINER" ] ; then \
 			sed -i "/RTCONFIG_WIFI_QCA9990_QCA9990/d" $(1); \
 			echo "RTCONFIG_WIFI_QCA9990_QCA9990=y" >>$(1); \
@@ -102,8 +104,10 @@ endef
 define platformKernelConfig
 	@( \
 	if [ "$(QCA)" = "y" ]; then \
-		sed -i "/CONFIG_BRIDGE_NETFILTER/d" $(1); \
-		echo "CONFIG_BRIDGE_NETFILTER=y" >>$(1); \
+		if [ "$(IPQ806X)" = "y" ] ; then \
+			sed -i "/CONFIG_BRIDGE_NETFILTER/d" $(1); \
+			echo "CONFIG_BRIDGE_NETFILTER=y" >>$(1); \
+		fi; \
 		sed -i "/CONFIG_NETFILTER_XT_MATCH_PHYSDEV/d" $(1); \
 		echo "CONFIG_NETFILTER_XT_MATCH_PHYSDEV=y" >>$(1); \
 		if [ "$(CONFIG_LINUX30)" = "y" ]; then \

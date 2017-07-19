@@ -10,6 +10,8 @@ MODELS_HAVE_USB3 = DSL-AC68U \
 	RT-N65U \
 	RT-N18U
 
+MODELS_HAVE_TRAFFIC_ANALYZER = RT-AC3200 RT-AC87U RT-AC88U RT-AC86U AC2900 RT-AC3100 RT-AC5300 GT-AC5300 DSL-AC68U RT-AC68U RT-AC68A \
+	4G-AC68U RT-AC68R RT-AC68W RT-AC68RW RT-AC1900P RT-AC67U RT-AC56U RT-AC56R RT-AC85U
 all:
 
 clean:
@@ -523,13 +525,54 @@ ifneq ($(RTCONFIG_IFTTT), y)
 	rm -rf $(INSTALLDIR)/www/Advanced_IFTTT_Pincode.asp
 endif
 
-ifneq ($(BUILD_NAME),$(filter $(BUILD_NAME), BRT-AC828))
-	rm -rf $(INSTALLDIR)/www/images/New_ui/networkmap/M2.png
-	rm -rf $(INSTALLDIR)/www/images/New_ui/networkmap/no_m2.png
+ifneq ($(RTCONFIG_PORT_BASED_VLAN), y)
+	rm -rf $(INSTALLDIR)/www/Advanced_VLAN_Content.asp
+	rm -rf $(INSTALLDIR)/www/Advanced_VLAN_DHCP_Content.asp
+	rm -rf $(INSTALLDIR)/www/Advanced_VLAN_Group_Content.asp
+endif
+
+ifneq ($(RTCONFIG_TAGGED_BASED_VLAN), y)
+	rm -rf $(INSTALLDIR)/www/Advanced_TagBasedVLAN_Content.asp
 endif
 
 ifneq ($(RTCONFIG_FBWIFI), y)
 	rm -rf $(INSTALLDIR)/www/Guest_network_fbwifi.asp
 	rm -rf $(INSTALLDIR)/www/ajax_fbwifi.asp
+	rm -rf $(INSTALLDIR)/www/fbwifi
+endif
+ifeq ($(RTCONFIG_NOTIFICATION_CENTER), y)
+ifeq ($(BUILD_NAME),$(filter $(BUILD_NAME), GT-AC5300 RT-AC65U RP-AC87 RT-AC85U BRT-AC828))
+	rm -rf $(INSTALLDIR)/www/images/New_ui/nt_center
+	rm -rf $(INSTALLDIR)/www/notification_center
+	rm -rf $(INSTALLDIR)/www/nt_content.json
+else
+	cp $(INSTALLDIR)/www/notification_center/. $(INSTALLDIR)/www/. -rfL || true
+	rm -rf $(INSTALLDIR)/www/notification_center
+endif
+else
+	rm -rf $(INSTALLDIR)/www/images/New_ui/nt_center
+	rm -rf $(INSTALLDIR)/www/notification_center
+	rm -rf $(INSTALLDIR)/www/nt_content.json
 endif
 
+ifeq ($(BUILD_NAME),RT-AC68A)
+	cd $(INSTALLDIR)/www/require && mv menuTrees/menuTree_RTAC68A.js modules/menuTree.js
+else ifeq ($(BUILD_NAME),GT-AC5300)
+	cd $(INSTALLDIR)/www/require && mv menuTrees/menuTree_ROG.js modules/menuTree.js
+else ifeq ($(BUILD_NAME),BRT-AC828)
+	cd $(INSTALLDIR)/www/require && mv menuTrees/menuTree_BRTAC828.js modules/menuTree.js
+else ifeq ($(RTCONFIG_BWDPI),y)
+ifeq ($(findstring $(BUILD_NAME),$(MODELS_HAVE_TRAFFIC_ANALYZER)),)
+	cd $(INSTALLDIR)/www/require && mv menuTrees/menuTree_bwdpi_no_traffic_analyzer.js modules/menuTree.js
+else
+	cd $(INSTALLDIR)/www/require && mv menuTrees/menuTree_bwdpi_traffic_analyzer.js modules/menuTree.js
+endif
+else
+	cd $(INSTALLDIR)/www/require && mv menuTrees/menuTree_no_bwdpi.js modules/menuTree.js
+endif
+	rm -rf $(INSTALLDIR)/www/require/menuTrees
+
+ifneq ($(BUILD_NAME),$(filter $(BUILD_NAME), BRT-AC828))
+	rm -rf $(INSTALLDIR)/www/images/New_ui/networkmap/M2.png
+	rm -rf $(INSTALLDIR)/www/images/New_ui/networkmap/M2_default.png
+endif

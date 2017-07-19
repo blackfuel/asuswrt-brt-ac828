@@ -1252,6 +1252,11 @@ done:
 static long
 dev_nvram_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+	if (cmd == NVRAM_IOCTL_GET_SPACE && arg != 0) {
+		unsigned int nvram_space = NVRAM_SPACE;
+		copy_to_user((unsigned int *)arg, &nvram_space, sizeof(nvram_space));
+		return 0;
+	}
 	if (cmd != NVRAM_MAGIC)
 		return -EINVAL;
 	if(arg==0)

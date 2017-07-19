@@ -12,6 +12,9 @@
 <script type="text/javascript" src="/validator.js"></script>
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
 <script>
+var wanstate = -1;
+var wansbstate = -1;
+var wanauxstate = -1;
 var wl0_ssid_orig = decodeURIComponent('<% nvram_char_to_ascii("", "wl0_ssid"); %>');
 var wl1_ssid_orig = decodeURIComponent('<% nvram_char_to_ascii("", "wl1_ssid"); %>');
 var wl2_ssid_orig = decodeURIComponent('<% nvram_char_to_ascii("", "wl2_ssid"); %>');
@@ -283,7 +286,7 @@ function QKWireless_load_body(){
 			document.getElementById("field_general").style.display = "";
 	}
 
-	if((parent.document.QKform.sw_mode.value == 1) && (is_TW_sku || is_CN_sku)){	
+	if((parent.document.QKform.sw_mode.value == 1) && (is_TW_sku || is_CN_sku) && parent.flag_manual != 1){
 		check_wan_state();
 	}	
 	
@@ -905,7 +908,7 @@ function submitForm(){
 	}
 
 	document.form.submit();
-	if((document.form.sw_mode.value == "1" || document.form.sw_mode.value == "3") && !parent.pppoe_failed_flag){
+	if((document.form.sw_mode.value == "1" || document.form.sw_mode.value == "3") && !(!parent.flag_manual && parent.pppoe_failed_flag)){
 		setTimeout(function(){
 			location.href = "/qis/QIS_finish.htm";
 		}, 500)
@@ -1522,7 +1525,7 @@ function detect_LANStatus(_flag){
 <input type="hidden" name="time_zone_dst" value="<% nvram_get("time_zone_dst"); %>" disabled>
 <!-- wireless -->
 <input type="hidden" name="wps_enable" value="<% nvram_get("wps_enable"); %>" disabled>
-<input type="hidden" name="wps_band" value="<% nvram_get("wps_band"); %>" disabled>
+<input type="hidden" name="wps_band" value="<% nvram_get("wps_band_x"); %>" disabled>
 <input type="hidden" name="wps_multiband" value="<% nvram_get("wps_multiband"); %>" disabled>
 <input type="hidden" name="wps_dualband" value="<% nvram_get("wps_dualband"); %>" disabled>
 <input type="hidden" name="wl0_ssid2" value="<% nvram_char_to_ascii("WLANConfig11b", "wl0_ssid"); %>">

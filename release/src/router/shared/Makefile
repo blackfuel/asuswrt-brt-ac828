@@ -153,12 +153,16 @@ CFLAGS	+= -I$(TOP)/bled
 OBJS	+= bled.o
 endif
 
+ifeq ($(RTCONFIG_SAVEJFFS),y)
+OBJS	+= $(if $(wildcard jffs_cfgs.c),jffs_cfgs.o,prebuild/jffs_cfgs.o)
+endif
+
 ifeq ($(RTCONFIG_QCA_PLC_UTILS),y)
 OBJS	+= $(if $(wildcard plc_utils.c),plc_utils.o,prebuild/plc_utils.o)
 endif
 
 ifeq ($(RTCONFIG_TCODE),y)
-OBJS    += tcode.o
+OBJS	+= $(if $(wildcard tcode.c),tcode.o,prebuild/tcode.o)
 endif
 
 ifeq ($(CONFIG_BCMWL5),y)
@@ -173,7 +177,7 @@ ifeq ($(RTCONFIG_RALINK),y)
 vpath %.c sysdeps/ralink
 else ifeq ($(RTCONFIG_QCA),y)
 CFLAGS += -DTRX_NEW
-OBJS += private.o
+OBJS += $(if $(wildcard sysdeps/qca/private.c),private.o,prebuild/private.o)
 vpath %.c sysdeps/qca
 else ifeq ($(RTCONFIG_QTN),y)
 vpath %.c sysdeps sysdeps/broadcom sysdeps/qtn $(SRCBASE)/shared/ $(SRCBASE)/shared/bcmwifi/src $(WLAN_StdSrcDirsA) $(WLAN_ComponentSrcDirs) $(TOP)/libqcsapi_client/qcsapi_rpc_common/client  $(TOP)/libqcsapi_client/qcsapi_rpc_common/common
@@ -208,9 +212,8 @@ clean:
 	@echo " [shared] CC $@"
 	@$(CC) $(CFLAGS) -o $@ -c $<
 
-%.o: prebuild/%.o
-	@echo " [shared] cp $@"
-	@cp -f $< $@
+prebuild/%.o:
+	#nothing to do...
 
 .depend: $(OBJS:%.o=%.c)
 	@$(CC) $(CFLAGS) -M $^ > .depend

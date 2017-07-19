@@ -2458,6 +2458,9 @@ static inline void nf_reset(struct sk_buff *skb)
 	nf_conntrack_put(skb->nfct);
 	skb->nfct = NULL;
 #endif
+#ifdef CONFIG_IP_NF_LFP /* the only user */
+	/* skb->nfcache = 0; ? */
+#endif
 #ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
 	nf_conntrack_put_reasm(skb->nfct_reasm);
 	skb->nfct_reasm = NULL;
@@ -2494,6 +2497,9 @@ static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src)
 #ifdef CONFIG_BRIDGE_NETFILTER
 	dst->nf_bridge  = src->nf_bridge;
 	nf_bridge_get(src->nf_bridge);
+#endif
+#if defined(CONFIG_IP_NF_LFP)
+	dst->nfcache = src->nfcache;
 #endif
 	dst->fast_forwarded = src->fast_forwarded;
 }

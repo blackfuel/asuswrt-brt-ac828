@@ -1060,7 +1060,7 @@ vsf_sysutil_next_dirent(const char* session_user, const char *base_dir, struct v
 		}
 
 		if(strcmp(session_user, "anonymous")){
-			user_right = get_permission(session_user, mount_path, share_name, "ftp");
+			user_right = get_permission(session_user, mount_path, share_name, "ftp", 0);
 			if(user_right < 1 || user_right == 2){
 				free(mount_path);
 				free(share_name);

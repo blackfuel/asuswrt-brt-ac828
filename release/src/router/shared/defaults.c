@@ -130,6 +130,9 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl2_ssid", "ASUS_5G-2" },
 #endif
 	{ "wl_bss_enabled", "1", 0 },		/* Service set Enable (1) or disable (0) radio */
+	{ "wl_bw_enabled", "0", 0 },		/* Bandwidth Limiter of Guest Network set Enable (1) or disable (0) radio */
+	{ "wl_bw_dl", "", 0 },			/* Bandwidth Limiter DownStream */
+	{ "wl_bw_ul", "", 0 },			/* Bandwidth Limiter UpStream */
 						/* See "default_get" below. */
 #ifdef __CONFIG_HSPOT__
 	{ "wl_hsflag",		"3159", 0 },	/* Passpoint Flags */
@@ -689,15 +692,13 @@ struct nvram_tuple router_defaults[] = {
 #endif
 
 // WPS
-//	#if defined (W7_LOGO) || defined (WIFI_LOGO)
 	{ "wps_enable", "1"},
-//	#else
-//	{ "wps_enable", "0"},					// win7 logo
-//	#endif
+	{ "wps_enable_x", "1"},
+
 #ifdef RTCONFIG_RALINK
 	{ "wl_wsc_config_state", "0"},				/* config state unconfiged */
 #endif
-	{ "wps_band", "0"},					/* "0": 2.4G, "1": 5G */
+	{ "wps_band_x", "0"},					/* "0": 2.4G, "1": 5G */
 #if defined(RTCONFIG_WPSMULTIBAND)
 	{ "wps_multiband", "1"},				/* Enable WPS on 2.4G and 5G both */
 #else
@@ -1158,6 +1159,14 @@ struct nvram_tuple router_defaults[] = {
 	{ "wan_lcp_intv", "6"},
 	{ "wan_lcp_fail", "10"},
 
+	{ "dns_probe_host", "dns.msftncsi.com"},	/* host to resolve */
+#ifdef RTCONFIG_IPV6
+	{ "dns_probe_content", "131.107.255.255 fd3e:4f5a:5b81::1"},	/* resolve target addr or wildcard */
+#else
+	{ "dns_probe_content", "131.107.255.255"},	/* resolve target addr or wildcard */
+#endif
+	{ "dns_delay_round", "2"},
+
 	/* Misc WAN parameters */
 	{ "wan_desc", ""},		/* WAN connection description */
 	{ "wan_upnp_enable", "1"}, 	// upnp igd
@@ -1523,6 +1532,15 @@ struct nvram_tuple router_defaults[] = {
 	// VSList
 	{ "vts_enable_x", "0"},
 	{ "vts_rulelist", ""},
+#if defined(RTCONFIG_MULTIWAN_CFG)
+	/* If dualwan are enabled and wans_mode = lb,
+	 * vts_rulelist defines virtual server of primary WAN and
+	 * vts1_rulelist defines virtual server of secondary WAN.
+	 * Otherwise, singlewan or dualwan + fo/fb,
+	 * vts_rulelist defines virtual server of all WAN.
+	 */
+	{ "vts1_rulelist", ""},
+#endif
 	{ "vts_upnplist", ""},
 	{ "vts_ftpport", "2021"},
 
@@ -1596,6 +1614,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "TM_EULA", "0"},                      // EULA of Trend Micro
 	{ "apps_analysis", "0"},                // Apps Analysis in Adaptive QoS Live
 	{ "bwdpi_wh_enable", "0" },             // web history
+	{ "bwdpi_wh_stamp", "0" },		// web history timestamp
 #endif
 #endif	/* RTCONFIG_PARENTALCTRL */
 #ifdef RTCONFIG_YANDEXDNS
@@ -1626,23 +1645,19 @@ struct nvram_tuple router_defaults[] = {
 
 	// UrlList
 	{ "url_enable_x", "0"},
-	{ "url_date_x", "1111111"},
-	{ "url_time_x", "00002359"},
-	{ "url_enable_x_1", "0"},
-	{ "url_time_x_1", "00002359"},
 	{ "url_rulelist", "" },
+	{ "url_sched", "000000"},
 
 	// KeywordList
 	{ "keyword_enable_x", "0"},
-	{ "keyword_date_x", "1111111"},
-	{ "keyword_time_x", "00002359"},
 	{ "keyword_rulelist", ""},
+	{ "keyword_sched", "000000"},
 
 	// LWFilterListi
 	{ "fw_lw_enable_x", "0"},
 	{ "filter_lw_date_x", "1111111"},
-	{ "filter_lw_time_x", "00002359"},
-	{ "filter_lw_time2_x", "00002359"},
+	{ "filter_lw_time_x", "00002359" },
+	{ "filter_lw_time2_x", "00002359" },
 	{ "filter_lw_default_x", "ACCEPT"},
 	{ "filter_lw_icmp_x", ""},
 	{ "filter_lwlist", ""},
@@ -1683,8 +1698,10 @@ struct nvram_tuple router_defaults[] = {
 	{ "usb_enable", "1"},
 	{ "usb_uhci", "0"},
 #ifdef RTCONFIG_INTERNAL_GOBI
-	{ "usb_ohci", "0"},
 	{ "usb_gobi", "1"},
+#endif
+#if defined(RTCONFIG_INTERNAL_GOBI) && !defined(RTCONFIG_USB_MULTIMODEM)
+	{ "usb_ohci", "0"},
 #else
 	{ "usb_ohci", "1"},
 #endif
@@ -1825,6 +1842,8 @@ struct nvram_tuple router_defaults[] = {
 	{"chilli_authtype", "0"},
 	{"chilli_sessiontime", ""},
 	{"chilli_bandwidth", ""},
+	{"chilli_bandwidthMaxUp", "0"},
+	{"chilli_bandwidthMaxDown", "0"},
 
 	/* for captive portal */
 	{"cp_enable", "0"},
@@ -1851,9 +1870,11 @@ struct nvram_tuple router_defaults[] = {
 	{"cp_additional", ""},
 	{"cp_protocol", "http"},
 	{"cp_authport", "http"},
+	{"cp_bandwidthMaxUp", "0"},
+	{"cp_bandwidthMaxDown", "0"},
 
-        /* for hotspotsystem nvram*/
-        {"hotss_enable", "0"},
+	/* for hotspotsystem nvram*/
+    {"hotss_enable", "0"},
 	{"hotss_uamenable", "0"},
 	{"hotss_loginonsplash", "0"},
 	{"hotss_customsplash", "0"},
@@ -2182,7 +2203,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "vpn_server_firewall",	"auto"		},
 	{ "vpn_server_crypt",		"tls"		},
 	{ "vpn_server_comp",		"adaptive"	},
-	{ "vpn_server_cipher",		"default"	},
+	{ "vpn_server_cipher",		"AES-128-CBC"	},
 	{ "vpn_server_dhcp",		"1"		},
 	{ "vpn_server_r1",		"192.168.1.50"	},
 	{ "vpn_server_r2",		"192.168.1.55"	},
@@ -2816,6 +2837,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "captive_portal_adv_2g_ssid",			""},
 	{ "captive_portal_adv_5g_ssid",			""},
 	{ "captive_portal_adv_5g_2_ssid",		""},
+	{ "captive_portal_passcode",	""},
 #endif
 #ifdef RTCONFIG_QUAGGA
        	{ "quagga_enable", "0"},          // 0: Disable, 1: enable quagga(zebra + ripd)
@@ -2828,7 +2850,8 @@ struct nvram_tuple router_defaults[] = {
 	{ "lan_trunk_0", "0"},
 	{ "lan_trunk_1", "0"},
 	{ "lan_trunk_type", "0"},
-	{ "lb_skip_port", "<HTTPS>443>TCP"},
+	{ "lan_hash_algorithm", "0"},	/* 0: Source Port, 1: Layer2, 2: Layer2+3, 3: Layer3, 4: Layer3+4 */
+	{ "lb_skip_port", "<HTTPS>443>TCP<HTTPS>8443>TCP<QUIC>443>UDP<QUIC>80>UDP"},
 #endif	/* BRTAC828 */
 
 //#if defined(RTCONFIG_PORT_BASED_VLAN)
@@ -2858,6 +2881,14 @@ struct nvram_tuple router_defaults[] = {
 	{ "log_bkp_nonhide" , "1"},
 	{ "log_bkp_path_fail" , "0" },
 #endif
+#endif
+#ifdef RTCONFIG_LETSENCRYPT
+	{ "le_enable", "0" },
+	{ "le_acme_auth", "dns" },
+	{ "le_acme_force", "0" },
+	{ "le_acme_logpath", "" },
+	{ "le_acme_debug", "0" },
+	{ "le_acme_stage", "0" },
 #endif
 	{ NULL, NULL }
 }; // router_defaults
@@ -3247,6 +3278,14 @@ struct nvram_tuple router_state_defaults[] = {
 	{ "data_usage_limit", "8"},
 	{ "data_usage_warning", "6"},
 	{ "modem_idletime", "600"},
+
+#ifdef RTCONFIG_LETSENCRYPT
+	{ "le_state", "0" },
+	{ "le_state_t", "0" },
+	{ "le_sbstate_t", "0" },
+	{ "le_auxstate_t", "0" },
+	{ "le_rc_notify", "0" },
+#endif
 
 	{ NULL, NULL }
 };

@@ -120,7 +120,7 @@ start_wps_method(void)
 		return 0;
 	}
 
-	wps_band = nvram_get_int("wps_band");
+	wps_band = nvram_get_int("wps_band_x");
 	snprintf(prefix, sizeof(prefix), "wl%d_", wps_band);
 	wps_action = nvram_get_int("wps_action");
 //	wps_method = nvram_get_int("wps_method"); // useless

@@ -87,6 +87,18 @@ int get_wan_auxstate(int unit){
 	return nvram_get_int(strcat_r(prefix, "auxstate_t", tmp));
 }
 
+char *link_wan_nvname(int unit, char *buf, int size){
+	if(buf == NULL)
+		return NULL;
+
+	if(unit == WAN_UNIT_FIRST)
+		snprintf(buf, size, "link_wan");
+	else
+		snprintf(buf, size, "link_wan%d", unit);
+
+	return buf;
+}
+
 int is_wan_connect(int unit){
 	char tmp[100], prefix[]="wanXXXXXX_";
 	int wan_state, wan_sbstate, wan_auxstate;
@@ -111,18 +123,26 @@ int is_wan_connect(int unit){
 // auxstate will be reset by update_wan_state(), but wanduck cannot set it soon sometimes.
 // only link_wan will be safe.
 int is_phy_connect(int unit){
-	char prefix[sizeof("link_wanXXXXXX")] = "link_wan";
+	char prefix[sizeof("link_wanXXXXXX")], *ptr;
 	int link_wan;
 
-	if(unit != WAN_UNIT_FIRST)
-		snprintf(prefix, sizeof(prefix), "link_wan%d", unit);
+	link_wan_nvname(unit, prefix, sizeof(prefix));
 
-	link_wan = nvram_get_int(prefix);
+	if((ptr = nvram_get(prefix)) != NULL){
+		link_wan = atoi(ptr);
 
-	if(link_wan)
+		if(link_wan)
+			return 1;
+		else
+			return 0;
+	}
+	else
+#ifdef RTCONFIG_USB_MODEM
+	if(dualwan_unit__usbif(unit))
 		return 1;
 	else
-		return 0;
+#endif
+		return get_wanports_status(unit);
 }
 
 int is_ip_conflict(int unit){

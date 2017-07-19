@@ -66,6 +66,7 @@
 .splash_template_terms_service_cb {
 	width: 15%;
 	float: left;
+	margin-top: 2%;
 }
 .splash_template_terms_service_text {
 	width: 85%;
@@ -120,8 +121,75 @@
 	position: absolute;
 	background-repeat: no-repeat;
 }
+.splash_template_passcode {
+	background-color: rgba(74, 144, 226, 0.5);
+	border-radius: 4px;
+	width: 90%;
+	border: 0px;
+	color: #FFFFFF;
+	padding-left: 2%;
+	font-size: 12px;
+	margin-left: 4%;
+}
 </style>
 <script>
+var htmlEnDeCode = (function() {
+    var charToEntityRegex,
+        entityToCharRegex,
+        charToEntity,
+        entityToChar;
+
+    function resetCharacterEntities() {
+        charToEntity = {};
+        entityToChar = {};
+        // add the default set
+        addCharacterEntities({
+            '&amp;'     :   '&',
+            '&gt;'      :   '>',
+            '&lt;'      :   '<',
+            '&quot;'    :   '"',
+            '&#39;'     :   "'"
+        });
+    }
+
+    function addCharacterEntities(newEntities) {
+        var charKeys = [],
+            entityKeys = [],
+            key, echar;
+        for (key in newEntities) {
+            echar = newEntities[key];
+            entityToChar[key] = echar;
+            charToEntity[echar] = key;
+            charKeys.push(echar);
+            entityKeys.push(key);
+        }
+        charToEntityRegex = new RegExp('(' + charKeys.join('|') + ')', 'g');
+        entityToCharRegex = new RegExp('(' + entityKeys.join('|') + '|&#[0-9]{1,5};' + ')', 'g');
+    }
+
+    function htmlEncode(value){
+        var htmlEncodeReplaceFn = function(match, capture) {
+            return charToEntity[capture];
+        };
+
+        return (!value) ? value : String(value).replace(charToEntityRegex, htmlEncodeReplaceFn);
+    }
+
+    function htmlDecode(value) {
+        var htmlDecodeReplaceFn = function(match, capture) {
+            return (capture in entityToChar) ? entityToChar[capture] : String.fromCharCode(parseInt(capture.substr(2), 10));
+        };
+
+        return (!value) ? value : String(value).replace(entityToCharRegex, htmlDecodeReplaceFn);
+    }
+
+    resetCharacterEntities();
+
+    return {
+        htmlEncode: htmlEncode,
+        htmlDecode: htmlDecode
+    };
+})();
 window.moveTo(0,0);
 var windw_width = screen.width;
 var windw_height = screen.height;
@@ -199,7 +267,7 @@ function initial() {
 		code += '<div style="display:table-cell;">';
 		code += '<div style="width:100%;max-width:100%;height:100%;max-height:100%;position:relative;">';
 		code += '<div id="term_service_text" class="term_service_text" style="font-size:12px;">';
-		code += opener.document.getElementById('terms_service').value.replace(/(\r\n|\n\r|\r|\n)/g, "<br>");
+		code += htmlEnDeCode.htmlEncode(opener.document.getElementById('terms_service').value).replace(/ /g, '&nbsp;').replace(/(?:\r\n|\r|\n)/g, '<br>');
 		code += '</div>';
 		code += '</div>';
 		code += '</div>';
@@ -214,6 +282,10 @@ function initial() {
 		code += '</div>';
 		$('#terms_service').html(code);
 		control_bt_status();
+	}
+
+	if(opener.document.form.cb_passcode.checked == false) {
+		document.getElementById("splash_template_passcode").style.display = "none";
 	}
 
 	resize_component()
@@ -283,6 +355,11 @@ function resize_component() {
 	document.getElementById('splash_template_continue').style.fontSize = (12 * _ratio) + 'px';
 	document.getElementById('splash_template_continue').style.lineHeight = (25 * _ratio) + 'px';
 	document.getElementById('splash_template_continue').style.margin = '' + (15 * _ratio) + 'px auto';
+
+	//splash_template_passcode
+	document.getElementById('splash_template_passcode').style.height = (20 * _ratio) + 'px';
+	document.getElementById('splash_template_passcode').style.fontSize = (12 * _ratio) + 'px';
+	document.getElementById('splash_template_passcode').style.lineHeight = (20 * _ratio) + 'px';
 }
 function control_bt_status() {
 	var _obj = document.getElementById('cbTermService');
@@ -294,18 +371,29 @@ function control_bt_status() {
 	}
 }
 function continue_action() {
+	var passcode_status = false;
+	if(opener.document.form.cb_passcode.checked == true) {
+		passcode_status = true;
+		var _obj_value = document.getElementById('splash_template_passcode').value.trim();
+		if(_obj_value == '') {
+			alert("<#JS_fieldblank#>");
+			document.getElementById('splash_template_passcode').focus();
+			return false;
+		}
+	}
+
 	if(opener.document.form.cb_terms_service.checked == true) {
 		var _obj = document.getElementById('cbTermService');
-		if(_obj.checked) {
-			//formSubmit(0);
-		}
-		else {
+		if(!_obj.checked) {
 			alert('You must agree to the terms of service before continuing.');
+			return false;
 		}
 	}
-	else {
-		//formSubmit(0);
-	}
+
+	if(passcode_status)
+		console.log("formSubmit(2)");
+	else
+		console.log("formSubmit(0)");
 }
 function open_term_service() {
 	if(isMobile()) {
@@ -360,6 +448,7 @@ function isMobile() {
 		</svg>
 		<div id='splash_template_title' class='splash_template_title'>Welcome to</div>
 		<div id='splash_template_brand_name' class='splash_template_brand_name'>Brand Name</div>
+		<input id='splash_template_passcode' name='splash_template_passcode' class='splash_template_passcode' value='' placeHolder='Please enter Passcode' type='text' maxlength='64' autocorrect='off' autocapitalize='off'>
 		<div id='splash_template_terms_service' class='splash_template_terms_service'>
 		<div class='splash_template_terms_service_cb'>
 			<input type='checkbox' name='cbTermService' id='cbTermService' onclick='control_bt_status();'>

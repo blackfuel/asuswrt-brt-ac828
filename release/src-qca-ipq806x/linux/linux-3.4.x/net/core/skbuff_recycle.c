@@ -24,6 +24,7 @@
 
 #include "skbuff_debug.h"
 
+static int stop_recycle = 0;
 static struct proc_dir_entry *proc_net_skbrecycler;
 
 static DEFINE_PER_CPU(struct sk_buff_head, recycle_list);
@@ -105,6 +106,9 @@ inline struct sk_buff *skb_recycler_alloc(struct net_device *dev, unsigned int l
 inline bool skb_recycler_consume(struct sk_buff *skb) {
 	unsigned long flags;
 	struct sk_buff_head *h;
+
+	if (unlikely(stop_recycle))
+		return false;
 
 	/* Can we recycle this skb?  If not, simply return that we cannot */
 	if (unlikely(!consume_skb_can_recycle(skb, SKB_RECYCLE_MIN_SIZE,
@@ -313,10 +317,30 @@ static ssize_t proc_skb_flush_write(struct file *file,
 				    size_t count,
 				    loff_t *ppos)
 {
+	long v;
+	char *kbuf = kmalloc(count, GFP_KERNEL);
 #ifdef CONFIG_SKB_RECYCLER_MULTI_CPU
 	unsigned int i;
 	unsigned long flags;
 #endif
+
+	if (copy_from_user(kbuf, buf, count)) {
+		kfree(kbuf);
+		return -EFAULT;
+	}
+
+	/* != 0: flush recycle/global list and stop recycle skbs.
+	 * == 0: resume recycler workqueue
+	 */
+	v = simple_strtol(kbuf, NULL, 0);
+	kfree(kbuf);
+	if (v == 0) {
+		stop_recycle = 0;
+		return count;
+	} else {
+		stop_recycle = 1;
+	}
+
 	schedule_on_each_cpu(&skb_recycler_flush_task);
 
 #ifdef CONFIG_SKB_RECYCLER_MULTI_CPU
@@ -366,7 +390,9 @@ static ssize_t proc_skb_max_skbs_write(struct file *file,
 		return -EFAULT;
 	ret = kstrtoint(strstrip(buffer), 10, &max);
 	if (ret == 0 && max >= 0)
-		skb_recycle_max_skbs = max;
+		skb_recycle_max_skbs = max(max, SKB_RECYCLE_MIN_SKBS);
+	if (ret == 0 && max < 0)
+		skb_recycle_max_skbs = SKB_RECYCLE_MAX_SKBS;
 
 	return count;
 }

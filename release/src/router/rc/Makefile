@@ -101,6 +101,7 @@ endif
 
 
 ifeq ($(RTCONFIG_FBWIFI),y)
+CFLAGS  += -I$(TOP)/fb_wifi
 LDFLAGS += -L$(TOP)/fb_wifi -lfbwifi
 endif
 
@@ -146,7 +147,8 @@ LDFLAGS += $(EXTRA_LDFLAGS)
 
 OBJS := rc.o init.o interface.o lan.o wireless.o wan.o pppd.o auth.o services.o #mtd.o
 OBJS += firewall.o ppp.o services.o common.o
-OBJS += watchdog.o ntp.o btnsetup.o $(if $(RTCONFIG_MULTIWAN_CFG),qos_multiwan.o,qos.o) udhcpc.o ate.o #cpu.o
+OBJS += watchdog.o ntp.o btnsetup.o $(if $(RTCONFIG_MULTIWAN_CFG),qos_multiwan.o,qos.o) udhcpc.o ate.o
+OBJS += format.o
 ifeq ($(RTAC1200G),y)
 OBJS += mtd_sflash.o
 else
@@ -315,6 +317,11 @@ endif
 
 ifeq ($(RTCONFIG_TIMEMACHINE),y)
 OBJS += timemachine.o
+endif
+
+ifeq ($(RTCONFIG_LETSENCRYPT),y)
+CFLAGS += -DRTCONFIG_CROND
+OBJS += letsencrypt.o
 endif
 
 CFLAGS += $(if $(RTCONFIG_BLINK_LED),-I$(TOP)/bled)
@@ -651,6 +658,9 @@ ifeq ($(RTCONFIG_DHCP_OVERRIDE),y)
 endif
 ifeq ($(RTCONFIG_KEY_GUARD),y)
 	@cd $(INSTALLDIR)/sbin && ln -sf rc keyguard
+endif
+ifeq ($(RTCONFIG_LETSENCRYPT),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc le_acme
 endif
 clean:
 	rm -f rc *.o .*.depend

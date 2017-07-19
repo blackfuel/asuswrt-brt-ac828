@@ -22,6 +22,10 @@ dataf="$apps_local_space/spn_asus.dat"
 modem_prefix="test_modem_"
 
 
+if [ "$modem_type" == "" -o  "$modem_type" == "ecm" -o "$modem_type" == "rndis" -o "$modem_type" == "asix" -o "$modem_type" == "ncm" ]; then
+	exit 0
+fi
+
 act_node=
 #if [ "$modem_type" = "tty" -o "$modem_type" = "mbim" ]; then
 #	if [ "$modem_type" = "tty" -a "$modem_vid" = "6610" ]; then # e.q. ZTE MF637U

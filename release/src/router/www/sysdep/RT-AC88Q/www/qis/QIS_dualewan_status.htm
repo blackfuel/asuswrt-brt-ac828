@@ -39,8 +39,6 @@ else{
 <% dual_wanstate(); %>
 
 function initial(){
-	var eth_wan = 0;
-	var sim_wan = 0;
 	var hint_str;
 
 	if(parent.ISMOBILE){
@@ -61,7 +59,6 @@ function initial(){
 		hint_str = "<style style=\"text/css\"> a{text-decoration:underline;font-weight: bold; font-style: italic; cursor: pointer;} a:hover{text-decoration:underline;}</style>";
 		hint_str += "Note: If you want to connect to the internet service via \"Secondary Ethernet WAN\", check the connection of secondary ethernet wan and click \"Detect Again\".";
 		document.getElementById("dualwan_hint").innerHTML = hint_str;
-		eth_wan = 1;
 	}
 
 	if(second_wanstate == 2 && second_wansbstate == 0 && second_wanauxstate == 0){
@@ -71,7 +68,6 @@ function initial(){
 		hint_str = "<style style=\"text/css\"> a{text-decoration:underline;font-weight: bold; font-style: italic; cursor: pointer;} a:hover{text-decoration:underline;}</style>";
 		hint_str += "Note: If you want to connect to the internet service via \"Primary Ethernet WAN\", check the connection of primary ethernet wan and click \"Detect Again\".";
 		document.getElementById("dualwan_hint").innerHTML = hint_str;
-		sim_wan = 1;
 	}
 }
 
@@ -101,19 +97,26 @@ function detect_if_wan_plug(flag){
 		dataType: 'script',
 		
 		error: function(xhr){
-			detect_if_wan_plug();		
+			detect_if_wan_plug();
 		},
 		success: function(response){
 			if((first_wanstate  == 2 && first_wansbstate == 0 && first_wanauxstate == 0) &&
 			   (second_wanstate == 2 && second_wansbstate == 0 && second_wanauxstate == 0)){
 				redirect_page("wireless");
 			}
+			else if(autodet_state == 4 && autodet1_state == 4 && parent.hadPlugged("modem")){ // ethernet did not plug
+				redirect_page("modem");
+			}			
 			else if(autodet_state == 4 || autodet1_state == 4){
 				redirect_page("unplug_ewan");
 			}
-			else if((!(first_wanstate  == 2 && first_wansbstate == 0 && first_wanauxstate == 0) && autodet_state == 2 ) || 
-				(!(second_wanstate  == 2 && second_wansbstate == 0 && second_wanauxstate == 0) && autodet1_state == 2 ) ){
-				redirect_pate("internet_type");
+			else if(autodet_state == "6" || autodet_auxstate == "6" || autodet1_state == "6" || autodet1_auxstate == "6"){
+				if(!(first_wanstate == 2 && first_wansbstate == 0 && first_wanauxstate == 0) && autodet_state != "4")
+					parent.cur_wan_unit = 0;
+				else
+					parent.cur_wan_unit = 1;
+				
+				redirect_page("internet_account");
 			}
 			else if(flag == null){
 				document.getElementById("loadingIcon").style.display = "none";
@@ -128,7 +131,7 @@ function update_wan_info(flag){
 		url: '/start_autodet.asp',
 		dataType: 'script',
 		error: function(xhr){
-			update_wan_info();		
+			update_wan_info();
 		},
 		success: function(response){
 			if(flag == null){

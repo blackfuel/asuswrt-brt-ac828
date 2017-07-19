@@ -4252,9 +4252,13 @@ int diskmon_main(int argc, char *argv[])
 	struct tm local;
 	char *nv, *nvp;
 	char *set_day, *set_week, *set_hour;
+#if defined(RTCONFIG_M2_SSD)
+	int val_day[3] = {0, }, val_hour[3] = {0, }, wait_second[3] = {0, };
+#else
 	int val_day[2] = {0, 0}, val_hour[2] = {0, 0};
-	int wait_second[2] = {0, 0}, wait_hour = 0;
-	int diskmon_alarm_sec = 0;
+	int wait_second[2] = {0, 0};
+#endif
+	int diskmon_alarm_sec = 0, wait_hour = 0;
 	char port_path[16];
 	int port_num;
 	char word[PATH_MAX], *next;

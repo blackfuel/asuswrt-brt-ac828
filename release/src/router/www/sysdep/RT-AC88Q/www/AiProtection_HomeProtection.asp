@@ -15,7 +15,6 @@
 <script type="text/javascript" src="/help.js"></script>
 <script type="text/javascript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
-<script type="text/javascript" src="/disk_functions.js"></script>
 <script type="text/javascript" src="/form.js"></script>
 <style>
 .weakness{
@@ -94,6 +93,7 @@
 }
 </style>
 <script>
+if(usb_support) addNewScript("/disk_functions.js");
 window.onresize = function() {
 	if(document.getElementById("weakness_div").style.display == "block") {
 		cal_panel_block("weakness_div", 0.25);
@@ -192,7 +192,6 @@ function getEventData(type, date, event){
 }
 
 function applyRule(){
-
 	//first time will update to time value
 	var t = new Date();
 	var timestamp = t.getTime();
@@ -719,11 +718,13 @@ function show_tm_eula(){
 	if(document.form.preferred_lang.value == "JP"){
 			$.get("JP_tm_eula.htm", function(data){
 				document.getElementById('agreement_panel').innerHTML= data;
+				adjust_TM_eula_height("agreement_panel");
 			});
 	}
 	else{
 			$.get("tm_eula.htm", function(data){
 				document.getElementById('agreement_panel').innerHTML= data;
+				adjust_TM_eula_height("agreement_panel");
 			});
 	}
 	dr_advise();
@@ -853,7 +854,7 @@ function shadeHandle(flag){
 <body onload="initial();" onunload="unload_body();" onselectstart="return false;">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
-<div id="agreement_panel" class="panel_folder" style="margin-top: -100px;"></div>
+<div id="agreement_panel" class="eula_panel_container"></div>
 <div id="hiddenMask" class="popup_bg" style="z-index:999;">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center"></table>
 	<!--[if lte IE 6.5.]><script>alert("<#ALERT_TO_CHANGE_BROWSER#>");</script><![endif]-->
@@ -1098,13 +1099,13 @@ function shadeHandle(flag){
 		<td valign="top">
 			<div id="tabMenu" class="submenuBlock"></div>	
 		<!--===================================Beginning of Main Content===========================================-->		
-			<table width="98%" border="0" align="left" cellpadding="0" cellspacing="0" >
+			<table width="98%" border="0" align="left" cellpadding="0" cellspacing="0" class="content_bg">
 				<tr>
 					<td valign="top" >		
 						<table width="730px" border="0" cellpadding="4" cellspacing="0" class="FormTitle" id="FormTitle">
 							<tbody>
 							<tr>
-								<td style="background:#4D595D" valign="top">
+								<td valign="top">
 									<div>&nbsp;</div>
 									<div>
 										<table width="730px">
@@ -1120,7 +1121,7 @@ function shadeHandle(flag){
 										<table width="700px" style="margin-left:25px;">
 											<tr>
 												<td style="font-size:14px;">
-													<div>AiProtection with Trend Micro protects against network exploit to secure your network from malicious access, ransomware or cybercriminal attakcs.</div>
+													<div><#AiProtection_desc#></div>
 													<div><a style="text-decoration:underline;" href="http://www.asus.com/us/support/FAQ/1008719/" target="_blank"><#AiProtection_title#> FAQ</a></div>
 												</td>
 											</tr>									
@@ -1129,7 +1130,7 @@ function shadeHandle(flag){
 									<div style="margin:10px;">
 										<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 											<tr>
-												<th><#CTL_Enabled#> <#AiProtection_title#></th>
+												<th><#AiProtection_title#></th>
 												<td>
 													<div align="center" class="left" style="width:94px; float:left; cursor:pointer;" id="radio_protection_enable"></div>
 													<div class="iphone_switch_container" style="height:32px; width:74px; position: relative; overflow: hidden">
@@ -1160,7 +1161,7 @@ function shadeHandle(flag){
 									<!--=====Beginning of Main Content=====-->
 									<div style="margin-top:5px;">
 										<table style="width:99%;border-collapse:collapse;">
-											<tr style="background-color:#444f53;height:120px;">
+											<tr class="block_bg block_line" style="height:120px;">
 												<td style="padding:10px;border-radius:10px 0px 0px 10px">
 													<div style="font-size:18px;text-shadow:1px 1px 0px black;"><#AiProtection_scan#></div>
 													<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;padding-top:5px;"><#AiProtection_scan_desc#></div>
@@ -1184,11 +1185,11 @@ function shadeHandle(flag){
 												</td>												
 											</tr>						
 											<tr style="height:10px;"></tr>
-											<tr style="background-color:#444f53;height:120px;">
+											<tr class="block_bg block_line" style="height:120px;">
 												<td style="padding:10px;border-radius:10px 0px 0px 10px;cursor:pointer;" onclick="location.href='AiProtection_IntrusionPreventionSystem.asp'">
 													<div>
 														<div style="font-size:18px;text-shadow:1px 1px 0px black;"><#AiProtection_sites_blocking#></div>
-														<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;padding-top:5px;">Malicious Sites Blocking restricts access to known malicious websites to prevent malware, phishing, spam, adware, hacking or ransomware from attacking your network device.</div>
+														<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;padding-top:5px;"><#AiProtection_sites_block_desc#></div>
 													</div>								
 												</td>
 												 <td width="6px">
@@ -1231,11 +1232,11 @@ function shadeHandle(flag){
 											</tr>
 
 											<tr style="height:10px;"></tr>
-											<tr style="background-color:#444f53;height:120px;">
+											<tr class="block_bg block_line" style="height:120px;">
 												<td style="padding:10px;border-radius:10px 0px 0px 10px;cursor:pointer;" onclick="location.href='AiProtection_IntrusionPreventionSystem.asp'">
 													<div>
-														<div style="font-size:18px;text-shadow:1px 1px 0px black;">Two-Way IPS</div>
-														<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;padding-top:5px;">Two-Way IPS (Intrusion Prevention System) prevents Spam or DDoS from attacking Internet device and blocks malicious incoming packets to protect router from network vulnerability attacks like Shellshocked, Heartbleed, Bitcoin mining and Ransomware attack ; And also detects suspicious outgoing packets to find infected device out, and then prevent from being enslaved by Botnets.</div>
+														<div style="font-size:18px;text-shadow:1px 1px 0px black;"><#AiProtection_two-way_IPS#></div>
+														<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;padding-top:5px;"><#AiProtection_two-way_IPS#></div>
 													</div>								
 												</td>
 												 <td width="6px">
@@ -1277,10 +1278,10 @@ function shadeHandle(flag){
 											</tr>
 											
 											<tr style="height:10px;"></tr>										
-											<tr style="background-color:#444f53;height:120px;">
+											<tr class="block_bg" style="height:120px;">
 												<td style="padding:10px;border-radius:10px 0px 0px 10px;cursor:pointer" onclick="location.href='AiProtection_IntrusionPreventionSystem.asp'">
 													<div style="font-size:18px;text-shadow:1px 1px 0px black;"><#AiProtection_detection_blocking#></div>
-													<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;;padding-top:5px;">Infected Device Prevention and Blocking prevents infected network device from being enslaved by Botnets or Zombies, and stealing your sensitive information or attacking other computers.</div>
+													<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;;padding-top:5px;"><#AiProtection_detection_block_desc#></div>
 												</td>
 												 <td>
 													<div><img src="/images/line.png"></div>

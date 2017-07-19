@@ -42,7 +42,8 @@ var subnet_rulelist = decodeURIComponent("<% nvram_char_to_ascii("","subnet_rule
 var subnet_rulelist_row = subnet_rulelist.split('<');
 var subnet_rulelist_array = new Array();
 var default_lanip = '<% nvram_get("lan_ipaddr"); %>';
-var default_gateway = ('<% nvram_get("dhcp_gateway_x"); %>' == "")? default_lanip:'<% nvram_get("dhcp_gateway_x"); %>';
+var default_dhcp_gateway_x = '<% nvram_get("dhcp_gateway_x"); %>';
+var default_gateway = (default_dhcp_gateway_x == "")? default_lanip:default_dhcp_gateway_x;
 var default_netmask = '<% nvram_get("lan_netmask"); %>';
 var default_dhcp_enable = '<% nvram_get("dhcp_enable_x"); %>';
 var default_dhcp_start = '<% nvram_get("dhcp_start"); %>';
@@ -299,7 +300,8 @@ function update_default_subnet(){
 
 	document.form.dhcp_enable_x.value = subnet_rulelist_array[0][2];
 	document.form.lan_domain.value = subnet_rulelist_array[0][6];
-	document.form.dhcp_gateway_x.value = subnet_rulelist_array[0][0];
+	if(default_dhcp_gateway_x != "")
+		document.form.dhcp_gateway_x.value = subnet_rulelist_array[0][0];
 	document.form.lan_netmask.value = subnet_rulelist_array[0][1];
 	document.form.dhcp_start.value = subnet_rulelist_array[0][3];
 	document.form.dhcp_end.value = subnet_rulelist_array[0][4];
@@ -545,13 +547,12 @@ function checkGatewayIP() {
 	}
 
 	//5.check existed Subnet IP address
-	for(var i = 1; i < subnet_rulelist_row.length; i++) {
-			var subnet_rulelist_col = subnet_rulelist_row[i].split('>');
-			ipConflict = checkIPConflict(subnet_rulelist_col[0], lanIPAddr, lanNetMask);
-			if(ipConflict.state) {
-				alertMsg("Subnet"+subnet_rulelist_col[0].substring(6, 7), ipConflict.ipAddr, ipConflict.netLegalRangeStart, ipConflict.netLegalRangeEnd);
-				return false;
-			}
+	for(var i = 1; i < subnet_rulelist_array.length; i++) { //skip default subnet, because it's checked in 'LAN' case.
+		ipConflict = checkIPConflict("SUBNET", lanIPAddr, lanNetMask, subnet_rulelist_array[i][0], subnet_rulelist_array[i][1]);
+		if(ipConflict.state) {
+			alertMsg("Subnet", ipConflict.ipAddr, ipConflict.netLegalRangeStart, ipConflict.netLegalRangeEnd);
+			return false;
+		}
 	}
 
 	return true;

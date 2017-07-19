@@ -16,7 +16,6 @@
 <link rel="stylesheet" type="text/css" href="css/icon.css">
 <script type="text/javascript" src="/state.js"></script>
 <script type="text/javascript" src="/popup.js"></script>
-<script type="text/javascript" language="JavaScript" src="/merlin.js"></script>
 <script type="text/javascript" src="/help.js"></script>
 <script type="text/javascript" src="/validator.js"></script>
 <script type="text/javascript" src="/js/jquery.js"></script>
@@ -246,7 +245,7 @@
 <% wanlink(); %>
 <% first_wanlink(); %>
 var wans_dualwan_orig = '<% nvram_get("wans_dualwan"); %>';
-var wans_flag = (wans_dualwan_orig.search("none") == -1) ? 1:0;
+var wans_flag = (wans_dualwan_orig.search("none") != -1 || !parent.dualWAN_support) ? 0 : 1;
 var dsllink_statusstr = "";
 if(wans_flag == 1)	//dual_wan enabled
 	dsllink_statusstr = first_wanlink_statusstr();
@@ -271,7 +270,7 @@ function show_up_down(value){
 	if(value){
 		document.getElementById('upload_tr').style.display = "";
 		document.getElementById('download_tr').style.display = "";
-		if(dualWAN_support){
+		if(mtwancfg_support){
 			document.getElementById('wan_1_tr').style.display = "";
 			document.getElementById('wan_2_tr').style.display = "";
 			document.getElementById('upload2_tr').style.display = "";
@@ -281,7 +280,7 @@ function show_up_down(value){
 	else {
 		document.getElementById('upload_tr').style.display = "none";
 		document.getElementById('download_tr').style.display = "none";
-		if(dualWAN_support){
+		if(mtwancfg_support){
 			document.getElementById('wan_1_tr').style.display = "none";
 			document.getElementById('wan_2_tr').style.display = "none";
 			document.getElementById('upload2_tr').style.display = "none";
@@ -290,28 +289,55 @@ function show_up_down(value){
 	}
 }
 
-var device_list = <% pms_device_info(); %>;
-var group_list = <% pms_devgroup_info(); %>;
-var device_option_array = [
-["0", ""],["1", "Windows device"], ["2", "Router"], ["3", ""], ["4", "NAS/Server"], ["5", "IP Cam"], ["6", "MacBook"], ["7", "Game Console"], ["8", ""], ["9", "Android Phone"],
-["10", "iPhone"], ["11", "Apple TV"], ["12", "Set-Top Box"], ["13", ""], ["14", "iMac"], ["15", "ROG"], ["16", ""], ["17", ""], ["18", "Printer"], ["19", "Windows Phone"], ["20", "Android Tablet"],
-["21", "iPad"], ["22", "Linux Device"], ["23", "Smart TV"], ["24", "Repeater"], ["25", "Kindle"], ["26", "Scanner"], ["27", "Chromecast"], ["28", "ASUS Smartphone"], 
-["29", "ASUS Pad"], ["30", "Windows"], ["31", "Android"], ["32", "Mac OS"]
-];
-
-var device_type_array = new Array();
-for(i=0;i<device_option_array.length;i++){
-	device_type_array.push(device_option_array[i][0]);
-	device_type_array[device_option_array[i][0]] = {
-		number: device_option_array[i][0],
-		name: device_option_array[i][1]	
+var GN_with_BandwidthLimeter = false;
+if(wl_info.band2g_support != '-1'){
+	var gn_array_2g_length = gn_array_2g.length;
+	for(var i=0;i<gn_array_2g_length;i++){
+		if(gn_array_2g[i][18] == "1"){	//GN with Bandwidth Limiter 
+			GN_with_BandwidthLimeter = true;
+		}	
+	}
+}
+if(wl_info.band5g_support != '-1'){
+	var gn_array_5g_length = gn_array_5g.length;	
+	for(var j=0;j<gn_array_5g_length;j++){
+		if(gn_array_5g[j][18] == "1"){	//GN with Bandwidth Limiter 
+			GN_with_BandwidthLimeter = true;
+		}	
+	}
+}
+if(wl_info.band5g_2_support != '-1'){
+	var gn_array_5g_2_length = gn_array_5g_2.length;	
+	for(var k=0;k<gn_array_5g_2_length;k++){
+		if(gn_array_5g_2[k][18] == "1"){	//GN with Bandwidth Limiter 
+			GN_with_BandwidthLimeter = true;
+		}	
 	}
 }
 
-var info = new Object();
-info.device = new Array();
-info.group = new Array();
+if(pm_support) {
+	var device_list = [<% pms_device_info(); %>][0];
+	var group_list = [<% pms_devgroup_info(); %>][0];
+	var device_option_array = [
+	["0", ""],["1", "Windows device"], ["2", "Router"], ["3", ""], ["4", "NAS/Server"], ["5", "IP Cam"], ["6", "MacBook"], ["7", "Game Console"], ["8", ""], ["9", "Android Phone"],
+	["10", "iPhone"], ["11", "Apple TV"], ["12", "Set-Top Box"], ["13", ""], ["14", "iMac"], ["15", "ROG"], ["16", ""], ["17", ""], ["18", "Printer"], ["19", "Windows Phone"], ["20", "Android Tablet"],
+	["21", "iPad"], ["22", "Linux Device"], ["23", "Smart TV"], ["24", "Repeater"], ["25", "Kindle"], ["26", "Scanner"], ["27", "Chromecast"], ["28", "ASUS Smartphone"], 
+	["29", "ASUS Pad"], ["30", "Windows"], ["31", "Android"], ["32", "Mac OS"]
+	];
 
+	var device_type_array = new Array();
+	for(i=0;i<device_option_array.length;i++){
+		device_type_array.push(device_option_array[i][0]);
+		device_type_array[device_option_array[i][0]] = {
+			number: device_option_array[i][0],
+			name: device_option_array[i][1]	
+		}
+	}
+
+	var info = new Object();
+	info.device = new Array();
+	info.group = new Array();
+}
 
 function initial(){
 	show_menu();
@@ -325,7 +351,7 @@ function initial(){
 		document.getElementById("manu").checked = true;
 	}
 	
-	var qos_type = getRadioValue(document.form.qos_type);
+	var qos_type = document.form.qos_type.value;
 	if(document.form.qos_enable_orig.value == 1){
 		change_qos_type(qos_type);
 
@@ -353,7 +379,7 @@ function initial(){
 	if(bwdpi_support){
 		document.getElementById('content_title').innerHTML = "<#menu5_3_2#> - <#Adaptive_QoS_Conf#>";
 		if(document.form.qos_enable.value == 1){
-			if(qos_type == 0){		//Traditional Type
+			if(qos_type == 0){              //Traditional Type		
 				add_option(document.getElementById("settingSelection"), '<#qos_user_rules#>', 3, 0);
 				add_option(document.getElementById("settingSelection"), '<#qos_user_prio#>', 4, 0);
 			}			
@@ -366,7 +392,7 @@ function initial(){
 		}
 	}
 	else{
-		if(qos_type == 0){		//Traditional Type
+		if(qos_type == 0){		//Traditional Type			
 			add_option(document.getElementById("settingSelection"), '<#qos_user_rules#>', 3, 0);
 			add_option(document.getElementById("settingSelection"), '<#qos_user_prio#>', 4, 0);
 		}
@@ -377,9 +403,19 @@ function initial(){
 		document.getElementById('content_title').innerHTML = "<#Menu_TrafficManager#> - <#menu5_3_2#>";		
 		document.getElementById('function_int_desc').style.display = "none";				
 	}
+
+	/* MODELDEP */
+	if(based_modelid == "RT-AC65U"){
+		document.getElementById('function_int_desc').style.display = "none";
+		document.getElementById('int_type').style.display = "none";
+		document.getElementById('int_type_link').style.display = "none";
+		show_settings("NonAdaptive");
+	}
 	
-	collect_info();
-	generate_group_list();
+	if(pm_support) {
+		collect_info();
+		generate_group_list();
+	}
 	init_changeScale();
 	//addOnlineHelp(document.getElementById("faq"), ["ASUSWRT", "QoS"]);
 
@@ -453,12 +489,11 @@ function init_changeScale(){
 		document.form.obw.value = upload/1024;
 		document.form.ibw.value = download/1024;
 	}
-	if(dualWAN_support)
-	{
-		var upload2 = document.form.qos_obw1.value;
-		var download2 = document.form.qos_ibw1.value;
-		document.form.obw1.value = upload2/1024;
-		document.form.ibw1.value = download2/1024;
+	if(mtwancfg_support) {
+		var upload1 = document.form.qos_obw1.value;
+		var download1 = document.form.qos_ibw1.value;
+		document.form.obw1.value = upload1/1024;
+		document.form.ibw1.value = download1/1024;
 	}
 }
 
@@ -477,56 +512,63 @@ function switchPage(page){
 		return false;
 }
 
-function submitQoS(){
+function validForm(){
+
 	if(document.form.qos_enable.value == 0 && document.form.qos_enable_orig.value == 0){
 		return false;
 	}
 
-	var qos_type = getRadioValue(document.form.qos_type);
 	if(document.form.qos_enable.value == 1){
+		var qos_type = document.form.qos_type.value;
 		if(qos_type == 1) {
 			if(!reset_wan_and_nat(document.form, 1)) {
 				return false;
 			}
 		}
-		if(qos_type != 2){
-			if(document.form.obw.value.length == 0){	//To check field is empty
+		if(qos_type != 2){	//not Bandwidth Limiter
+			if( ((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && document.form.obw.value.length == 0){	//To check field is empty
 				alert("<#JS_fieldblank#>");
 				document.form.obw.focus();
 				document.form.obw.select();
-				return;
+				return false;
 			}
-			else if(qos_type == 0 && document.form.obw.value == 0){		// To check field is 0 && Traditional QoS
+			if( ((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && document.form.obw.value == 0){		// To check field is 0 && Traditional QoS
 				alert("Upload Bandwidth can not be 0");	/* untranslated */
 				document.form.obw.focus();
 				document.form.obw.select();
-				return;
+				return false;
 			
 			}
-			else if(document.form.obw.value.split(".").length > 2){		//To check more than two point symbol
+			if( ((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && document.form.obw.value.split(".").length > 2){		//To check more than two point symbol
 				alert("The format of field of upload bandwidth is invalid"); /* untranslated */
 				document.form.obw.focus();
 				document.form.obw.select();
-				return;	
+				return false;
 			}
-			
-			if(document.form.ibw.value.length == 0){
+			if( ((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && !validator.range(document.form.obw, 1, 9999999999)){
+				return false;
+			}
+					
+			if( ((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && document.form.ibw.value.length == 0){
 				alert("<#JS_fieldblank#>");
 				document.form.ibw.focus();
 				document.form.ibw.select();
-				return;
+				return false;
 			}
-			else if(qos_type == 0 && document.form.ibw.value == 0){		// To check field is 0 && Traditional QoS
+			if( ((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && document.form.ibw.value == 0){		// To check field is 0 && Traditional QoS
 				alert("Download Bandwidth can not be 0");	/* untranslated */
 				document.form.ibw.focus();
 				document.form.ibw.select();
-				return;
+				return false;
 			}
-			else if(document.form.ibw.value.split(".").length > 2){
+			if(((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && document.form.ibw.value.split(".").length > 2){
 				alert("The format of field of download bandwidth is invalid");	/* untranslated */
 				document.form.ibw.focus();
 				document.form.ibw.select();
-				return;	
+				return false;
+			}
+			if( ((qos_type == 1 && document.form.bw_setting_name[1].checked == true ) || qos_type == 0) && !validator.range(document.form.ibw, 1, 9999999999)){
+				return false;
 			}
 			
 			if(qos_type == 1 && document.getElementById('auto').checked){
@@ -538,8 +580,7 @@ function submitQoS(){
 			document.form.qos_ibw.disabled = false;
 			document.form.qos_obw.value = document.form.obw.value*1024;
 			document.form.qos_ibw.value = document.form.ibw.value*1024;
-			if(dualWAN_support)
-			{
+			if(mtwancfg_support) {
 				document.form.qos_obw1.disabled = false;
 				document.form.qos_ibw1.disabled = false;
 				document.form.qos_obw1.value = document.form.obw1.value*1024;
@@ -559,7 +600,7 @@ function submitQoS(){
 						document.form.bwdpi_app_rulelist.value = bwdpi_app_rulelist;	
 				}
 				else{
-					alert("You have not selected QoS priority mode.");	
+					alert("You have not selected QoS priority mode.");		//untranslated
 					return false;
 				}							
 			}
@@ -572,38 +613,42 @@ function submitQoS(){
 			
 			document.form.qos_bw_rulelist.value = qos_bw_rulelist;	
 		}
-	}	
-	
-	if(ctf_disable == 1){
-		document.form.action_script.value = "restart_qos;restart_firewall";
 	}
-	else{
-		if(ctf_fa_mode == "2"){
-			FormActions("start_apply.htm", "apply", "reboot", "<% get_default_reboot_time(); %>");
+
+	return true;
+}
+
+function submitQoS(){
+
+	if(validForm()){
+
+		if(document.form.qos_enable.value == 1 && document.form.qos_type.value == 1 && document.form.TM_EULA.value == 0){
+			show_tm_eula();
 		}
 		else{
-			if(qos_type == 0)
-				FormActions("start_apply.htm", "apply", "reboot", "<% get_default_reboot_time(); %>");
-			else{				
+			if(ctf_disable == 1){
 				document.form.action_script.value = "restart_qos;restart_firewall";
-			}					
-		}
-	}
-	
-	/*if(qos_type == 2){
-		if((document.form.qos_enable.value != document.form.qos_enable_orig.value) && document.form.qos_enable.value == 0){
-			document.form.action_script.value = "restart_qos;restart_firewall";
+			}
+			else{
+				if(ctf_fa_mode == "2"){
+					FormActions("start_apply.htm", "apply", "reboot", "<% get_default_reboot_time(); %>");
+				}
+				else{
+					if(document.form.qos_type.value == 0){
+						FormActions("start_apply.htm", "apply", "reboot", "<% get_default_reboot_time(); %>");
+					}
+					else{				
+						document.form.action_script.value = "restart_qos;restart_firewall";
+					}
+				}
+			}
+
 			showLoading();
-			document.form.submit();		
-		}
-		else{
-			location.href = "Bandwidth_Limiter.asp";
-		}
+			document.form.submit();
+		}	
 	}
-	else{*/
-		showLoading();
-		document.form.submit();		
-	//}
+	else
+		return;	
 }
 
 function change_qos_type(value){
@@ -623,8 +668,6 @@ function change_qos_type(value){
 			document.form.next_page.value = "Advanced_QOSUserRules_Content.asp";
 		}
 		show_settings("NonAdaptive");
-		$("#hint_zero").hide();
-		$("#hint_zero2").hide();
 	}	
 	else if(value == 1){		//Adaptive QoS
 		document.getElementById('int_type').checked = true;
@@ -648,8 +691,6 @@ function change_qos_type(value){
 		}
 		
 		show_settings("Adaptive_quick");
-		$("#hint_zero").show();
-		$("#hint_zero2").show();
 	}
 	else{		// Bandwidth Limiter
 		document.getElementById('int_type').checked = false;
@@ -667,11 +708,16 @@ function change_qos_type(value){
 		}
 		
 		show_settings("NonAdaptive");
-		genMain_table();
-		//showDropdownClientList('setClientIP', 'name>mac', 'all', 'ClientList_Block_PC', 'pull_arrow', 'all');
+		genMain_table();		
+		if(!pm_support)
+			showDropdownClientList('setClientIP', 'name>mac', 'all', 'ClientList_Block_PC', 'pull_arrow', 'all');
 	}
 
-	setRadioValue(document.form.qos_type, value);
+	document.form.qos_type.value = value;
+	
+	if(value != 2 && GN_with_BandwidthLimeter){
+		alert("Guest Network > Bandwidth Limiter will be Disabled.");		/* Untranslated */
+	}
 }
 
 function show_settings(flag){
@@ -797,14 +843,14 @@ function gen_category_block(){
 function cancel_priority_panel() {	
 	bwdpi_app_rulelist = "<% nvram_get("bwdpi_app_rulelist"); %>".replace(/&#60/g, "<");
 	$("#priority_panel").fadeOut(300);	
-	setTimeout("change_qos_type(getRadioValue(document.form.qos_type));", 300);
+	setTimeout("change_qos_type(document.form.qos_type.value);", 300);
 }
 
 function save_priority(){
 	regen_priority(document.getElementById("category_list"));
 	document.PriorityForm.bwdpi_app_rulelist_edit.value = bwdpi_app_rulelist;	
 	$("#priority_panel").fadeOut(300);	
-	setTimeout("change_qos_type(getRadioValue(document.form.qos_type));", 300);
+	setTimeout("change_qos_type(document.form.qos_type.value);", 300);
 }
 
 function register_event1(){
@@ -872,9 +918,11 @@ function hideClients_Block(){
 	document.getElementById('ClientList_Block_PC').style.display='none';
 }
 var PC_mac = "";
+var PC_name = "";
 function setClientIP(devname, macaddr){
 	document.form.PC_devicename.value = devname;
 	PC_mac = macaddr;
+	PC_name = devname;
 	hideClients_Block();
 	showDropdownClientList('setClientIP', 'name>mac', 'all', 'ClientList_Block_PC', 'pull_arrow', 'all');
 }
@@ -883,14 +931,18 @@ function deleteRow_main(obj){
 	var item_index = obj.parentNode.parentNode.rowIndex;
 		document.getElementById(obj.parentNode.parentNode.parentNode.parentNode.id).deleteRow(item_index);
 
-	var target_mac = "@" + obj.parentNode.parentNode.children[1].title;
+	var target_mac = "";
+	if(pm_support)
+		target_mac = "@" + obj.parentNode.parentNode.children[1].title;
+	else
+		target_mac = obj.parentNode.parentNode.children[1].title;
 	var qos_bw_rulelist_row = qos_bw_rulelist.split("<");
 	var qos_bw_rulelist_temp = "";
 	var priority = 0;
 	for(i=0;i<qos_bw_rulelist_row.length;i++){
-		var qos_bw_rulelist_col = qos_bw_rulelist_row[i].split(">");
+		var qos_bw_rulelist_col = qos_bw_rulelist_row[i].split(">");	
 			if(qos_bw_rulelist_col[1] != target_mac){
-				var string_temp = qos_bw_rulelist_row[i].substring(0,qos_bw_rulelist_row[i].length-1) + priority;	// reorder priority number
+				var string_temp = qos_bw_rulelist_row[i].substring(0,qos_bw_rulelist_row[i].length-qos_bw_rulelist_col[4].length) + priority;	// reorder priority number
 				priority++;	
 				
 				if(qos_bw_rulelist_temp == ""){
@@ -931,12 +983,13 @@ function addRow_main(obj, length){
 		document.form.PC_devicename.focus();
 		return false;
 	}
-	
-	if(qos_bw_rulelist.search(PC_mac) > -1 && PC_mac != ""){		//check same target
-		alert("<#JS_duplicate#>");
-		document.form.PC_devicename.focus();
-		PC_mac = "";
-		return false;
+
+	if(PC_mac != "" && PC_name == document.form.PC_devicename.value){
+		if(qos_bw_rulelist.search(PC_mac+">") > -1 && PC_mac != ""){		//check same target
+			alert("<#JS_duplicate#>");
+			document.form.PC_devicename.focus();
+			return false;
+		}
 	}
 	
 	if(qos_bw_rulelist.search(document.form.PC_devicename.value) > -1){
@@ -977,18 +1030,31 @@ function addRow_main(obj, length){
 			return false;			
 		}
 	}
-	
-	if(document.form.PC_devicename.value.indexOf('-') != -1
-	|| document.form.PC_devicename.value.indexOf('~') != -1
-	||(document.form.PC_devicename.value.indexOf(':') != -1 && document.form.PC_devicename.value.indexOf('.') != -1)){
-		var space_count = 0;
-		space_count = document.form.PC_devicename.value.split(" ").length - 1;
-		for(i=0;i < space_count;i++){		// filter space
-			document.form.PC_devicename.value = document.form.PC_devicename.value.replace(" ", "");
+
+	if(!pm_support) {
+		if(PC_mac == "" || (PC_mac != "" && PC_name != document.form.PC_devicename.value)) {
+			if(document.form.PC_devicename.value.split(":").length == 6) { //mac
+				if(!validator.mac_addr(document.form.PC_devicename.value)) {
+					document.form.PC_devicename.focus();
+					alert("<#LANHostConfig_ManualDHCPMacaddr_itemdesc#>");
+					return false;
+				}
+			}
+			else if(document.form.PC_devicename.value.split(".").length == 4) { //ip
+				if(!validator.ipv4_addr(document.form.PC_devicename.value)) { //single ip
+					if(!validator.ipv4_addr_range(document.form.PC_devicename.value)) { //ip range
+						document.form.PC_devicename.focus();
+						alert(document.form.PC_devicename.value + " <#JS_validip#>");
+						return false;
+					}
+				}
+			}
+			else {
+				document.form.PC_devicename.focus();
+				alert(document.form.PC_devicename.value + " <#Manual_Setting_JS_invalid#>");
+				return false;
+			}
 		}
-		
-		document.form.PC_devicename.value = document.form.PC_devicename.value.replace(":", "-");
-		document.form.PC_devicename.value = document.form.PC_devicename.value.replace("~", "-");
 	}
 
 	if(qos_bw_rulelist == ""){
@@ -999,14 +1065,24 @@ function addRow_main(obj, length){
 		qos_bw_rulelist += enable_checkbox.className == "check" ? 1:0;
 	}	
 
-	if(PC_mac == "")
-		qos_bw_rulelist += ">@" + document.form.PC_devicename.value + ">";
-	else
-		qos_bw_rulelist += ">" + PC_mac + ">";
+	if(PC_mac == "") {
+		if(pm_support)
+			qos_bw_rulelist += ">@" + document.form.PC_devicename.value + ">";
+		else
+			qos_bw_rulelist += ">" + document.form.PC_devicename.value + ">";
+	}
+	else {
+		if(PC_name == document.form.PC_devicename.value)
+			qos_bw_rulelist += ">" + PC_mac + ">";
+		else
+			qos_bw_rulelist += ">" + document.form.PC_devicename.value + ">";
+	}
+		
 	
 	qos_bw_rulelist += document.getElementById("download_rate").value*1024 + ">" + document.getElementById("upload_rate").value*1024;
 	qos_bw_rulelist += ">" + max_priority;
 	PC_mac = "";
+	PC_name = "";
 	max_priority++;
 	document.form.PC_devicename.value = "";
 	genMain_table();	
@@ -1017,19 +1093,24 @@ function genMain_table(){
 	var code = "";	
 	code += '<table width="100%" border="1" cellspacing="0" cellpadding="4" align="center" class="FormTable_table" id="mainTable_table">';
 	code += '<thead><tr>';
-	//code += '<td colspan="5"><#ConnectedClient#>&nbsp;(<#List_limit#>&nbsp;32)</td>';
-	code += '<td colspan="5">Rule List&nbsp;(<#List_limit#>&nbsp;32)</td>';
+	if(pm_support)
+		code += '<td colspan="5">Rule List&nbsp;(<#List_limit#>&nbsp;32)</td>';
+	else
+		code += '<td colspan="5"><#ConnectedClient#>&nbsp;(<#List_limit#>&nbsp;32)</td>';
 	code += '</tr></thead>';	
 	code += '<tbody>';
 	code += '<tr>';
 	code += '<th style="width:60px" height="30px" title="<#select_all#>">';
 	if(select_all_checked == 1)
-		code += '<div><div id="selAll" class="all_enable" style="margin: auto;width:40px;" onclick="enable_check(this);">ALL</div></div>';
+		code += '<div><div id="selAll" class="all_enable" style="margin: auto;width:40px;" onclick="enable_check(this);"><#All#></div></div>';
 	else
-		code += '<div><div id="selAll" class="all_disable" style="margin: auto;width:40px;" onclick="enable_check(this);">ALL</div></div>';
+		code += '<div><div id="selAll" class="all_disable" style="margin: auto;width:40px;" onclick="enable_check(this);"><#All#></div></div>';
 
 	code += '</th>';
-	code += '<th style="width:330px" title="Target can be a group name, IP or IP range(ex:192.168.1.5-10)"><#NetworkTools_target#></th>';
+	if(pm_support)
+		code += '<th style="width:330px" title="Target can be a group name, IP or IP range(ex:192.168.1.5-10)"><#NetworkTools_target#></th>';
+	else
+		code += '<th style="width:330px"><#NetworkTools_target#></th>';
 	code += '<th style="width:130px"><#download_bandwidth#></th>';
 	code += '<th style="width:130px"><#upload_bandwidth#></th>';
 	code += '<th style="width:90px"><#list_add_delete#></th>';
@@ -1038,13 +1119,16 @@ function genMain_table(){
 	code += '<tr id="main_element">';	
 	code += '<td style="background:#2F3A3E"><div id="enable_button" class="check" style="width:22px;height:22px;margin:0 auto;display:none"><div style="width:16px;height:16px;margin: 3px auto" class="icon_check"></div></div>-</td>';	
 	code += '<td style="border-bottom:2px solid #000;">';
-	code += '<input type="text" style="margin-left:10px;float:left;width:255px;" class="input_20_table" name="PC_devicename" onkeyup="device_filter(this);check_field();" placeholder="Please select the Device Group Name" autocorrect="off" autocapitalize="off" autocomplete="off" disabled>';
+	if(pm_support)
+		code += '<input type="text" style="margin-left:10px;float:left;width:255px;" class="input_20_table" name="PC_devicename" onkeyup="device_filter(this);check_field();" placeholder="Please select the Device Group Name" autocorrect="off" autocapitalize="off" autocomplete="off" disabled>';/*untranslated*/
+	else
+		code += '<input type="text" style="margin-left:10px;float:left;width:255px;" class="input_20_table" name="PC_devicename" onkeyup="device_filter(this);check_field();" placeholder="<#AiProtection_client_select#>" autocorrect="off" autocapitalize="off" autocomplete="off">';
 	code += '<img id="pull_arrow" height="14px;" src="/images/arrow-down.gif" onclick="pullLANIPList(this);" title="<#select_client#>">';
 	code += '<div id="ClientList_Block_PC" class="clientlist_dropdown" style="margin-top:25px;margin-left:10px;"></div>';	
 	code += '</td>';
-	code += '<td style="border-bottom:2px solid #000;text-align:right;"><input type="text" id="download_rate" class="input_6_table" maxlength="6" onkeypress="return bandwidth_code(this, event);" onkeyup="check_field();"><span style="margin: 0 5px;color:#FFF;">Mb/s</span></td>';
-	code += '<td style="border-bottom:2px solid #000;text-align:right;"><input type="text" id="upload_rate" class="input_6_table" maxlength="6" onkeypress="return bandwidth_code(this, event);" onkeyup="check_field();"><span style="margin: 0 5px;color:#FFF;">Mb/s</span></td>';
-	code += '<td style="border-bottom:2px solid #000;"><div id="add_delete" class="add_disable" style="width:23px;height:23px;margin:0 auto" onclick="addRow_main(this, 32)"></div></td>';
+	code += '<td style="border-bottom:2px solid #000;text-align:right;"><input type="text" id="download_rate" class="input_6_table" maxlength="6" onkeypress="return validator.bandwidth_code(this, event);" onkeyup="check_field();"><span style="margin: 0 5px;color:#FFF;">Mb/s</span></td>';
+	code += '<td style="border-bottom:2px solid #000;text-align:right;"><input type="text" id="upload_rate" class="input_6_table" maxlength="6" onkeypress="return validator.bandwidth_code(this, event);" onkeyup="check_field();"><span style="margin: 0 5px;color:#FFF;">Mb/s</span></td>';
+	code += '<td style="border-bottom:2px solid #000;"><div id="add_delete" class="add_disable" style="margin:0 auto" onclick="addRow_main(this, 32)"></div></td>';
 	code += '</tr>';
 	
 	if(qos_bw_rulelist == ""){
@@ -1055,8 +1139,11 @@ function genMain_table(){
 			var qos_bw_rulelist_col = qos_bw_rulelist_row[k].split('>');
 			var apps_client_name = "";
 
-			//var apps_client_mac = qos_bw_rulelist_col[1];
-			var apps_client_mac = qos_bw_rulelist_col[1].split("@")[1];
+			var apps_client_mac = "";
+			if(pm_support)
+				apps_client_mac = qos_bw_rulelist_col[1].split("@")[1];
+			else
+				apps_client_mac = qos_bw_rulelist_col[1];
 			var clientObj = clientList[apps_client_mac];
 			if(clientObj == undefined) {
 				apps_client_name = "";
@@ -1083,7 +1170,7 @@ function genMain_table(){
 			
 			code += '<td style="text-align:center;">'+qos_bw_rulelist_col[2]/1024+' Mb/s</td>';
 			code += '<td style="text-align:center;">'+qos_bw_rulelist_col[3]/1024+' Mb/s</td>';
-			code += '<td><div class="remove" style="width:23px;height:23px;margin:0 auto" onclick="deleteRow_main(this);"></td>';
+			code += '<td><div class="remove" style="margin:0 auto" onclick="deleteRow_main(this);"></td>';
 			code += '</tr>';
 
 		}
@@ -1097,26 +1184,8 @@ function genMain_table(){
 		register_event(k);
 	}
 	register_event("enable_button");
-	generate_group_list();
-}
-
-function bandwidth_code(o,event){
-	var keyPressed = event.keyCode ? event.keyCode : event.which;
-	var target = o.value.split(".");
-	
-	if (validator.isFunctionButton(event))
-		return true;
-		
-	if((keyPressed == 46) && (target.length > 1))
-		return false;
-
-	if((target.length > 1) && (target[1].length > 0))
-		return false;
-
-	if ((keyPressed == 46) || (keyPressed > 47 && keyPressed < 58))
-		return true;
-	else
-		return false;
+	if(pm_support)
+		generate_group_list();
 }
 
 function device_filter(obj){
@@ -1133,35 +1202,17 @@ function device_filter(obj){
 		for(var i = 0; i < clientList.length; i += 1) {
 			var clientObj = clientList[clientList[i]];
 			var clientName = (clientObj.nickName == "") ? clientObj.name : clientObj.nickName;
-			if(clientList[i].indexOf(obj.value) == -1 && clientName.indexOf(obj.value) == -1)
+			if(clientList[i].toLowerCase().indexOf(obj.value.toLowerCase()) == -1 && clientName.toLowerCase().indexOf(obj.value.toLowerCase()) == -1)
 				continue;
 			
-			code += '<a title=' + clientList[i] + '><div style="height:auto;" onclick="setClientIP(\'' + clientName + '\', \'' + clientObj.mac + '\');"><strong>' + clientName + '</strong> ';
-			code += ' </div></a>';
+			code += '<div><a title=' + clientList[i] + '><div style="height:auto;" onclick="setClientIP(\'' + clientName + '\', \'' + clientObj.mac + '\');"><strong>' + clientName + '</strong> ';
+			code += ' </div><!--[if lte IE 6.5]><iframe class="hackiframe2"></iframe><![endif]--></a></div>';
 		}		
 		
-		document.getElementById("ClientList_Block_PC").innerHTML = code;		
-	}
-}
+		document.getElementById("ClientList_Block_PC").innerHTML = code;
 
-var qos_enable_ori = "<% nvram_get("qos_enable"); %>";					
-function applyRule(){
-	var qos_bw_rulelist_row = "";
-	if(document.form.PC_devicename.value != ""){
-		alert("You must press add icon to add a new rule first.");	//untranslated
-		return false;
+		if(document.getElementById("ClientList_Block_PC").childNodes.length == "0")	hideClients_Block();
 	}
-	
-	document.form.qos_bw_rulelist.value = qos_bw_rulelist;
-	document.form.qos_enable.value = 1;
-	setRadioValue(document.form.qos_type, 2);
-	if(ctf_disable == 0 && ctf_fa_mode == 2){
-		document.form.action_script.value = "reboot";
-		document.form.action_wait.value = "<% nvram_get("reboot_time"); %>";
-	}
-
-	showLoading();	
-	document.form.submit();
 }
 
 function enable_check(obj){
@@ -1212,6 +1263,33 @@ function check_field(){
 	}
 }
 
+function show_tm_eula(){
+	if(document.form.preferred_lang.value == "JP"){
+		$.get("JP_tm_eula.htm", function(data){
+			document.getElementById('agreement_panel').innerHTML= data;	
+			adjust_TM_eula_height("agreement_panel");	
+		});		
+	}
+	else{
+		$.get("tm_eula.htm", function(data){
+			document.getElementById('agreement_panel').innerHTML= data;
+			adjust_TM_eula_height("agreement_panel");
+		});
+	}
+	dr_advise();
+	cal_panel_block("agreement_panel", 0.25);
+	$("#agreement_panel").fadeIn(300);
+}
+
+function eula_confirm(){
+	document.form.TM_EULA.value = 1;
+	submitQoS();
+}
+
+function cancel(){
+	refreshpage();
+}
+
 function generate_group_list(){
 	var code = '';
 	for(i=0;i<info.group.length;i++){
@@ -1236,6 +1314,11 @@ function setGroup(name){
 <body onload="initial();" id="body_id" onunload="unload_body();" onClick="">	
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
+<div id="agreement_panel" class="eula_panel_container"></div>
+<div id="hiddenMask" class="popup_bg" style="z-index:999;">
+	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center"></table>
+	<!--[if lte IE 6.5.]><script>alert("<#ALERT_TO_CHANGE_BROWSER#>");</script><![endif]-->
+</div>
 
 <iframe name="hidden_frame" id="hidden_frame" width="0" height="0" frameborder="0"></iframe>
 <table id="main_table" class="content" align="center" cellpadding="0" cellspacing="0">
@@ -1317,11 +1400,13 @@ function setGroup(name){
 			<input type="hidden" name="group_id" value="">
 			<input type="hidden" name="action_mode" value="apply">
 			<input type="hidden" name="action_script" value="">
-			<input type="hidden" name="action_wait" value="5">
+			<input type="hidden" name="action_wait" value="15">
 			<input type="hidden" name="flag" value="">
+			<input type="hidden" name="TM_EULA" value="<% nvram_get("TM_EULA"); %>">			
 			<input type="hidden" name="qos_enable" value="<% nvram_get("qos_enable"); %>">
 			<input type="hidden" name="qos_enable_orig" value="<% nvram_get("qos_enable"); %>">
 			<input type="hidden" name="qos_type_orig" value="<% nvram_get("qos_type"); %>">
+			<input type="hidden" name="qos_type" value="<% nvram_get("qos_type"); %>">
 			<input type="hidden" name="qos_obw" value="<% nvram_get("qos_obw"); %>" disabled>
 			<input type="hidden" name="qos_ibw" value="<% nvram_get("qos_ibw"); %>" disabled>
 			<input type="hidden" name="qos_obw1" value="<% nvram_get("qos_obw1"); %>" disabled>
@@ -1374,7 +1459,7 @@ function setGroup(name){
 														<#EzQoS_desc_note#>														
 													</div>
 													<div class="formfontdesc">
-														<a id="faq" href="http://www.asus.com/us/support/FAQ/1008718/" target="_blank" style="text-decoration:underline;">QoS FAQ</a>
+														<a id="faq" href="http://www.asus.com/support/FAQ/1008718/" target="_blank" style="text-decoration:underline;">QoS FAQ</a>
 													</div>
 												</td>
 											</tr>
@@ -1400,7 +1485,7 @@ function setGroup(name){
 																		document.form.next_page.value = "Advanced_QOSUserRules_Content.asp";
 																}																
 																
-																if(getRadioValue(document.form.qos_type) != 2){
+																if(document.form.qos_type.value != 2){
 																	show_up_down(1);
 																}
 																else{
@@ -1419,6 +1504,10 @@ function setGroup(name){
 																document.getElementById('qos_type_tr').style.display = "none";
 																document.getElementById('bandwidth_setting_tr').style.display = "none";
 																document.getElementById('list_table').style.display = "none";
+																
+																if(GN_with_BandwidthLimeter){
+																	alert("Guest Network > Bandwidth Limiter will be Disabled.");		/* Untranslated */
+																}
 	
 																if(bwdpi_support){																	
 																	
@@ -1434,20 +1523,19 @@ function setGroup(name){
 										<tr id="qos_type_tr" style="display:none">
 											<th><#QoS_Type#></th>
 											<td colspan="2">
-												<input id="int_type" name="qos_type" value="1" onClick="change_qos_type(this.value);" style="display:none;" type="radio" <% nvram_match("qos_type", "1","checked"); %>><a id="int_type_link" class="hintstyle" style="display:none;" href="javascript:void(0);" onClick="openHint(20, 6);"><label for="int_type"><#Adaptive_QoS#></label></a>
-												<input id="trad_type" name="qos_type" value="0" onClick="change_qos_type(this.value);" type="radio" <% nvram_match("qos_type", "0","checked"); %>><a class="hintstyle" href="javascript:void(0);" onClick="openHint(20, 7);"><label for="trad_type"><#EzQoS_type_traditional#></label></a>
-												<input id="bw_limit_type" name="qos_type" value="2" onClick="change_qos_type(this.value);" type="radio" <% nvram_match("qos_type", "2","checked"); %>><a class="hintstyle" href="javascript:void(0);" onClick="openHint(20, 8)"><label for="bw_limit_type"><#Bandwidth_Limiter#></label></a>
+												<input id="int_type" name="qos_type_radio" value="1" onClick="change_qos_type(this.value);" style="display:none;" type="radio" <% nvram_match("qos_type", "1","checked"); %>><a id="int_type_link" class="hintstyle" style="display:none;" href="javascript:void(0);" onClick="openHint(20, 6);"><label for="int_type"><#Adaptive_QoS#></label></a>
+												<input id="trad_type" name="qos_type_radio" value="0" onClick="change_qos_type(this.value);" type="radio" <% nvram_match("qos_type", "0","checked"); %>><a class="hintstyle" href="javascript:void(0);" onClick="openHint(20, 7);"><label for="trad_type"><#EzQoS_type_traditional#></label></a>
+												<input id="bw_limit_type" name="qos_type_radio" value="2" onClick="change_qos_type(this.value);" type="radio" <% nvram_match("qos_type", "2","checked"); %>><a class="hintstyle" href="javascript:void(0);" onClick="openHint(20, 8)"><label for="bw_limit_type"><#Bandwidth_Limiter#></label></a>
 											</td>
 										</tr>
 										<tr id="bandwidth_setting_tr" style="display:none">
-											<th>Bandwidth Setting</th>
+											<th><#Bandwidth_Setting#></th>
 											<td colspan="2">
-												<input id="auto" name="bw_setting_name" onClick="bandwidth_setting();" type="radio"><label for="auto">Automatic</label>
-												<input id="manu" name="bw_setting_name" onClick="bandwidth_setting();" type="radio"><label for="manu">Manual</label>
+												<input id="auto" name="bw_setting_name" onClick="bandwidth_setting();" type="radio"><label for="auto"><#Auto_Setting_btn#></label>
+												<input id="manu" name="bw_setting_name" onClick="bandwidth_setting();" type="radio"><label for="manu"><#Manual_Setting_btn#></label>
 											</td>
 										</tr>		
-										
-										<tr id="wan_1_tr">
+										<tr id="wan_1_tr" style="display:none">
 											<th colspan=3><#dualwan_primary#></th>
 										</tr>
 										<tr id="upload_tr">
@@ -1460,7 +1548,6 @@ function setGroup(name){
 												<div>
 													<ul style="padding:0 10px;margin:5px 0;">
 														<li><#EzQoS_bandwidth_note1#></li>
-														<li id="hint_zero"><#EzQoS_bandwidth_note2#></li>
 													</ul>
 												</div>
 												
@@ -1472,11 +1559,11 @@ function setGroup(name){
 												<input type="text" maxlength="10" id="ibw" name="ibw" onKeyPress="return validator.isNumberFloat(this,event);" class="input_15_table" value="" autocorrect="off" autocapitalize="off">
 												<label style="margin-left:5px;">Mb/s</label>
 											</td>
-										</tr>																
-										<tr id="wan_2_tr">
+										</tr>
+										<tr id="wan_2_tr" style="display:none">
 											<th colspan=3><#dualwan_secondary#></th>
 										</tr>
-										<tr id="upload2_tr">
+										<tr id="upload2_tr" style="display:none">
 											<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(20, 2);"><#upload_bandwidth#></a></th>
 											<td>
 												<input type="text" maxlength="10" id="obw1" name="obw1" onKeyPress="return validator.isNumberFloat(this,event);" class="input_15_table" value="" autocorrect="off" autocapitalize="off">
@@ -1486,19 +1573,17 @@ function setGroup(name){
 												<div>
 													<ul style="padding:0 10px;margin:5px 0;">
 														<li><#EzQoS_bandwidth_note1#></li>
-														<li id="hint_zero2"><#EzQoS_bandwidth_note2#></li>
 													</ul>
 												</div>
-
 											</td>
 										</tr>
-										<tr id="download2_tr">
+										<tr id="download2_tr" style="display:none">
 											<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(20, 2);"><#download_bandwidth#></a></th>
 											<td>
 												<input type="text" maxlength="10" id="ibw1" name="ibw1" onKeyPress="return validator.isNumberFloat(this,event);" class="input_15_table" value="" autocorrect="off" autocapitalize="off">
 												<label style="margin-left:5px;">Mb/s</label>
 											</td>
-										</tr>
+										</tr>																
 									</table>
 								</td>
 							</tr>
@@ -1558,7 +1643,7 @@ function setGroup(name){
 						<table width="100%">
 							<tr>
 								<td height="50" >
-									<div style=" *width:136px;margin-left:300px;" class="titlebtn" align="center" onClick="submitQoS()"><span><#CTL_apply#></span></div>
+									<div style=" *width:136px;margin-left:300px;" class="titlebtn" align="center" onClick="submitQoS();"><span><#CTL_apply#></span></div>
 								</td>
 							</tr>					
 						</table>

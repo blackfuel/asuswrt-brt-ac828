@@ -1,7 +1,15 @@
 #!/bin/sh
 
+kernel_version=`uname -r`
+ver_head=`echo -n $kernel_version |awk 'BEGIN{FS="."}{print $1}'`
+
+
 echo ">"
-cat /proc/bus/usb/devices
+if [ "$ver_head" -ge "4" ]; then
+	cat /sys/kernel/debug/usb/devices
+else
+	cat /proc/bus/usb/devices
+fi
 echo ">"
 lsmod
 echo ">"

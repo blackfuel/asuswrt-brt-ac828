@@ -75,6 +75,7 @@ int rtkswitch_ioctl(int val, int *val2)
 	case 44:	/* set WAN port */
 	case 45:	/* set LAN trunk group */
 	case 46:	/* set LAN trunk port mask */
+	case 47:	/* set LAN hash algorithm */
 	case 99:
 	case 100:
 	case 109:	/* Set specific ext port txDelay */

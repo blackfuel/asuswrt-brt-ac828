@@ -343,7 +343,7 @@ process_post_login(struct vsf_session* p_sess)
 	for(target_cmd = need_read_right_commands; *target_cmd; ++target_cmd){
 		if(str_equal_text(&p_sess->ftp_cmd_str, *target_cmd)){
 			if(layer >= SHARE_LAYER && !p_sess->is_anonymous){
-				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp");
+				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp", 0);
 				if(user_right < 1)
 					cmd_ok = 0;
 			}
@@ -357,7 +357,7 @@ process_post_login(struct vsf_session* p_sess)
 			if(layer < SHARE_LAYER)
 				cmd_ok = 0;
 			else if(!p_sess->is_anonymous){
-				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp");
+				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp", 0);
 				if(user_right == 2) // only upload mode
 					cmd_ok = 0;
 			}
@@ -372,7 +372,7 @@ process_post_login(struct vsf_session* p_sess)
 			if(layer < SHARE_LAYER)
 				cmd_ok = 0;
 			else if(!p_sess->is_anonymous){
-				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp");
+				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp", 0);
 				if(user_right < 2)
 					cmd_ok = 0;
 			}
@@ -384,7 +384,7 @@ process_post_login(struct vsf_session* p_sess)
 	for(target_cmd = need_delete_right_commands; *target_cmd; ++target_cmd){
 		if(str_equal_text(&p_sess->ftp_cmd_str, *target_cmd)){
 			if(layer >= SHARE_LAYER && !p_sess->is_anonymous){
-				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp");
+				user_right = get_permission(str_getbuf(&p_sess->user_str), mount_path, share_name, "ftp", 0);
                                 //user_right = 3;
 				if(user_right < 3)
 				{

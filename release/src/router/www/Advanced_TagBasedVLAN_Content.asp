@@ -117,19 +117,23 @@ var default_netmaks = '<% nvram_get("lan_netmask"); %>';
 var vlan1_wl_array = [];
 var vlan_pvid_list_array = decodeURIComponent('<% nvram_char_to_ascii("","vlan_pvid_list"); %>').split('>');
 var switch_stb_x = '<% nvram_get("switch_stb_x"); %>';
-var disabled_lanport_list = [];
+var iptv_lanport_list = [];
 if(switch_stb_x == "1")
-	disabled_lanport_list = ["lan1"];
+	iptv_lanport_list = ["lan1"];
 else if(switch_stb_x == "2")
-	disabled_lanport_list = ["lan2"];
+	iptv_lanport_list = ["lan2"];
 else if(switch_stb_x == "3")
-	disabled_lanport_list = ["lan3"]
+	iptv_lanport_list = ["lan3"]
 else if(switch_stb_x == "4")
-	disabled_lanport_list = ["lan4"];
+	iptv_lanport_list = ["lan4"];
 else if(switch_stb_x == "5")
-	disabled_lanport_list = ["lan1", "lan2"];
+	iptv_lanport_list = ["lan1", "lan2"];
 else if(switch_stb_x == "6" || switch_stb_x == "8")
-	disabled_lanport_list = ["lan3", "lan4"];
+	iptv_lanport_list = ["lan3", "lan4"];
+
+var lan_as_wan = (wans_dualwan_array.getIndexByValue("lan") != -1)? 1:0;
+var wans_lanport = "lan" + '<% nvram_get("wans_lanport"); %>';
+var orig_lan_trunk_type = '<% nvram_get("lan_trunk_type"); %>';
 
 function initial(){
 	show_menu();
@@ -585,8 +589,11 @@ function show_vlan_rulelist(){
 				if( j == 0 ){
 					vlan_enable_array.push(vlan_rulelist_col[0]);
 					code +='<td style="width:'+wid[j]+'%">';
-					code += '<div class="left" style="width:74px; float:left; cursor:pointer;" id="vlan_rule_enable'+ i + '"></div>';
-					code += '<div class="clear"></div></td>';
+					if(vlan_rulelist_col[1] != "1"){
+						code += '<div class="left" style="width:74px; float:left; cursor:pointer;" id="vlan_rule_enable'+ i + '"></div>';
+						code += '<div class="clear"></div>';
+					}
+					code += '</td>';
 				}
 				else if( j == 3 || j == 4 ){ //Wired Interfaces
 					if( j == 3 && vlan_rulelist_col[3] != "0"){ //WAN
@@ -606,21 +613,33 @@ function show_vlan_rulelist(){
 						for(var k = 0; k < lan_num; k++){
 							var isMember = (lan_value >> k) & 1;
 							var isUntagged = (untagged_value >> k) & 1;
-							var disabled_port = 0;
+							var is_iptv_port = 0;
+							var is_wan_port = 0;
+
 							if(isMember){
 								if( wired_inf != "")
 									wired_inf += "<br>";
 
-								for(var m = 0; m < disabled_lanport_list.length; m++){
-									if(Interface_Text_Value[wan_num+k].value == disabled_lanport_list[m])
-										disabled_port = 1;
+								for(var m = 0; m < iptv_lanport_list.length; m++){
+									if(Interface_Text_Value[wan_num+k].value == iptv_lanport_list[m])
+										is_iptv_port = 1;
 								}
 
-								if(disabled_port){
-									if(isUntagged)
-										wired_inf = wired_inf + "<span style='color:#2F3A3E;' title='This port is used by IPTV and is disabled in this VLAN.'>" + htmlEncode_decodeURI(Interface_Text_Value[wan_num+k].if_text) + "<sup>U</sup></span>";
+								if(lan_as_wan && Interface_Text_Value[wan_num+k].value == wans_lanport)
+									is_wan_port = 1;
+
+								if(is_iptv_port || is_wan_port){
+									if(isUntagged){
+										wired_inf = wired_inf + "<span style='color:#2F3A3E;' title='";
+										if(is_iptv_port)
+											wired_inf += "This port is used by IPTV and is disabled in this VLAN.'>"; /*untranslated*/
+										else if(is_wan_port)
+											wired_inf += "This port is used by WAN and is disabled in this VLAN.'>"; /*untranslated*/
+
+										wired_inf += htmlEncode_decodeURI(Interface_Text_Value[wan_num+k].if_text) + "<sup>U</sup></span>";
+									}	
 									else
-										wired_inf = wired_inf + "<span style='color:#2F3A3E;' title='This port is used by IPTV and is disabled in this VLAN.'>" + htmlEncode_decodeURI(Interface_Text_Value[wan_num+k].if_text) + "<sup>T</sup></span>";
+										wired_inf = wired_inf + "<span style='color:#2F3A3E;' title='This port is used by IPTV and is disabled in this VLAN.'>" + htmlEncode_decodeURI(Interface_Text_Value[wan_num+k].if_text) + "<sup>T</sup></span>"; /*untranslated*/
 								}
 								else{
 									if(isUntagged)
@@ -974,7 +993,7 @@ function generate_sunbet_options(select){
 		select.add(option);
 	}
 
-	if(select.length < 8){
+	if(select.length < 7){
 		var option = document.createElement("option");
 		option.value = "new";
 		option.text = "New Subnet";
@@ -1140,13 +1159,13 @@ function checkGatewayIP() {
 	}
 
 	//5.check existed Subnet IP address
-	for(var i = 1; i < subnet_rulelist_row.length; i++) {
-			var subnet_rulelist_col = subnet_rulelist_row[i].split('>');
-			ipConflict = checkIPConflict(subnet_rulelist_col[0], lanIPAddr, lanNetMask);
-			if(ipConflict.state) {
-				alertMsg("Subnet"+subnet_rulelist_col[0].substring(6, 7), ipConflict.ipAddr, ipConflict.netLegalRangeStart, ipConflict.netLegalRangeEnd);
-				return false;
-			}
+	for(var i = 2; i < subnet_rulelist_row.length; i++) { //skip default subnet, because it's checked in 'LAN' case.
+		var subnet_rulelist_col = subnet_rulelist_row[i].split('>');
+		ipConflict = checkIPConflict("SUBNET", lanIPAddr, lanNetMask, subnet_rulelist_col[0], subnet_rulelist_col[1]);
+		if(ipConflict.state) {
+			alertMsg("Subnet", ipConflict.ipAddr, ipConflict.netLegalRangeStart, ipConflict.netLegalRangeEnd);
+			return false;
+		}
 	}
 
 	return true;
@@ -1607,6 +1626,9 @@ function set_pvid_list(){
 <input type="hidden" name="vlan_rulelist" value="">
 <input type="hidden" name="vlan_pvid_list" value="">
 <input type="hidden" name="subnet_rulelist" value='<% nvram_get("subnet_rulelist"); %>'>
+<input type="hidden" name="lan_trunk_type" value='<% nvram_get("lan_trunk_type"); %>' disabled>
+<input type="hidden" name="lan_trunk_0" value='<% nvram_get("lan_trunk_0"); %>' disabled>
+<input type="hidden" name="lan_trunk_1" value='<% nvram_get("lan_trunk_1"); %>' disabled>
 
 <div id="subnet_div" class="contentM_connection" style="z-index:600;">
 	<table border="0" align="center" cellpadding="5" cellspacing="5">
@@ -1773,6 +1795,22 @@ function set_pvid_list(){
 										<script type="text/javascript">
 											$('#vlan_enable').iphoneSwitch('<% nvram_get("vlan_enable"); %>',
 												function() {
+													if(orig_lan_trunk_type != "0"){
+														if(!confirm("Enable VLAN feature will disable bonding function in \'LAN > Switch Control\' page, Are you sure to continue?")){//untranslated
+															curState = "0";
+															$('#vlan_enable').find('.iphone_switch').animate({backgroundPosition: -37}, "slow");
+															return false;
+														}
+														else{
+															curState = "1";
+															document.form.lan_trunk_type.disabled = false;
+															document.form.lan_trunk_0.disabled = false;
+															document.form.lan_trunk_1.disabled = false;															
+															document.form.lan_trunk_type.value = "0";
+															document.form.lan_trunk_0.value = "0";
+															document.form.lan_trunk_1.value = "0";
+														}
+													}
 													document.form.vlan_enable.value = "1";
 												},
 												function() {

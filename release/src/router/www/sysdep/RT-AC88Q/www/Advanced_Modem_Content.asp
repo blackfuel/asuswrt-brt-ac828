@@ -58,6 +58,7 @@
 <script type="text/javascript" src="/wcdma_list.js"></script>
 <script type="text/javaScript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
+<script type="text/javascript" src="/validator.js"></script>
 <script>
 
 var modem = '<% nvram_get("Dev3G"); %>';
@@ -154,6 +155,9 @@ function initial(){
 		function() {
 			if(dualWAN_support)
 				document.form.wans_dualwan.value = wans_dualwan_array[0]+" usb";
+			else
+				document.form.modem_enable.value = "1";
+
 			document.getElementById("modem_android_tr").style.display="";
 			if(document.form.modem_android.value == "0"){
 				switch_modem_mode(document.form.modem_enable.value);
@@ -175,6 +179,8 @@ function initial(){
 					else
 						document.form.wans_dualwan.value = wans_dualwan_array[0]+" none";
 			}
+			else
+				document.form.modem_enable.value = "0";
 			document.getElementById("modem_android_tr").style.display="none";
 			hide_usb_settings();
 		}

@@ -257,18 +257,8 @@ act_node=
 	act_node=$act_node1
 #fi
 
-modem_act_node=`nvram get $act_node`
-if [ "$modem_act_node" == "" ]; then
-	/usr/sbin/find_modem_node.sh
-
-	modem_act_node=`nvram get $act_node`
-	if [ "$modem_act_node" == "" ]; then
-		echo "Can't get $act_node!"
-		exit 2
-	fi
-fi
-
-echo "VAR: modem_enable($modem_enable) modem_autoapn($modem_autoapn) modem_act_node($modem_act_node) modem_type($modem_type) modem_vid($modem_vid) modem_pid($modem_pid)";
+echo "VAR: modem_enable($modem_enable) modem_autoapn($modem_autoapn) prefix($prefix)";
+echo "     modem_type($modem_type) modem_vid($modem_vid) modem_pid($modem_pid)";
 echo "     modem_isp($modem_isp) modem_apn($modem_apn)";
 
 if [ "$modem_type" == "tty" -o "$modem_type" == "qmi" -o "$modem_type" == "mbim" -o "$modem_type" == "gobi" ] || [ "$usb_gobi2" == "1" ]; then
@@ -324,14 +314,6 @@ if [ "$modem_type" == "tty" -o "$modem_type" == "qmi" -o "$modem_type" == "mbim"
 					sleep 2
 				fi
 			fi
-
-			/usr/sbin/find_modem_node.sh
-
-			modem_act_node=`nvram get $act_node`
-			if [ "$modem_act_node" == "" ]; then
-				echo "Reset modem: Can't get ${prefix}act_int after reset."
-				exit 2.1
-			fi
 		else
 			echo "Reset modem: Can't reset modem."
 			nvram set ${prefix}act_reset=0
@@ -340,32 +322,44 @@ if [ "$modem_type" == "tty" -o "$modem_type" == "qmi" -o "$modem_type" == "mbim"
 		fi
 	fi
 
-	# Set full functionality
-	at_ret=`$at_lock /usr/sbin/modem_at.sh '+CFUN?' 2>&1`
-	ret=`echo -n $at_ret |grep "+CFUN: 1" 2>/dev/null`
-	if [ -z "$ret" ]; then
-		echo "CFUN: Set full functionality."
-		at_ret=`$at_lock /usr/sbin/modem_at.sh '+CFUN=1' 2>&1`
-		ret=`echo -n $at_ret |grep "OK" 2>/dev/null`
-		if [ -n "$ret" ]; then
-			tries=1
-			ret=""
-			while [ $tries -le 30 ] && [ -z "$ret" ]; do
-				echo "CFUN: wait for setting CFUN...$tries"
-				sleep 1
+	/usr/sbin/find_modem_node.sh
 
-				at_ret=`$at_lock /usr/sbin/modem_at.sh '+CFUN?' 2>&1`
-				ret=`echo -n $at_ret |grep "+CFUN: 1" 2>/dev/null`
-				tries=`expr $tries + 1`
-			done
+	modem_act_node=`nvram get $act_node`
+	if [ "$modem_act_node" == "" ]; then
+		echo "Reset modem: Can't get ${prefix}act_int."
+		exit 2.1
+	else
+		echo "Got the int node: $modem_act_node."
+	fi
 
-			if [ "$at_ret" == "" ]; then
-				echo "CFUN: Fail to set full functionality."
-				exit 4
+	if [ "$modem_enable" != "2" ]; then
+		# Set full functionality
+		at_ret=`$at_lock /usr/sbin/modem_at.sh '+CFUN?' 2>&1`
+		ret=`echo -n $at_ret |grep "+CFUN: 1" 2>/dev/null`
+		if [ -z "$ret" ]; then
+			echo "CFUN: Set full functionality."
+			at_ret=`$at_lock /usr/sbin/modem_at.sh '+CFUN=1' 2>&1`
+			ret=`echo -n $at_ret |grep "OK" 2>/dev/null`
+			if [ -n "$ret" ]; then
+				tries=1
+				ret=""
+				while [ $tries -le 30 ] && [ -z "$ret" ]; do
+					echo "CFUN: wait for setting CFUN...$tries"
+					sleep 1
+
+					at_ret=`$at_lock /usr/sbin/modem_at.sh '+CFUN?' 2>&1`
+					ret=`echo -n $at_ret |grep "+CFUN: 1" 2>/dev/null`
+					tries=`expr $tries + 1`
+				done
+
+				if [ "$at_ret" == "" ]; then
+					echo "CFUN: Fail to set full functionality."
+					exit 4
+				fi
+			else
+				echo "CFUN: Fail to set +CFUN=1."
+				exit 5
 			fi
-		else
-			echo "CFUN: Fail to set +CFUN=1."
-			exit 5
 		fi
 	fi
 
@@ -391,24 +385,26 @@ if [ "$modem_type" == "tty" -o "$modem_type" == "qmi" -o "$modem_type" == "mbim"
 		fi
 	fi
 
-	if [ "$modem_enable" != "2" ]; then # Don't get IMSI with CDMA200.
+	if [ "$modem_enable" != "2" ]; then # Don't get IMSI with CDMA2000.
 		/usr/sbin/modem_status.sh imsi
+		/usr/sbin/modem_status.sh iccid
+
+		# Auto-APN
+		if [ "$modem_autoapn" != "" -a "$modem_autoapn" != "0" -a "$modem_auto_spn" == "" ]; then
+			echo "Running autoapn..."
+			/usr/sbin/modem_autoapn.sh
+
+			modem_isp=`nvram get modem_isp`
+			modem_spn=`nvram get modem_spn`
+			modem_apn=`nvram get modem_apn`
+			modem_user=`nvram get modem_user`
+			modem_pass=`nvram get modem_pass`
+		fi
 	fi
-	/usr/sbin/modem_status.sh iccid
 
-	# Auto-APN
-	if [ "$modem_autoapn" != "" -a "$modem_autoapn" != "0" -a "$modem_auto_spn" == "" ]; then
-		echo "Running autoapn..."
-		/usr/sbin/modem_autoapn.sh
-
-		modem_isp=`nvram get modem_isp`
-		modem_spn=`nvram get modem_spn`
-		modem_apn=`nvram get modem_apn`
-		modem_user=`nvram get modem_user`
-		modem_pass=`nvram get modem_pass`
-	fi
-
-	if [ "$modem_type" == "gobi" ]; then
+	if [ "$modem_enable" == "2" ]; then
+		echo "$modem_type: CDMA2000 skip to set the ISP profile."
+	elif [ "$modem_type" == "gobi" ]; then
 		if [ "$usb_gobi2" == "1" ]; then
 			echo "Gobi2: Pause the autoconnect."
 			at_ret=`$at_lock /usr/sbin/modem_at.sh '+CAUTOCONNECT=0' 2>&1`
@@ -519,12 +515,14 @@ if [ "$modem_type" == "tty" -o "$modem_type" == "qmi" -o "$modem_type" == "mbim"
 			fi
 
 			echo "$modem_type: set the flag_auth be \"$flag_auth\"."
+
+			echo "uqmi -d $wdm --start-network --apn \"$modem_apn\" \"$flag_auth\" --ip-family $pdp_str --autoconnect"
+			uqmi -d $wdm --start-network --apn "$modem_apn" "$flag_auth" --ip-family $pdp_str --autoconnect
 		else
-			flag_auth=""
+			echo "uqmi -d $wdm --start-network --apn \"$modem_apn\" --ip-family $pdp_str --autoconnect"
+			uqmi -d $wdm --start-network --apn "$modem_apn" --ip-family $pdp_str --autoconnect
 		fi
 
-		echo "uqmi -d $wdm --start-network --apn \"$modem_apn\" \"$flag_auth\" --ip-family $pdp_str --autoconnect"
-		uqmi -d $wdm --start-network --apn "$modem_apn" "$flag_auth" --ip-family $pdp_str --autoconnect
 		if [ "$?" != "0" ]; then
 			echo "QMI($wdm): faile to start the network & enable autoconnect..."
 		fi
@@ -646,7 +644,9 @@ if [ "$modem_type" == "tty" -o "$modem_type" == "qmi" -o "$modem_type" == "mbim"
 		fi
 	fi
 
-	/usr/sbin/modem_status.sh setmode $modem_mode
+	if [ "$modem_enable" == "1" ]; then
+		/usr/sbin/modem_status.sh setmode $modem_mode
+	fi
 
 	if [ "$modem_type" != "qmi" -a "$modem_type" != "gobi"  ]; then
 		# check the register state after set COPS.

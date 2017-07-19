@@ -17,6 +17,7 @@
 <script type="text/javascript" src="/popup.js"></script>
 <script type="text/javascript" src="/help.js"></script>
 <script type="text/javascript" src="/detect.js"></script>
+<script type="text/javascript" src="/validator.js"></script>
 <style type="text/css">
 .lan_trunk_icon {
 	height: 60px;
@@ -49,11 +50,31 @@
 	height: 0px;
 	opacity: 0;
 }
+.bondingHintBox {
+	height: 160px;
+	width: 210px;
+	float: left;
+}
+.bondingHintBox:before{
+	content: '';
+	display: inline-block;
+	vertical-align: middle;
+	width: 0;
+	height: 100%;
+}
+.bondingHintText{
+	display: inline-block;
+	vertical-align: middle;
+	color: #FC0;
+}
 </style>
 <script>
 var wireless = [<% wl_auth_list(); %>];	// [[MAC, associated, authorized], ...]
+var orig_lan_trunk_type = '<% nvram_get("lan_trunk_type"); %>';
+var vlan_enable = '<% nvram_get("vlan_enable"); %>';
 
 function initial(){
+	show_menu();
 	var nataccel = '<% nvram_get("qca_sfe"); %>';
 	var nataccel_status = '<% nat_accel_status(); %>';
 
@@ -64,6 +85,14 @@ function initial(){
 		document.getElementById("natAccelDesc").innerHTML = "<#NAT_Acceleration_ctf_disable#>";
 	}
 	if(productid == "BRT-AC828") {
+		var wans_dualwan = '<% nvram_get("wans_dualwan"); %>';
+		var lan_flag = (wans_dualwan_orig.search("lan") == -1) ? false : true;
+		if(lan_flag) {
+			document.form.lan_trunk_type_item.style.display = "none";
+			document.form.lan_trunk_type_item.value = 0;
+			document.form.lan_trunk_0.value = 0;
+			document.form.lan_trunk_1.value = 0;
+		}
 		var lan_trunk;
 		lan_trunk = document.form.lan_trunk_0.value;
 		for(var i = 1; lan_trunk != 0 && i <= 4; i++) {
@@ -129,13 +158,16 @@ function initial(){
 					html += "</div>";
 				}
 			}
+			var groupNumHint = "1 & 2 or 3 & 4 or 1 & 4 or 2 & 3";
+			if(_group_id == 1)
+				groupNumHint = "5 & 6 or 7 & 8 or 5 & 8 or 6 & 7";	
+			html += "<div class='bondingHintBox'><p class='bondingHintText'>Select Port at least " + groupNumHint + " combination for the best performance result</p></div>";/*untranslated*/
 			return html;
 		};
 
 		document.getElementById("lan0_trunk_icon").innerHTML = gen_lan_trunk_icon(0);
 		document.getElementById("lan1_trunk_icon").innerHTML = gen_lan_trunk_icon(1);
 	}
-	show_menu();
 }
 
 function controlLanPort(_group_id, _port_idx) {
@@ -174,6 +206,8 @@ function valid_form(){
 	if(productid == "BRT-AC828") {
 		var lan_trunk;
 		var lan_trunk_type = "0";
+		var lan_group_count = 0;
+		var lan_group1_count = 0;
 
 		var set_trunk_lan = function(_group_id, _lan_trunk_type) {
 			var _lan_trunk = 0;
@@ -211,6 +245,11 @@ function valid_form(){
 						return _lan_trunk;
 					}
 				}
+				if(_group_id == 0)
+					lan_group_count = _count;
+				else
+					lan_group1_count = _count;
+
 				return _lan_trunk;
 			}
 		};
@@ -232,9 +271,28 @@ function valid_form(){
 				return false;
 			}
 		}
+		if(lan_trunk_type == "1") {
+			if(document.form.lan_trunk_0.value % 5 == 0 && document.form.lan_trunk_0.value != 0 && lan_group_count != 4) { //only horizontal port
+				alert("Please select 1 & 2 or 3 & 4 or 1 & 4 or 2 & 3 ports combination.");/*untranslated*/
+				return false;
+			}
+			if(document.form.lan_trunk_1.value % 5 == 0 && document.form.lan_trunk_1.value != 0 && lan_group1_count != 4) { //only horizontal port
+				alert("Please select 5 & 6 or 7 & 8 or 5 & 8 or 6 & 7 ports combination.");/*untranslated*/
+				return false;
+			}
+		}
 		if(lan_trunk_type == "2") {
 			if(document.form.lan_trunk_0.value != "0" && document.form.lan_trunk_1.value != "0") {
 				alert("Please select 2 ports only for only one group.");/*untranslated*/
+				return false;
+			}
+
+			if(document.form.lan_trunk_0.value % 5 == 0 && document.form.lan_trunk_0.value != 0) { //only horizontal port
+				alert("Please select 1 & 2 or 3 & 4 or 1 & 4 or 2 & 3 ports combination.");/*untranslated*/
+				return false;
+			}
+			else if(document.form.lan_trunk_1.value % 5 == 0 && document.form.lan_trunk_1.value != 0) { //only horizontal port
+				alert("Please select 5 & 6 or 7 & 8 or 5 & 8 or 6 & 7 ports combination.");/*untranslated*/
 				return false;
 			}
 		}
@@ -250,9 +308,23 @@ function valid_form(){
 }
 
 function changeTrunkType(obj) {
+	if(vlan_enable != "0" && (orig_lan_trunk_type == "0" && obj.value != "0")){
+		if(!confirm("Enable bonding feature will disable VLAN feature. Are you sure to continue?"))//untranslated
+			return false;
+		else{
+			document.form.vlan_enable.disabled = false;
+			document.form.vlan_enable.value = "0";
+		}
+	}
+
 	document.getElementById("lan0_trunk").style.display = "none";
 	document.getElementById("lan1_trunk").style.display = "none";
 	document.getElementById("lan_trunk_hint").innerHTML = "";
+	if(document.form.lan_trunk_type_item.style.display == "none") {
+		document.getElementById("lan_trunk_hint").innerHTML = "Current feature is disabled due to LAN as WAN setting, please remove the setting to process.";/*untranslated*/
+		document.getElementById("lan_trunk_hint").style.marginLeft = "0px";
+	}
+
 	switch(obj.value) {
 		case "1" :
 			document.getElementById("lan_trunk_hint").innerHTML = "Please select 2 - 4 ports for each group.";/*untranslated*/
@@ -306,6 +378,7 @@ function changeTrunkType(obj) {
 <input type="hidden" name="lan_trunk_0" value="<% nvram_get("lan_trunk_0"); %>">
 <input type="hidden" name="lan_trunk_1" value="<% nvram_get("lan_trunk_1"); %>">
 <input type="hidden" name="lan_trunk_type" value="<% nvram_get("lan_trunk_type"); %>">
+<input type="hidden" name="vlan_enable" value="<% nvram_get("vlan_enable"); %>" disabled>
 
 <table class="content" align="center" cellpadding="0" cellspacing="0">
   <tr>
@@ -378,6 +451,18 @@ function changeTrunkType(obj) {
 			<select name="qca_gro" class="input_option">
 				<option class="content_input_fd" value="0" <% nvram_match("qca_gro", "0","selected"); %>><#WLANConfig11b_WirelessCtrl_buttonname#></option>
 				<option class="content_input_fd" value="1" <% nvram_match("qca_gro", "1","selected"); %>><#Auto#></option>
+			</select>
+		</td>
+	</tr>
+	<tr>
+		<th>Hash algorithm<!--untranslated--></th>
+		<td>
+			<select name="lan_hash_algorithm" class="input_option">
+				<option value="0" <% nvram_match( "lan_hash_algorithm", "0", "selected"); %>>Source Port</option><!--untranslated-->
+				<option value="1" <% nvram_match( "lan_hash_algorithm", "1", "selected"); %>>Layer2</option><!--untranslated-->
+				<option value="2" <% nvram_match( "lan_hash_algorithm", "2", "selected"); %>>Layer2+3</option><!--untranslated-->
+				<option value="3" <% nvram_match( "lan_hash_algorithm", "3", "selected"); %>>Layer3</option><!--untranslated-->
+				<option value="4" <% nvram_match( "lan_hash_algorithm", "4", "selected"); %>>Layer3+4</option><!--untranslated-->
 			</select>
 		</td>
 	</tr>

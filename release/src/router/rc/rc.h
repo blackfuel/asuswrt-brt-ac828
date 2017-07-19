@@ -397,6 +397,11 @@ extern void vlan_switch_setup(int vlan_id, int vlan_prio, int lanportset);
 extern int vlan_switch_pvid_setup(int *pvid_list, int *pprio_list, int size);
 #endif
 
+// format.c
+extern void adjust_url_urlelist();
+extern void adjust_ddns_config();
+extern void adjust_access_restrict_config();
+
 // interface.c
 extern int _ifconfig(const char *name, int flags, const char *addr, const char *netmask, const char *dstaddr, int mtu);
 static inline int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
@@ -1007,6 +1012,7 @@ extern void overwrite_fbwifi_ssid(void);
 extern void check_services(void);
 extern int no_need_to_start_wps(void);
 extern int wps_band_radio_off(int wps_band);
+extern void check_wps_enable();
 extern int start_wanduck(void);
 extern void stop_wanduck(void);
 extern void stop_ntpc(void);
@@ -1381,10 +1387,20 @@ void set_vlan_config( 	int index,
 void start_tagged_based_vlan(char *);
 #endif
 
+#ifdef RTCONFIG_LETSENCRYPT
+// letsencrypt.c
+extern int start_letsencrypt(void);
+extern int stop_letsencrypt(void);
+extern int le_acme_main(int argc, char **argv);
+extern int copy_le_certificate(char *dst_cert, char *dst_key);
+extern int is_correct_le_certificate(char *cert_path);
+extern void run_le_fw_script(void);
+#endif
+
 #if defined(RTCONFIG_COOVACHILLI)
 extern int restart_coovachilli_if_conflicts(char *wan_ip, char *wan_mask);
 #else
-static inline restart_coovachilli_if_conflicts(char *wan_ip, char *wan_mask) { return 0; }
+static inline int restart_coovachilli_if_conflicts(char *wan_ip, char *wan_mask) { return 0; }
 #endif
 
 #endif	/* __RC_H__ */

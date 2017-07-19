@@ -1,19 +1,49 @@
+ /*
+ * Copyright 2017, ASUSTeK Inc.
+ * All Rights Reserved.
+ *
+ * THIS SOFTWARE IS OFFERED "AS IS", AND ASUS GRANTS NO WARRANTIES OF ANY
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ *
+ */
+ 
 /*
-
-	ASUS features:
-		- traditional qos
-		- bandwidth limiter
-
-	Copyright (C) ASUSTek. Computer Inc.
-
+	feature implement:
+	1. traditaional qos
+	2. bandwdith limiter (also for guest network)
+	3. facebook wifi
 */
 #include "rc.h"
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#ifdef RTCONFIG_FBWIFI
+#include <fbwifi.h>
+#endif
 
 #ifdef RTCONFIG_PERMISSION_MANAGEMENT
 #include <PMS_DBAPIs.h>
 #endif
+
+/*
+	DEBUG DEFINE
+	QOSDBG  : normal debug
+	QOSLOG  : qos logmessage, we can get more information to trace memory leakage or crash issue
+*/
+#define QOS_DEBUG           "/tmp/QOS_DEBUG"
+#define QOSDBG(fmt,args...) \
+	if(f_exists(QOS_DEBUG) > 0) { \
+		_dprintf("[QOS][%s:(%d)]"fmt, __FUNCTION__, __LINE__, ##args); \
+	}
+
+#define QOS_LOG             "/tmp/QOS_LOG"
+#define QOSLOG(fmt,args...) \
+	if(f_exists(QOS_LOG) > 0) { \
+		char info[1024]; \
+		snprintf(info, sizeof(info), "echo \"[QOS][%s:(%d)]"fmt"\" >> /tmp/QOS_LOG.log", __FUNCTION__, __LINE__, ##args); \
+		system(info); \
+	}
 
 /**
  * Traditional QoS
@@ -46,53 +76,252 @@ static unsigned int ipv6_qos_applied = 0;
 
 int etable_flag = 0;
 int manual_return = 0;
+#define GUEST_INIT_MARKNUM 10 /*10 ~ 30 for Guest Network. */
+#define INITIAL_MARKNUM    30 /*30 ~ X  for LAN . */
 
-// FindMask :
-// 1. sourceStr 	: replace "*'" to "0"
-// 2. matchStr 		: here is "*"
-// 3. replaceStr 	: here is "0"
-// 4. Mask 		: find rule's submask
-static int FindMask(char *sourceStr, char *matchStr, char *replaceStr, char *Mask){
-	char newStr[40];
-	int strLen;
-	int count = 0;
+/* In load-balance mode, redirect TX of each WAN interface to
+ * imq0 interface and limit TX speed of imq0 interface instead
+ * of limiting it on each WAN interface.
+ */
+#define BWLIT_IMQ_ID	0
 
-	char *FindPos = strstr(sourceStr, matchStr);
-	if((!FindPos) || (!matchStr)) return -1;
+/*
+	ip / mac / ip-range status
+*/
+enum {
+	TYPE_UNKNOWN = -1,
+	TYPE_IP = 0,
+	TYPE_MAC,
+	TYPE_IPRANGE,
+	TYPE_GROUP
+};
 
-	while(FindPos != NULL){
-		count++;
-		//fprintf(stderr,"[FindMask] FindPos=%s, strLen=%d, count=%d, sourceStr=%s\n", FindPos, strLen, count, sourceStr); // tmp test
-		memset(newStr, 0, sizeof(newStr));
-		strLen = FindPos - sourceStr;
-		strncpy(newStr, sourceStr, strLen);
-		strcat(newStr, replaceStr);
-		strcat(newStr, FindPos + strlen(matchStr));
-		strcpy(sourceStr, newStr);
+/*
+	isIPnum : 0~255
+*/
+static int isIPnum(char *ip)
+{
+	int sum = -1;
+	int finish = 0;
 
-		FindPos = strstr(sourceStr, matchStr);
+	if (ip == NULL || *ip == '\0')
+		goto end;
+
+	while (*ip != '\0')
+	{
+		/* character : 0~9 */
+		if (*ip < '0' || *ip > '9')
+			goto end;
+
+		/* sum : 0~255 */
+		sum = (sum * 10 + (*ip - '0'));
+		if (sum > 255)
+			goto end;
+
+		ip++;
 	}
 
-	switch(count){
-		case 1:
-			strcpy(Mask, "255.255.255.0");
-			break;
-		case 2:
-			strcpy(Mask, "255.255.0.0");
-			break;
-		case 3:
-			strcpy(Mask, "255.0.0.0");
-			break;
-		case 4:
-			strcpy(Mask, "0.0.0.0");
-			break;
-		default:
-			strcpy(Mask, "255.255.255.255");
-			break;
+	finish = 1;
+
+end:
+	if (finish == 0) sum = -1;
+	return sum;
+}
+
+/*
+	isSubnet : x.x.x.0/24 ~ x.x.x.0/32
+*/
+static int isSubnet(char *sub)
+{
+	int mask = safe_atoi(sub);
+
+	if (mask < 24 || mask > 32)
+		return 0;
+	else
+		return mask;
+}
+
+/*
+	ip_range_checker:
+	1. 192.168.1.*    = 192.168.1.1-254 (subnet)
+	2. 192.168.1.0/24 = 192.168.1.1-254 (subnet)
+	3. 192.168.1.10-20                  (short)
+*/
+static int ip_range_checker(char *old, char *new, int len)
+{
+	int ret = 0;
+	int len_to_dot = 0, len_total = 0;
+	int len_to_line = 0;
+	char *p = NULL, *g = NULL, *buf = NULL;
+	char a[4];
+	char head[16];
+	char host[16];
+	int mask = 0;
+	int mask_t = 0, mask_addr = 0;
+	int host_start = 0, host_end = 0;
+	struct in_addr inet_src, inet_dst;
+	char *start = NULL, *end = NULL;
+
+	memset(new, 0, len);
+	memset(head, 0, sizeof(head));
+	QOSLOG("old=%s", old);
+
+	/* check fail case */
+	g = buf = strdup(old);
+	while ((p = strchr(g, '.')) != NULL) {
+		len_to_dot = p - g;
+		len_total += len_to_dot + 1;
+		memset(a, 0, sizeof(a));
+		strncpy(a, g, len_to_dot);
+
+		// validate value is valid IP num
+		if (isIPnum(a) == -1) {
+			QOSLOG("fail case : a=%s, len_total=%d", a, len_total);
+			goto end;
+		}
+		g += len_to_dot + 1;
 	}
 
-	//fprintf(stderr,"[FindMask] count=%d, Mask=%s\n", count, Mask); // tmp test
-	return 0;
+	/* copy head */
+	strncpy(head, old, len_total);
+
+	/* case1 : x.x.x.0/24 subnet */
+	if (*g == '*') {
+		snprintf(new, len, "%s1-%s254", head, head);
+		ret = 1;
+		goto end;
+	}
+
+	/* case2 : IP subnetting */
+	p = NULL;
+	p = strchr(g, '/');
+	if (p != NULL) {
+		len_to_line = p - g;
+		memset(a, 0, sizeof(a));
+		strncpy(a, g, len_to_line);
+
+		// validate value is valid IP num
+		if (isIPnum(a) == -1) {
+			QOSLOG("case 2: p+=%s, g=%s, a=%s", p+1, g, a);
+			goto end;
+		}
+
+		// get mask and mask_addr
+		g += len_to_dot + 1;
+		mask = isSubnet(p+1);
+		if (mask == 0) goto end;
+		snprintf(host, sizeof(host), "%s%s", head, a);
+		mask_t = ntohl(inet_addr(host));
+		mask_addr = mask_t & (0xffffffff & (0xffffffff << (32 - mask)));
+		host_start = mask_addr + 1;
+		host_end = mask_addr + (0xffffffff & ~(0xffffffff << (32 - mask))) - 1;
+		inet_src.s_addr = htonl(host_start);
+		inet_dst.s_addr = htonl(host_end);
+
+		QOSLOG("case 2: mask=%d, mask_addr=%x, host_start=%x, host_end=%x", mask, mask_addr, host_start, host_end);
+
+		start = inet_ntoa(inet_src);
+		strncpy(new, start, strlen(start));
+		strncpy(new + strlen(start), "-", 1);
+		end = inet_ntoa(inet_dst);
+		strncpy(new + strlen(start) + 1, end, strlen(end));
+		ret = 1;
+		goto end;
+	}
+
+	/* case3 : find minus in tail */
+	p = NULL;
+	p = strchr(g, '-');
+	if (p != NULL) {
+		len_to_line = p - g;
+		memset(a, 0, sizeof(a));
+		strncpy(a, g, len_to_line);
+
+		// validate value is valid IP num
+		if (isIPnum(a) == -1) {
+			QOSLOG("case 3: p+=%s, g=%s, a=%s", p+1, g, a);
+			goto end;
+		}
+
+		snprintf(new, len, "%s%s-%s%s", head, a, head, (p+1));
+		ret = 1;
+		goto end;
+	}
+
+end:
+	if (buf) free(buf);
+
+	QOSLOG("new=%s", new);
+	return ret;
+}
+
+/*
+	address_format_checker:
+	1. unknown
+	2. ip
+	3. mac
+	4. ip-range
+*/
+static void address_format_checker(int *type, char *old, char *new, int len)
+{
+	char *g = NULL, *buf = NULL;
+	int s[6]; // strip mac address
+	int is_ip = 0;
+	int is_mac = 0;
+	int is_range = 0;
+	int is_group = 0;
+
+	memset(s, 0, sizeof(s));
+
+	// group format
+	if (strstr(old, "@") != NULL) {
+		is_group = 1;
+		goto end;
+	}
+
+	// mac format
+	g = buf = strdup(old);
+	if (sscanf(g, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]) == 6) {
+		is_mac = 1;
+		goto end;
+	}
+
+	// ip format
+	g = buf;
+	if (illegal_ipv4_address(g) == 0) {
+		is_ip = 1;
+		goto end;
+	}
+
+	// ip-range format
+	g = buf;
+	if (ip_range_checker(g, new, len) == 1) {
+		is_range = 1;
+		goto end;
+	}
+
+end:
+	if (buf) free(buf);
+	if (is_ip == 1) {
+		*type = TYPE_IP;
+		strncpy(new, old, len);
+	}
+	else if (is_mac == 1) {
+		*type = TYPE_MAC;
+		strncpy(new, old, len);
+	}
+	else if (is_range == 1) {
+		*type = TYPE_IPRANGE;
+	}
+	else if (is_group == 1) {
+		*type = TYPE_GROUP;
+		strlcpy(new, old, len);
+	}
+	else {
+		*type = TYPE_UNKNOWN;
+		strncpy(new, "", len);
+	}
+	QOSLOG("is_ip=%d, is_mac=%d, is_range=%d, is_group = %d, type=%d, new=%s", is_ip, is_mac, is_range, is_group, *type, new);
 }
 
 static unsigned calc(unsigned bw, unsigned pct)
@@ -114,7 +343,7 @@ static void set_fbwifi_mark(void)
 {
 	int band, j, max_mssid;
 	char mark[16], inv_mask[16];	/* for ebtables mark, inverse mask */
-	char *wl_if, wl_ifname[IFNAMSIZ] = "";
+	char wl_ifname[IFNAMSIZ] = "", *wl_if = wl_ifname;
 	char *fbwifi_iface[3] = { "fbwifi_2g", "fbwifi_5g", "fbwifi_5g_2" };
 
 	if (!nvram_match("fbwifi_enable","on"))
@@ -122,19 +351,15 @@ static void set_fbwifi_mark(void)
 
 	snprintf(mark, sizeof(mark), "0x%x", FBWIFI_MARK_SET(1));
 	snprintf(inv_mask, sizeof(inv_mask), "0x%x", FBWIFI_MARK_INV_MASK);
-	for (band = 0; band < ARRAYSIZE(fbwifi_iface); ++band) {
-#if !defined(RTAC3200)
-		/* Skip band 2, 5G-2, if DUT not support 2-nd 5G band. */
-		if (band == 2)
-			continue;
-#endif
+	for (band = 0; band < min(MAX_NR_WL_IF, ARRAYSIZE(fbwifi_iface)); ++band) {
+		SKIP_ABSENT_BAND(band);
 
 		if (nvram_match(fbwifi_iface[band], "off"))
 			continue;
 
 		max_mssid = num_of_mssid_support(band);
 		for (j = 1; j <= max_mssid; ++j) {
-			wl_if = get_wlxy_ifname(band, j, wl_ifname);
+			get_wlxy_ifname(band, j, wl_if);
 			eval("ebtables", "-D", "INPUT", "-i", wl_if, "-j", "mark", "--mark-and", inv_mask, "--mark-target", "CONTINUE");
 			eval("ebtables", "-D", "INPUT", "-i", wl_if, "-j", "mark", "--mark-or", mark, "--mark-target", "ACCEPT");
 		}
@@ -142,10 +367,7 @@ static void set_fbwifi_mark(void)
 		if (sscanf(nvram_safe_get(fbwifi_iface[band]), "wl%*d.%d", &j) != 1)
 			continue;
 
-		wl_if = get_wlxy_ifname(band, j, wl_ifname);
-		if (!wl_if || *wl_if == '\0')
-			continue;
-
+		get_wlxy_ifname(band, j, wl_if);
 		eval("ebtables", "-A", "INPUT", "-i", wl_if, "-j", "mark", "--mark-and", inv_mask, "--mark-target", "CONTINUE");
 		eval("ebtables", "-A", "INPUT", "-i", wl_if, "-j", "mark", "--mark-or", mark, "--mark-target", "ACCEPT");
 	}
@@ -161,7 +383,8 @@ void add_EbtablesRules(void)
 	nv = g = strdup(nvram_safe_get("wl_ifnames"));
 	if(nv){
 		while ((p = strsep(&g, " ")) != NULL){
-			//fprintf(stderr, "%s: g=%s, p=%s\n", __FUNCTION__, g, p); //tmp test
+			SKIP_ABSENT_FAKE_IFACE(p);
+			QOSLOG("p=%s", p);
 			eval("ebtables", "-t", "nat", "-A", "PREROUTING", "-i", p, "-j", "mark", "--mark-or", "6", "--mark-target", "ACCEPT");
 			eval("ebtables", "-t", "nat", "-A", "POSTROUTING", "-o", p, "-j", "mark", "--mark-or", "6", "--mark-target", "ACCEPT");
 		}
@@ -178,7 +401,7 @@ void add_EbtablesRules(void)
 		for( j = 1; j <= GuestNum; j++ ){
 			snprintf(mssid_if, sizeof(mssid_if), "wl%d.%d", i, j);
 			snprintf(mssid_enable, sizeof(mssid_enable), "%s_bss_enabled", mssid_if);
-			//fprintf(stderr, "%s: mssid_enable=%s\n", __FUNCTION__, mssid_enable); //tmp test
+			QOSLOG("mssid_enable=%s", mssid_enable);
 			if(!strcmp(nvram_safe_get(mssid_enable), "1")){
 				eval("ebtables", "-t", "nat", "-A", "PREROUTING", "-i", mssid_if, "-j", "mark", "--mark-or", "6", "--mark-target", "ACCEPT");
 				eval("ebtables", "-t", "nat", "-A", "POSTROUTING", "-o", mssid_if, "-j", "mark", "--mark-or", "6", "--mark-target", "ACCEPT");
@@ -186,7 +409,11 @@ void add_EbtablesRules(void)
 		}
 	}
 
-	set_fbwifi_mark();
+ #ifdef RTCONFIG_FBWIFI
+	if(sw_mode() == SW_MODE_AP){
+		set_fbwifi_mark();
+	}
+ #endif
 
 	etable_flag = 1;
 }
@@ -304,9 +531,9 @@ static int add_qos_rules(char *pcWANIF)
 	int down_class_num=6; 	// for download class_num = 0x6 / 0x106
 	int i, inuse, unit;
 	char q_inuse[32]; 	// for inuse
-	char dport[192], saddr_1[192], saddr_2[192], proto_1[8], proto_2[8],conn[256], end[256];
+	char dport[192], saddr_1[192], proto_1[8], proto_2[8],conn[256], end[256];
 	char prefix[16];
-	int method;
+	//int method;
 	int gum;
 	int sticky_enable;
 	char chain[sizeof("QOSOXXX")];
@@ -327,7 +554,7 @@ static int add_qos_rules(char *pcWANIF)
 #endif
 
 	lock = file_lock(qos_ipt_lock);
-	fprintf(stderr, "[qos] iptables START\n");
+	QOSDBG("[qos] iptables START\n");
 	fprintf(fn,
 		"*mangle\n"
 		":PREROUTING ACCEPT [0:0]\n"
@@ -352,20 +579,17 @@ static int add_qos_rules(char *pcWANIF)
 #endif
 		   )
 			continue;
-		fprintf(fn,
-			":QOSO%d - [0:0]\n"
-			"-A QOSO%d -j CONNMARK --restore-mark --mask 0x7\n"
-			"-A QOSO%d -m connmark ! --mark 0/0xff00 -j RETURN\n"
-			, unit, unit, unit);
+		fprintf(fn, ":QOSO%d - [0:0]\n"
+			    "-A QOSO%d -j CONNMARK --restore-mark --mask 0x%x\n", unit, unit, QOS_MASK);
+		fprintf(fn, "-A QOSO%d -m connmark ! --mark 0/0xff00 -j RETURN\n", unit);
 #ifdef RTCONFIG_IPV6
 		if (fn_ipv6 && ipv6_enabled())
 		fprintf(fn_ipv6, ":QOSO%d - [0:0]\n" , unit);
 
-		if (fn_ipv6 && ipv6_enabled() && wan_primary_ifunit() == unit)
-		fprintf(fn_ipv6,
-			"-A QOSO%d -j CONNMARK --restore-mark --mask 0x7\n"
-			"-A QOSO%d -m connmark ! --mark 0/0xff00 -j RETURN\n"
-			, unit, unit);
+		if (fn_ipv6 && ipv6_enabled() && wan_primary_ifunit() == unit) {
+			fprintf(fn_ipv6, "-A QOSO%d -j CONNMARK --restore-mark --mask 0x%x\n", unit, QOS_MASK);
+			fprintf(fn_ipv6, "-A QOSO%d -m connmark ! --mark 0/0xff00 -j RETURN\n", unit);
+		}
 #endif
 	}
 
@@ -411,10 +635,9 @@ static int add_qos_rules(char *pcWANIF)
 			i = 1 << class_num;
 			++class_num;
 
-			//if (method == 1) class_num |= 0x200;
 			if ((inuse & i) == 0) {
 				inuse |= i;
-				fprintf(stderr, "[qos] iptable creates, inuse=%d\n", inuse);
+				QOSDBG("[qos] iptable creates, inuse=%d\n", inuse);
 			}
 
 			v4v6_ok = IPT_V4;
@@ -429,121 +652,46 @@ static int add_qos_rules(char *pcWANIF)
 				0x1~0x6		: keep tracing this connection.
 				0x101~0x106 	: connection will be considered as marked connection, won't detect again.
 			*/
-#if 0
-			if(strcmp(transferred, "") != 0 )
-				method = 1;
-			else
-				method = nvram_pf_get_int(prefix, "method");	// strict rule ordering
-			gum = (method == 0) ? 0x100 : 0;
-#else
-			method = 1;
 			gum = 0;
-#endif
 			class_num |= gum;
 			down_class_num |= gum;	// for download
 
 			snprintf(chain, sizeof(chain), "QOSO%d", unit);	// chain name
-			sprintf(end , " -j CONNMARK --set-return 0x%x/0x7\n", class_num);	// CONNMARK string
+			sprintf(end , " -j CONNMARK --set-return 0x%x/0x%x\n", class_num, QOS_MASK);	// CONNMARK string
 
 			/*************************************************/
 			/*                        addr                   */
 			/*           src mac or src ip or IP range       */
 			/*************************************************/
-			char tmp[20], addr_t[40];
-			char *tmp_addr, *q_ip, *q_mac;
+			char addr_new[40];
+			int addr_type;
+			memset(addr_new, 0, sizeof(addr_new));
+			address_format_checker(&addr_type, addr, addr_new, sizeof(addr_new));
 
-			memset(saddr_1, 0, sizeof(saddr_1));
-			memset(saddr_2, 0, sizeof(saddr_2));
-
-			memset(tmp, 0, sizeof(tmp));
-			sprintf(tmp, "%s", addr);
-			tmp_addr = tmp;
-			q_ip  = strsep(&tmp_addr, ":");
-			q_mac = tmp_addr;
-
-			memset(addr_t, 0, sizeof(addr_t));
-			sprintf(addr_t, "%s", addr);
-
-			// step1: check contain '-' or not, if yes, IP-range, ex. 192.168.1.10-192.168.1.100
-			// step2: check addr is NULL
-			// step3: check IP or MAC
-			// step4: check IP contain '*' or not, if yes, IP-range
-			// step5: check DUT's LAN IP shouldn't inside IP-range
-
-			// step1: check contain '-' or not, if yes, IP-range
-			if(strchr(addr_t, '-') == NULL){
-				// step2: check addr is NULL
-				if(!strcmp(addr_t, "")){
-					sprintf(saddr_1, "%s", addr_t);	// NULL
-				}
-				else{ // step2
-					// step3: check IP or MAC
-					if (q_mac == NULL){
-						// step4: check IP contain '*' or not, if yes, IP-range
-						if(strchr(q_ip, '*') != NULL){
-							char *rule;
-							char Mask[40];
-							struct in_addr range_A, range_B, range_C;
-
-							memset(Mask, 0, sizeof(Mask));
-							rule =  strdup(addr_t);
-							FindMask(rule, "*", "0", Mask); 				// find submask and replace "*" to "0"
-							memset(addr_t, 0, sizeof(addr_t));
-							sprintf(addr_t, "%s", rule);					// copy rule to addr_t for v4v6_ok
-
-							unsigned int ip = inet_addr(rule); 				// covert rule's IP into binary form
-							unsigned int nm = inet_addr(Mask);				// covert submask into binary form
-							unsigned int gw = inet_addr(nvram_safe_get("lan_ipaddr")); 	// covert DUT's LAN IP into binary form
-							unsigned int gw_t = htonl(gw);
-
-							range_A.s_addr = ntohl(gw_t - 1);
-							range_B.s_addr = ntohl(gw_t + 1);
-							range_C.s_addr = ip | ~nm;
-
-				//fprintf(stderr, "[addr] addr_t=%s, rule/Mask=%s/%s, ip/nm/gw=%x/%x/%x\n", addr_t, rule, Mask, ip, nm, gw); // tmp test
-
-							// step5: check DUT's LAN IP shouldn't inside IP-range
-							// DUT's LAN IP inside IP-range
-							if( (ip & nm) == (gw & nm)){
-				//fprintf(stderr, "[addr] %x/%x/%x/%x/%s matched\n", ip_t, nm_t, gw_t, range_B.s_addr, inet_ntoa(range_B)); // tmp test
-								char range_B_addr[40];
-								sprintf(range_B_addr, "%s", inet_ntoa(range_B));
-
-								sprintf(saddr_1, "-m iprange --src-range %s-%s", rule, inet_ntoa(range_A)); 		// IP-range
-								sprintf(saddr_2, "-m iprange --src-range %s-%s", range_B_addr, inet_ntoa(range_C)); 	// IP-range
-							}
-							else{
-								sprintf(saddr_1, "-m iprange --src-range %s-%s", rule, inet_ntoa(range_C)); 		// IP-range
-							}
-
-							free(rule);
-						}
-						else{ // step4
-							sprintf(saddr_1, "-s %s", addr_t);	// IP
-						}
-
-						v4v6_ok &= ipt_addr_compact(addr_t, v4v6_ok, (v4v6_ok==IPT_V4));
-						if (!v4v6_ok) continue;
-					}
-					else{ // step3
-						sprintf(saddr_1, "-m mac --mac-source %s", addr_t);	// MAC
-					}
-				}
+			if (addr_type == TYPE_IP){
+				snprintf(saddr_1, sizeof(saddr_1), "-s %s", addr_new);
 			}
-			else{ // step1
-				sprintf(saddr_1, "-m iprange --src-range %s", addr_t);	// IP-range
+			else if (addr_type == TYPE_MAC){
+				snprintf(saddr_1, sizeof(saddr_1), "-m mac --mac-source %s", addr_new);
 			}
-			//fprintf(stderr, "[qos] tmp=%s, ip=%s, mac=%s, addr=%s, addr_t=%s, saddr_1=%s, saddr_2=%s\n", tmp, q_ip, q_mac, addr, addr_t, saddr_1, saddr_2); // tmp test
+			else if (addr_type == TYPE_IPRANGE){
+				snprintf(saddr_1, sizeof(saddr_1), "-m iprange --src-range %s", addr_new);
+			}
+			else if (addr_type == TYPE_UNKNOWN){
+				QOSDBG("[qos] addr is TYPE_UKNOWN!\n");
+				continue;
+			}
+			QOSLOG("[qos] addr_type=%d, saddr_1=%s", addr_type, saddr_1);
 
 			/*************************************************/
 			/*                      port                     */
 			/*            single port or multi-ports         */
 			/*************************************************/
-			char *tmp_port, *q_port, *q_leave;
+			char tmp[40];
+			char *tmp_port, *q_leave;
 
 			sprintf(tmp, "%s", port);
 			tmp_port = tmp;
-			q_port = strsep(&tmp_port, ",");
 			q_leave = tmp_port;
 
 			if(strcmp(port, "") == 0 ){
@@ -555,7 +703,7 @@ static int add_qos_rules(char *pcWANIF)
 				else
 					sprintf(dport, "--dport %s", port); // single port
 			}
-			//fprintf(stderr, "[qos] tmp=%s, q_port=%s, q_leave=%s, port=%s\n", tmp, q_port, q_leave, port ); // tmp test
+			QOSLOG("[qos] tmp=%s, q_leave=%s, port=%s", tmp, q_leave, port);
 
 			/*************************************************/
 			/*                   transferred                 */
@@ -564,7 +712,7 @@ static int add_qos_rules(char *pcWANIF)
 			/*   --connbytes-mode (packets/bytes/avgpkt)     */
 			/*************************************************/
 			char *tmp_trans, *q_min, *q_max;
-			long min, max ;
+			long min = 0, max =0;
 
 			sprintf(tmp, "%s", transferred);
 			tmp_trans = tmp;
@@ -586,7 +734,7 @@ static int add_qos_rules(char *pcWANIF)
 					sprintf(conn, "-m connbytes --connbytes %ld:%ld --connbytes-dir both --connbytes-mode bytes", min*1024, max*1024-1);
 				}
 			}
-			//fprintf(stderr, "[qos] tmp=%s, transferred=%s, min=%ld, max=%ld, q_max=%s, conn=%s\n", tmp, transferred, min*1024, max*1024-1, q_max, conn); // tmp test
+			QOSLOG("[qos] tmp=%s, transferred=%s, min=%ld, max=%ld, q_max=%s, conn=%s", tmp, transferred, min*1024, max*1024-1, q_max, conn);
 
 			/*************************************************/
 			/*                      proto                    */
@@ -618,11 +766,11 @@ static int add_qos_rules(char *pcWANIF)
 				sprintf(proto_1, "NO");
 				sprintf(proto_2, "NO");
 			}
-			//fprintf(stderr, "[qos] proto_1=%s, proto_2=%s, proto=%s\n", proto_1, proto_2, proto); // tmp test
+			QOSLOG("[qos] proto_1=%s, proto_2=%s, proto=%s", proto_1, proto_2, proto);
 
 			/*******************************************************************/
 			/*                                                                 */
-			/*  build final rule for check proto_1, proto_2, saddr_1, saddr_2  */
+			/*  build final rule for check proto_1, proto_2, saddr_1           */
 			/*                                                                 */
 			/*******************************************************************/
 			// step1. check proto != "NO"
@@ -635,18 +783,10 @@ static int add_qos_rules(char *pcWANIF)
 					// step2. if proto = any, no proto / dport
 					if(strcmp(proto_1, "")){
 						// step3. check saddr for ip-range;saddr_1 could be empty, dport only
-							fprintf(fn, "-A %s %s %s %s %s %s", chain, proto_1, dport, saddr_1, conn, end);
-
-						if(strcmp(saddr_2, "")){
-							fprintf(fn, "-A %s %s %s %s %s %s", chain, proto_1, dport, saddr_2, conn, end);
-						}
+						fprintf(fn, "-A %s %s %s %s %s %s", chain, proto_1, dport, saddr_1, conn, end);
 					}
 					else{
-							fprintf(fn, "-A %s %s %s %s", chain, saddr_1, conn, end);
-
-						if(strcmp(saddr_2, "")){
-							fprintf(fn, "-A %s %s %s %s", chain, saddr_2, conn, end);
-						}
+						fprintf(fn, "-A %s %s %s %s", chain, saddr_1, conn, end);
 					}
 				}
 
@@ -655,18 +795,10 @@ static int add_qos_rules(char *pcWANIF)
 					// step2. if proto = any, no proto / dport
 					if(strcmp(proto_2, "")){
 						// step3. check saddr for ip-range;saddr_1 could be empty, dport only
-							fprintf(fn, "-A %s %s %s %s %s %s", chain, proto_2, dport, saddr_1, conn, end);
-
-						if(strcmp(saddr_2, "")){
-							fprintf(fn, "-A %s %s %s %s %s %s", chain, proto_2, dport, saddr_2, conn, end);
-						}
+						fprintf(fn, "-A %s %s %s %s %s %s", chain, proto_2, dport, saddr_1, conn, end);
 					}
 					else{
-							fprintf(fn, "-A %s %s %s %s", chain, saddr_1, conn, end);
-
-						if(strcmp(saddr_2, "")){
-							fprintf(fn, "-A %s %s %s %s", chain, saddr_2, conn, end);
-						}
+						fprintf(fn, "-A %s %s %s %s", chain, saddr_1, conn, end);
 					}
 				}
 			}
@@ -678,18 +810,10 @@ static int add_qos_rules(char *pcWANIF)
 					// step2. if proto = any, no proto / dport
 					if(strcmp(proto_1, "")){
 						// step3. check saddr for ip-range;saddr_1 could be empty, dport only
-							fprintf(fn_ipv6, "-A %s %s %s %s %s %s", chain, proto_1, dport, saddr_1, conn, end);
-
-						if(strcmp(saddr_2, "")){
-							fprintf(fn_ipv6, "-A %s %s %s %s %s %s", chain, proto_1, dport, saddr_2, conn, end);
-						}
+						fprintf(fn_ipv6, "-A %s %s %s %s %s %s", chain, proto_1, dport, saddr_1, conn, end);
 					}
 					else{
-							fprintf(fn_ipv6, "-A %s %s %s %s", chain, saddr_1, conn, end);
-
-						if(strcmp(saddr_2, "")){
-							fprintf(fn_ipv6, "-A %s %s %s %s", chain, saddr_2, conn, end);
-						}
+						fprintf(fn_ipv6, "-A %s %s %s %s", chain, saddr_1, conn, end);
 					}
 				}
 
@@ -698,17 +822,10 @@ static int add_qos_rules(char *pcWANIF)
 					// step2. if proto = any, no proto / dport
 					if(strcmp(proto_2, "")){
 						// step3. check saddr for ip-range;saddr_1 could be empty, dport only
-							fprintf(fn_ipv6, "-A %s %s %s %s %s %s", chain, proto_2, dport, saddr_1, conn, end);
-
-						if(strcmp(saddr_2, "")){
-							fprintf(fn_ipv6, "-A %s %s %s %s %s %s", chain, proto_2, dport, saddr_2, conn, end);
-						}
+						fprintf(fn_ipv6, "-A %s %s %s %s %s %s", chain, proto_2, dport, saddr_1, conn, end);
 					}
 					else{
-							fprintf(fn_ipv6, "-A %s %s %s %s", chain, saddr_1, conn, end);
-						if(strcmp(saddr_2, "")){
-							fprintf(fn_ipv6, "-A %s %s %s %s", chain, saddr_2, conn, end);
-						}
+						fprintf(fn_ipv6, "-A %s %s %s %s", chain, saddr_1, conn, end);
 					}
 				}
 			}
@@ -721,15 +838,13 @@ static int add_qos_rules(char *pcWANIF)
 		char lan_addr[20];
 		g = buf = strdup(nvram_safe_get("lan_ipaddr"));
 		if((vstrsep(g, ".", &a, &b, &c, &d)) != 4){
-			fprintf(stderr,"[qos] lan_ipaddr doesn't exist!!\n");
+			QOSDBG("[qos] lan_ipaddr doesn't exist!!\n");
 		}
 		else{
 			sprintf(lan_addr, "%s.%s.%s.0/24", a, b, c);
-			fprintf(stderr,"[qos] lan_addr=%s\n", lan_addr);
+			QOSDBG("[qos] lan_addr=%s\n", lan_addr);
 		}
 		free(buf);
-
-		//fprintf(stderr, "[qos] down_class_num=%x\n", down_class_num);
 
 		/* The default class */
 		i = nvram_pf_get_int(prefix, "default");
@@ -747,22 +862,20 @@ static int add_qos_rules(char *pcWANIF)
 			add_EbtablesRules();
 
 			// for multicast
-			fprintf(fn, "-A %s -d 224.0.0.0/4 -j CONNMARK --set-return 0x%x/0x7\n", chain, down_class_num);
+			fprintf(fn, "-A %s -d 224.0.0.0/4 -j CONNMARK --set-return 0x%x/0x%x\n", chain, down_class_num, QOS_MASK);
 			// for download (LAN or wireless)
-			fprintf(fn, "-A %s -d %s -j CONNMARK --set-return 0x%x/0x7\n", chain, lan_addr, down_class_num);
+			fprintf(fn, "-A %s -d %s -j CONNMARK --set-return 0x%x/0x%x\n", chain, lan_addr, down_class_num, QOS_MASK);
 	/* Requires bridge netfilter, but slows down and breaks EMF/IGS IGMP IPTV Snooping
 			// for WLAN to LAN bridge issue
-			fprintf(fn, "-A POSTROUTING -d %s -m physdev --physdev-is-in -j CONNMARK --set-return 0x6/0x7\n", lan_addr);
+			fprintf(fn, "-A POSTROUTING -d %s -m physdev --physdev-is-in -j CONNMARK --set-return 0x6/0x%x\n", lan_addr, QOS_MASK);
 	*/
 			// for download, interface br0
 			fprintf(fn, "-A POSTROUTING -o br0 -j %s\n", chain);
 		}
 #endif
-			fprintf(fn,
-				"-A %s -j CONNMARK --set-return 0x%x/0x7\n"
-				"-A FORWARD -o %s -j %s\n"
-				"-A OUTPUT -o %s -j %s\n",
-					chain, class_num, wan, chain, wan, chain);
+			fprintf(fn, "-A %s -j CONNMARK --set-return 0x%x/0x%x\n", chain, class_num, QOS_MASK);
+			fprintf(fn, "-A FORWARD -o %s -j %s\n", wan, chain);
+			fprintf(fn, "-A OUTPUT -o %s -j %s\n", wan, chain);
 
 #ifdef RTCONFIG_IPV6
 		if (fn_ipv6 && ipv6_enabled() && *wan6face && wan_primary_ifunit() == unit) {
@@ -777,29 +890,27 @@ static int add_qos_rules(char *pcWANIF)
 				add_EbtablesRules();
 
 				// for multicast
-				fprintf(fn_ipv6, "-A %s -d 224.0.0.0/4 -j CONNMARK --set-return 0x%x/0x7\n", chain, down_class_num);
+				fprintf(fn_ipv6, "-A %s -d 224.0.0.0/4 -j CONNMARK --set-return 0x%x/0x%x\n", chain, down_class_num, QOS_MASK);
 				// for download (LAN or wireless)
-				fprintf(fn_ipv6, "-A %s -d %s -j CONNMARK --set-return 0x%x/0x7\n", chain, lan_addr, down_class_num);
+				fprintf(fn_ipv6, "-A %s -d %s -j CONNMARK --set-return 0x%x/0x%x\n", chain, lan_addr, down_class_num, QOS_MASK);
 	/* Requires bridge netfilter, but slows down and breaks EMF/IGS IGMP IPTV Snooping
 				// for WLAN to LAN bridge issue
-				fprintf(fn_ipv6, "-A POSTROUTING -d %s -m physdev --physdev-is-in -j CONNMARK --set-return 0x6/0x7\n", lan_addr);
+				fprintf(fn_ipv6, "-A POSTROUTING -d %s -m physdev --physdev-is-in -j CONNMARK --set-return 0x6/0x%x\n", lan_addr, QOS_MASK);
 	*/
 				// for download, interface br0
 				fprintf(fn_ipv6, "-A POSTROUTING -o br0 -j %s\n", chain);
 			}
 #endif
-			fprintf(fn_ipv6,
-				"-A %s -j CONNMARK --set-return 0x%x/0x7\n"
-				"-A FORWARD -o %s -j %s\n"
-				"-A OUTPUT -o %s -j %s\n",
-					chain, class_num, wan6face, chain, wan6face, chain);
+			fprintf(fn_ipv6, "-A %s -j CONNMARK --set-return 0x%x/0x%x\n", chain, class_num, QOS_MASK);
+			fprintf(fn_ipv6, "-A FORWARD -o %s -j %s\n", wan6face, chain);
+			fprintf(fn_ipv6, "-A OUTPUT -o %s -j %s\n", wan6face, chain);
 		}
 #endif
 
 		inuse |= (1 << i) | 1;  // default and highest are always built
 		sprintf(q_inuse, "%d", inuse);
 		nvram_pf_set(prefix, "inuse", q_inuse);
-		fprintf(stderr, "[qos] qos_inuse=%d\n", inuse);
+		QOSDBG("[qos] qos_inuse=%d\n", inuse);
 
 		/* Ingress rules */
 		g = buf = strdup(nvram_pf_safe_get(prefix, "irates"));
@@ -807,13 +918,13 @@ static int add_qos_rules(char *pcWANIF)
 			if ((!g) || ((p = strsep(&g, ",")) == NULL)) continue;
 			if ((inuse & (1 << i)) == 0) continue;
 			if (atoi(p) > 0) {
-				fprintf(fn, "-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0x7\n", wan);
+				fprintf(fn, "-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0x%x\n", wan, QOS_MASK);
 #ifdef CLS_ACT
 				fprintf(fn, "-A PREROUTING -i %s -j IMQ --todev %d\n", wan, unit);
 #endif
 #ifdef RTCONFIG_IPV6
 				if (fn_ipv6 && ipv6_enabled() && *wan6face && wan_primary_ifunit() == unit) {
-					fprintf(fn_ipv6, "-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0x7\n", wan6face);
+					fprintf(fn_ipv6, "-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0x%x\n", wan6face, QOS_MASK);
 #ifdef CLS_ACT
 					fprintf(fn_ipv6, "-A PREROUTING -i %s -j IMQ --todev %d\n", wan6face, unit);
 #endif
@@ -841,7 +952,7 @@ static int add_qos_rules(char *pcWANIF)
 	}
 #endif
 	file_unlock(lock);
-	fprintf(stderr, "[qos] iptables DONE!\n");
+	QOSDBG("[qos] iptables DONE!\n");
 
 	return 0;
 }
@@ -912,7 +1023,7 @@ static int start_tqos(void)
 	}
 
 	/* Create top-level /tmp/qos */
-	fprintf(stderr, "[qos] tc START!\n");
+	QOSDBG("[qos] tc START!\n");
 	fprintf(f_top,"#!/bin/sh\n");
 
 	/* Create /tmp/qos.X for each WAN unit. */
@@ -1031,8 +1142,7 @@ static int start_tqos(void)
 				"# 1:60 ALL Download for BCM\n"
 				"\t$TCA parent 1:2 classid 1:60 htb rate 1000000kbit ceil 1000000kbit burst 10000 cburst 10000 prio 6\n"
 				"\t$TQA parent 1:60 handle 60: pfifo\n"
-//				"\t$TFA parent 1: prio 6 protocol %s handle 6 fw flowid 1:60\n", protocol
-				"\t$TFA parent 1: prio 6 protocol %s u32 match mark 6 0xf flowid 1:60\n", protocol
+				"\t$TFA parent 1: prio 6 protocol %s u32 match mark 6 0x%x flowid 1:60\n", protocol, QOS_MASK
 				);
 		}
 #endif
@@ -1045,11 +1155,12 @@ static int start_tqos(void)
 			if ((!g) || ((p = strsep(&g, ",")) == NULL)) break;
 
 			if ((inuse & (1 << i)) == 0){
-				fprintf(stderr, "[qos] egress %d doesn't create, inuse=%d\n", i, inuse );
+				QOSDBG("[qos] egress %d doesn't create, inuse=%d\n", i, inuse);
 				continue;
 			}
-			else
-				fprintf(stderr, "[qos] egress %d creates\n", i);
+			else {
+				QOSDBG("[qos] egress %d creates\n", i);
+			}
 
 			if ((sscanf(p, "%u-%u", &rate, &ceil) != 2) || (rate < 1)) {
 				continue;
@@ -1059,16 +1170,10 @@ static int start_tqos(void)
 				else s[0] = 0;
 			x = (i + 1) * 10;
 
-			fprintf(f,
-				"# egress %d: %u-%u%%\n"
-				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
-				"\t$TQA parent 1:%d handle %d: $SFQ\n"
-//				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
-				"\t$TFA parent 1: prio %d protocol ip u32 match mark %d 0xf flowid 1:%d\n",
-					i, rate, ceil,
-					x, calc(bw, rate), s, burst_leaf, (i >= 6) ? 7 : (i + 1), mtu,
-					x, x,
-					x, i + 1, x);
+			fprintf(f, "# egress %d: %u-%u%%\n", i, rate, ceil);
+			fprintf(f, "\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n", x, calc(bw, rate), s, burst_leaf, (i >= 6) ? 7 : (i + 1), mtu);
+			fprintf(f, "\t$TQA parent 1:%d handle %d: $SFQ\n", x, x);
+			fprintf(f, "\t$TFA parent 1: prio %d protocol ip u32 match mark %d 0x%x flowid 1:%d\n", x, i + 1, QOS_MASK, x);
 		}
 		free(buf);
 
@@ -1154,23 +1259,16 @@ static int start_tqos(void)
 
 #ifdef CLS_ACT
 				x = (i + 1) * 10;
-				fprintf(f,
-					"# ingress %d: %u%%\n"
-					"\t$TCADL parent 2:1 classid 2:%d htb rate %ukbit %s prio %d quantum %u\n"
-					"\t$TQADL parent 2:%d handle %d: $SFQ\n"
-//					"\t$TFADL parent 2: prio %d protocol ip handle %d fw flowid 2:%d\n",
-					"\t$TFADL parent 2: prio %d protocol ip u32 match mark %d 0xf flowid 2:%d\n",
-						i, rate,
-						x, calc(bw, rate), burst_leaf, (i >= 6) ? 7 : (i + 1), mtu,
-						x, x,
-						x, i + 1, x);
+				fprintf(f, "# ingress %d: %u%%\n", i, rate);
+				fprintf(f,"\t$TCADL parent 2:1 classid 2:%d htb rate %ukbit %s prio %d quantum %u\n", x, calc(bw, rate), burst_leaf, (i >= 6) ? 7 : (i + 1), mtu);
+				fprintf(f,"\t$TQADL parent 2:%d handle %d: $SFQ\n", x, x);
+				fprintf(f,"\t$TFADL parent 2: prio %d protocol ip u32 match mark %d 0x%x flowid 2:%d\n", x, i + 1, QOS_MASK, x);
 #else
 				x = i + 1;
 				fprintf(f,
-					"# ingress %d: %u%%\n"
-					"\t$TFA parent ffff: prio %d protocol ip handle %d"
-						" fw police rate %ukbit burst %ukbit drop flowid ffff:%d\n",
-						i, rate, x, x, u, v, x);
+					"# ingress %d: %u%%\n", i, rate);
+				fprintf(f,"\t$TFA parent ffff: prio %d protocol ip handle %d "
+					  "fw police rate %ukbit burst %ukbit drop flowid ffff:%d\n", , x, x, u, v, x);
 #endif
 			}
 			free(buf);
@@ -1204,13 +1302,13 @@ static int start_tqos(void)
 		chmod(fname, 0700);
 
 		fprintf(f_top, "[ -e %s ] && %s \"$1\"\n", fname, fname);
-		fprintf(stderr,"[qos][unit %d] tc done!\n", unit);
+		QOSDBG("[qos]unit %d] tc done!\n", unit);
 	} /* for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit) */
 
 	fclose(f_top);
 	chmod(qosfn, 0700);
 	eval((char *)qosfn, "start");
-	fprintf(stderr,"[qos] tc done!\n");
+	QOSDBG("[qos] tc done!\n");
 
 exit_start_tqos:
 	file_unlock(lock);
@@ -1224,71 +1322,20 @@ void stop_iQos(void)
 	eval((char *)qosfn, "stop");
 }
 
-#define TYPE_IP 0
-#define TYPE_MAC 1
-#define TYPE_IPRANGE 2
-#define TYPE_GUEST 3
-#define TYPE_GROUP 4
-
-static void address_checker(int *addr_type, char *addr_old, char *addr_new, int len)
-{
-	char *second, *last_dot;
-	int len_to_minus, len_to_dot;
-
-	// guestnetwork interface
-	if (strstr(addr_old, "wl")){
-		*addr_type = TYPE_GUEST;
-		strncpy(addr_new, addr_old, len);
-		return;
-	}
-
-	// group
-	if (strstr(addr_old, "@")){
-		*addr_type = TYPE_GROUP;
-		strncpy(addr_new, addr_old, len);
-		return;
-	}
-
-	second = strchr(addr_old, '-');
-	if (second != NULL)
-	{
-		*addr_type = TYPE_IPRANGE;
-		if (strchr(second+1, '.') != NULL){
-			// long notation
-			strncpy(addr_new, addr_old, len);
-		}
-		else{
-			// short notation
-			last_dot = strrchr(addr_old, '.');
-			len_to_minus = second - addr_old;
-			len_to_dot = last_dot - addr_old;
-			strncpy(addr_new, addr_old, len_to_minus+1);
-			strncpy(addr_new + len_to_minus + 1, addr_new, len_to_dot+1);
-			strcpy(addr_new + len_to_minus + len_to_dot + 2, second+1);
-		}
-	}
-	else
-	{
-		if (strlen(addr_old) == 17)
-			*addr_type = TYPE_MAC;
-		else
-			*addr_type = TYPE_IP;
-		strncpy(addr_new, addr_old, len);
-	}
-}
-
 static int add_bandwidth_limiter_rules(char *pcWANIF)
 {
 	FILE *fn = NULL;
 	char *buf, *g, *p;
 	char *enable, *addr, *dlc, *upc, *prio;
 	char lan_addr[32];
-	char addr_new[32];
-	char prefix[16];
+	char addr_new[40];
+	char prefix[32];
 	int addr_type;
-	char *action = NULL;
-	int lock;
+	char *action = NULL, *wan;
+	int r, lock, unit;
 	int class = 0;
+	char wl_ifname[IFNAMSIZ], imq_if[IFNAMSIZ];
+	char act_buf[sizeof("CONNMARK --set-return X/0xXXXXXXX")], *acts[2] = { act_buf , "RETURN" };
 
 	del_iQosRules(); // flush related rules in mangle table
 	if ((fn = fopen(mangle_fn, "w")) == NULL) return -2;
@@ -1327,147 +1374,159 @@ static int add_bandwidth_limiter_rules(char *pcWANIF)
 		);
 
 	// access router : mark 9
-	fprintf(fn,
-		"-A POSTROUTING -s %s -d %s -j %s 9/0xf\n"
-		"-A PREROUTING -s %s -d %s -j %s 9/0xf\n"
-		, nvram_safe_get("lan_ipaddr"), lan_addr, action
-		, lan_addr, nvram_safe_get("lan_ipaddr"), action
-		);
-	if(manual_return){
-	fprintf(fn,
-		"-A POSTROUTING -s %s -d %s -j RETURN\n"
-		"-A PREROUTING -s %s -d %s -j RETURN\n"
-		, nvram_safe_get("lan_ipaddr"), lan_addr
-		, lan_addr, nvram_safe_get("lan_ipaddr")
-		);
+	snprintf(act_buf, sizeof(act_buf), "%s 9/0x%x", action, QOS_MASK);
+	for (r = 0; r < manual_return; ++r) {
+		fprintf(fn, "-A POSTROUTING -s %s -d %s -j %s\n", nvram_safe_get("lan_ipaddr"), lan_addr, acts[r]);
+		fprintf(fn, "-A PREROUTING -s %s -d %s -j %s\n", lan_addr, nvram_safe_get("lan_ipaddr"), acts[r]);
 	}
 
-	{
-		get_qos_prefix(0, prefix);
+	get_qos_prefix(0, prefix);
 
-		g = buf = strdup(nvram_pf_safe_get(prefix, "bw_rulelist"));
-		while (g) {
-			if ((p = strsep(&g, "<")) == NULL) break;
-			if ((vstrsep(p, ">", &enable, &addr, &dlc, &upc, &prio)) != 5) continue;
-			if (!strcmp(enable, "0")) continue;
+	g = buf = strdup(nvram_pf_safe_get(prefix, "bw_rulelist"));
+	while (g) {
+		if ((p = strsep(&g, "<")) == NULL) break;
+		if ((vstrsep(p, ">", &enable, &addr, &dlc, &upc, &prio)) != 5) continue;
+		if (!strcmp(enable, "0")) continue;
 
-			memset(addr_new, 0, sizeof(addr_new));
-			address_checker(&addr_type, addr, addr_new, sizeof(addr_new));
-			class = atoi(prio) + 10;
-			_dprintf("[BWLIT] %s: addr_type=%d, addr=%s, add_new=%s, lan_addr=%s, class=%d\n",
-				__func__, addr_type, addr, addr_new, lan_addr, class);
+		memset(addr_new, 0, sizeof(addr_new));
+		address_format_checker(&addr_type, addr, addr_new, sizeof(addr_new));
+		class = atoi(prio) + INITIAL_MARKNUM;
+		QOSDBG("[BWLIT] addr_type=%d, addr=%s, add_new=%s, lan_addr=%s\n", addr_type, addr, addr_new, lan_addr);
 
 #ifdef RTCONFIG_PERMISSION_MANAGEMENT
-			if (*addr == '@') {
-				int dev_num, group_num;
-				PMS_DEVICE_INFO_T *dev_list = NULL;
-				PMS_DEVICE_GROUP_INFO_T *group_list = NULL, *follow_group = NULL;
+		if (*addr == '@') {
+			int dev_num, group_num;
+			PMS_DEVICE_INFO_T *dev_list = NULL;
+			PMS_DEVICE_GROUP_INFO_T *group_list = NULL, *follow_group = NULL;
 
-				/* Get account / group list */
-				if (PMS_GetDeviceInfo(PMS_ACTION_GET_FULL, &dev_list, &group_list, &dev_num, &group_num) < 0) {
-					_dprintf("Can't read dev / group list\n");
-					break;
-				}
-
-				/* Get the mac list of certain group */
-				for (follow_group = group_list; follow_group != NULL; follow_group = follow_group->next) {
-					if (!strcmp(follow_group->name, addr+1)) {
-						PMS_OWNED_INFO_T *owned_dev = follow_group->owned_device;
-						while (owned_dev != NULL) {
-							PMS_DEVICE_INFO_T *dev_owned = (PMS_DEVICE_INFO_T *) owned_dev->member;
-							//_dprintf("[%s] %s\n", follow_group->name, dev_owned->mac); // debug
-							fprintf(fn,
-								"-A PREROUTING -m mac --mac-source %s ! -d %s  -j %s %d/0xf\n"
-								, dev_owned->mac, lan_addr, action, class
-								);
-							if (manual_return) {
-							fprintf(fn,
-								"-A PREROUTING -m mac --mac-source %s ! -d %s  -j RETURN\n"
-								, dev_owned->mac, lan_addr
-								);
-							}
-							owned_dev = owned_dev->next;
-						}
-					}
-				}
-
-				/* Free device and group list*/
-				PMS_FreeDevInfo(&dev_list, &group_list);
+			/* Get account / group list */
+			if (PMS_GetDeviceInfo(PMS_ACTION_GET_FULL, &dev_list, &group_list, &dev_num, &group_num) < 0) {
+				_dprintf("Can't read dev / group list\n");
+				break;
 			}
+
+			/* Get the mac list of certain group */
+			for (follow_group = group_list; follow_group != NULL; follow_group = follow_group->next) {
+				PMS_OWNED_INFO_T *owned_dev;
+
+				if (strcmp(follow_group->name, addr+1))
+					continue;
+
+				owned_dev = follow_group->owned_device;
+				while (owned_dev != NULL) {
+					PMS_DEVICE_INFO_T *dev_owned = (PMS_DEVICE_INFO_T *) owned_dev->member;
+					//_dprintf("[%s] %s\n", follow_group->name, dev_owned->mac); // debug
+					snprintf(act_buf, sizeof(act_buf), "%s %d/0x%x", action, class, QOS_MASK);
+					for (r = 0; r < manual_return; ++r) {
+						fprintf(fn, "-A PREROUTING -m mac --mac-source %s ! -d %s -j %s\n", dev_owned->mac, lan_addr, acts[r]);
+					}
+					owned_dev = owned_dev->next;
+				}
+			}
+
+			/* Free device and group list*/
+			PMS_FreeDevInfo(&dev_list, &group_list);
+		}
 #endif
 
-			if (addr_type == TYPE_IP){
-				fprintf(fn,
-					"-A POSTROUTING ! -s %s -d %s -j %s %d/0xf\n"
-					"-A PREROUTING -s %s ! -d %s -j %s %d/0xf\n"
-					, lan_addr, addr_new, action, class
-					, addr_new, lan_addr, action, class
-					);
-				if(manual_return){
-				fprintf(fn,
-					"-A POSTROUTING ! -s %s -d %s -j RETURN\n"
-					"-A PREROUTING -s %s ! -d %s -j RETURN\n"
-					, lan_addr, addr_new, addr_new, lan_addr
-					);
-				}
+		if (addr_type == TYPE_IP){
+			snprintf(act_buf, sizeof(act_buf), "%s %d/0x%x", action, class, QOS_MASK);
+			for (r = 0; r < manual_return; ++r) {
+				fprintf(fn, "-A POSTROUTING ! -s %s -d %s -j %s\n", lan_addr, addr_new, acts[r]);
+				fprintf(fn, "-A PREROUTING -s %s ! -d %s -j %s\n", addr_new, lan_addr, acts[r]);
 			}
-			else if (addr_type == TYPE_MAC){
-				fprintf(fn,
-					"-A PREROUTING -m mac --mac-source %s ! -d %s  -j %s %d/0xf\n"
-					, addr_new, lan_addr, action, class
-					);
-				if(manual_return){
-				fprintf(fn,
-					"-A PREROUTING -m mac --mac-source %s ! -d %s  -j RETURN\n"
-					, addr_new, lan_addr
-					);
-				}
-			}
-			else if (addr_type == TYPE_IPRANGE){
-				fprintf(fn,
-					"-A POSTROUTING ! -s %s -m iprange --dst-range %s -j %s %d/0xf\n"
-					"-A PREROUTING -m iprange --src-range %s ! -d %s -j %s %d/0xf\n"
-					, lan_addr, addr_new, action, class
-					, addr_new, lan_addr, action, class
-					);
-				if(manual_return){
-				fprintf(fn,
-					"-A POSTROUTING ! -s %s -m iprange --dst-range %s -j RETURN\n"
-					"-A PREROUTING -m iprange --src-range %s ! -d %s -j RETURN\n"
-					, lan_addr, addr_new, addr_new, lan_addr
-					);
-				}
-			}
-			else if (addr_type == TYPE_GUEST) continue;
-			else if (addr_type == TYPE_GROUP) continue;
 		}
-		free(buf);
+		else if (addr_type == TYPE_MAC){
+			snprintf(act_buf, sizeof(act_buf), "%s %d/0x%x", action, class, QOS_MASK);
+			for (r = 0; r < manual_return; ++r) {
+				fprintf(fn, "-A PREROUTING -m mac --mac-source %s ! -d %s -j %s\n" , addr_new, lan_addr, acts[r]);
+			}
+		}
+		else if (addr_type == TYPE_IPRANGE){
+			snprintf(act_buf, sizeof(act_buf), "%s %d/0x%x", action, class, QOS_MASK);
+			for (r = 0; r < manual_return; ++r) {
+				fprintf(fn, "-A POSTROUTING ! -s %s -m iprange --dst-range %s -j %s\n", lan_addr, addr_new, acts[r]);
+				fprintf(fn, "-A PREROUTING -m iprange --src-range %s ! -d %s -j %s\n", addr_new, lan_addr, acts[r]);
+			}
+		}
+		else if (addr_type == TYPE_GROUP) {
+			continue;
+		}
 	}
+	free(buf);
+
+#if defined(RTCONFIG_DUALWAN)
+	if (nvram_match("wans_mode", "lb")) {
+		snprintf(imq_if, sizeof(imq_if), "imq%d", BWLIT_IMQ_ID);
+		eval("ip", "link", "set", imq_if, "up");
+		for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit) {
+			wan = get_wan_ifname(unit);
+			if (!wan || *wan == '\0')
+				continue;
+
+			sprintf(prefix, "wan%d_", unit);
+			if (!nvram_pf_match(prefix, "state_t", "2"))
+				continue;
+			fprintf(fn, "-A POSTROUTING -o %s -j IMQ --todev %d\n", wan, BWLIT_IMQ_ID);
+		}
+	}
+#endif
 
 	fprintf(fn, "COMMIT\n");
 	fclose(fn);
 	chmod(mangle_fn, 0700);
 	eval("iptables-restore", "-n", (char*)mangle_fn);
+	QOSDBG("[BWLIT] Create iptables rules done.\n");
+	
+	/* Setup guest network's ebtables rules */
+	int  guest_mark = GUEST_INIT_MARKNUM;
+	char wl[128], wlv[128], tmp[128], *next, *next2;
+	char mssid_mark[4];
+	char *wl_if = wl_ifname;
+	int  i = 0;
+	int  j = 1;
+	foreach(wl, nvram_safe_get("wl_ifnames"), next) {
+		SKIP_ABSENT_BAND_AND_INC_UNIT(i);
+		snprintf(prefix, sizeof(prefix), "wl%d_", i);
+		foreach(wlv, nvram_safe_get(strcat_r(prefix, "vifnames", tmp)), next2) {
+			if (!nvram_pf_get_int(wlv, "_bss_enabled") ||
+			    !nvram_pf_get_int(wlv, "_bw_enabled")) {
+				j++;
+				continue;
+			}
+			get_wlxy_ifname(i, j, wl_if);
+			snprintf(mssid_mark, sizeof(mssid_mark), "%d", guest_mark);
+
+			eval("ebtables", "-t", "nat", "-D", "PREROUTING",  "-i", wl_if, "-j", "mark", "--set-mark", mssid_mark, "--mark-target", "ACCEPT");
+			eval("ebtables", "-t", "nat", "-D", "POSTROUTING", "-o", wl_if, "-j", "mark", "--set-mark", mssid_mark, "--mark-target", "ACCEPT");
+			eval("ebtables", "-t", "nat", "-A", "PREROUTING",  "-i", wl_if, "-j", "mark", "--set-mark", mssid_mark, "--mark-target", "ACCEPT");
+			eval("ebtables", "-t", "nat", "-A", "POSTROUTING", "-o", wl_if, "-j", "mark", "--set-mark", mssid_mark, "--mark-target", "ACCEPT");
+			guest_mark++;
+			j++;
+		}
+		i++; j = 1;
+	}
+
+	QOSDBG("[BWLIT_GUEST] Create ebtables rules done.\n");
 	file_unlock(lock);
-	_dprintf("[BWLIT] %s: create rules\n", __FUNCTION__);
 
 	return 0;
 }
 
-static int guest; // qdisc root only 3: ~ 12: (9 guestnetwork)
+static int guest; // qdisc root only 3: ~ 14: (12 guestnetwork)
 
 static int start_bandwidth_limiter(void)
 {
 	static char wan_if_list[WAN_UNIT_MAX][IFNAMSIZ] = { "", "" };
-	FILE *f = NULL, *f_top;
-	char *buf, *g, *p, *wan;
+	FILE *f;
+	char *buf, *g, *p, *wan, ul_ifname[IFNAMSIZ];
 	char *enable, *addr, *dlc, *upc, *prio;
 	char prefix[16];
-	char fname[sizeof(TMP_QOS) + 4];	/* /tmp/qos, /tmp/qos.0, /tmp/qos.1 ... */
 	int class = 0, unit, ret = 0, gen_mangle = 0;
 	int s[6]; // strip mac address
-	int addr_type, lock, h_br;		/* handler of br0 for each WAN unit */
-	char addr_new[30];
+	int addr_type, lock;		/* handler of br0 for each WAN unit */
+	char addr_new[40];
+	char wl_ifname[IFNAMSIZ];
 
 	/* If WAN interface changes, generate mangle table again. */
 	for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit) {
@@ -1492,313 +1551,261 @@ static int start_bandwidth_limiter(void)
 
 	lock = file_lock(qos_lock);
 
-	if (!(f_top = fopen(qosfn, "w"))) {
+	if (!(f = fopen(qosfn, "w"))) {
 		ret = -1;
 		goto exit_start_bandwidth_limiter;
 	}
 
-	/* Create top-level /tmp/qos */
-	fprintf(f_top,"#!/bin/sh\n");
-	fprintf(f_top, "tc qdisc del dev br0 root 2>/dev/null\n");
-	fprintf(f_top, "tc qdisc del dev br0 ingress 2>/dev/null\n");
-
-	/* Create /tmp/qos.X for each WAN unit. */
-	for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit) {
-		snprintf(fname, sizeof(fname), "%s.%d", TMP_QOS, unit);
-		wan = get_wan_ifname(unit);
-		if (!wan || *wan == '\0')
-			continue;
-		if (wan_primary_ifunit() != unit
+	strlcpy(ul_ifname, get_wan_ifname(wan_primary_ifunit()), sizeof(ul_ifname));
 #if defined(RTCONFIG_DUALWAN)
-		    && (nvram_match("wans_mode", "fo") || nvram_match("wans_mode", "fb"))
+	if (nvram_match("wans_mode", "lb")) {
+		snprintf(ul_ifname, sizeof(ul_ifname), "imq%d", BWLIT_IMQ_ID);
+	}
 #endif
-		   )
-		{
-			if (f_exists(fname))
-				unlink(fname);
-			/* Remove qdisc of unused WAN. Ref to stop case below. */
-			eval("tc", "qdisc", "del", "dev", wan, "root");
-			eval("tc", "qdisc", "del", "dev", wan, "ingress");
-			continue;
-		}
-		if (!(f = fopen(fname, "w"))) {
-			_dprintf("%s: Create %s for WAN unit %d fail!\n",
-				__func__, fname, unit);
-			continue;
-		}
-		get_qos_prefix(unit, prefix);
-		h_br = (unit + 1) * 2;
-		guest = 3;	/* 3 ~ 12 ==> guest network */
+	wan = ul_ifname;
 
-		fprintf(f,
-			"#!/bin/sh\n"
-			"WAN=%s\n"
-			"\n"
-			"case \"$1\" in\n"
-			"start)\n"
-			, wan
-		);
+	/* Remove qdisc of br0/WAN. Ref to stop case below. */
+	fprintf(f, "#!/bin/sh\n"
+		   "tc qdisc del dev br0 root 2>/dev/null\n"
+		   "tc qdisc del dev br0 ingress 2>/dev/null\n");
+	fprintf(f, "tc qdisc del dev %s root 2>/dev/null\n", wan);
+	fprintf(f, "tc qdisc del dev %s ingress 2>/dev/null\n", wan);
 
-		/* ASUSWRT
-		qos_bw_rulelist :
-			enable>addr>DL-Ceil>UL-Ceil>prio
-			enable : enable or disable this rule
-			addr : (source) IP or MAC or IP-range or wireless interface(wl0.1, wl0.2, etc.)
-			DL-Ceil : the max download bandwidth
-			UL-Ceil : the max upload bandwidth
-			prio : priority for client
-		*/
+	get_qos_prefix(0, prefix);
+	guest = 3;	/* 3 ~ 12 ==> egress from guest network, handle (qdisc-id) */
 
-		g = buf = strdup(nvram_pf_safe_get(prefix, "bw_rulelist"));
+	fprintf(f, "#!/bin/sh\n"
+		   "WAN=%s\n", wan);
+	fprintf(f, "tc qdisc del dev $WAN root 2>/dev/null\n"
+		   "tc qdisc del dev $WAN ingress 2>/dev/null\n"
+		   "\n"
+		   "TQAU=\"tc qdisc add dev $WAN\"\n"
+		   "TCAU=\"tc class add dev $WAN\"\n"
+		   "TFAU=\"tc filter add dev $WAN\"\n"
+		   "SFQ=\"sfq perturb 10\"\n"
+		   "TQA=\"tc qdisc add dev br0\"\n"
+		   "TCA=\"tc class add dev br0\"\n"
+		   "TFA=\"tc filter add dev br0\"\n"
+		   "\n"
+		   "start()\n"
+		   "{\n"
+		   "\t$TQA root handle 1: htb\n"
+		   "\t$TCA parent 1: classid 1:1 htb rate 1024000kbit\n"
+		   "\n"
+		   "\t$TQAU root handle 2: htb\n"
+		   "\t$TCAU parent 2: classid 2:1 htb rate 1024000kbit\n"
+	);
 
-		// if no qos_bw_rulelist, shouldn't set tc rule
-		if (strcmp(g, "")) {
-			fprintf(f,
-			"tc qdisc del dev $WAN root 2>/dev/null\n"
-			"tc qdisc del dev $WAN ingress 2>/dev/null\n"
-			"\n"
-			"TQAU=\"tc qdisc add dev $WAN\"\n"
-			"TCAU=\"tc class add dev $WAN\"\n"
-			"TFAU=\"tc filter add dev $WAN\"\n"
-			"SFQ=\"sfq perturb 10\"\n"
-			"TQA=\"tc qdisc add dev br0\"\n"
-			"TCA=\"tc class add dev br0\"\n"
-			"TFA=\"tc filter add dev br0\"\n"
-			"\n"
-			"$TQA root handle 1: htb\n"
-			"$TCA parent 1: classid 1:1 htb rate %ukbit\n"
-			"\n"
-			"$TQAU root handle %d: htb\n"
-			"$TCAU parent %d: classid %d:1 htb rate %ukbit\n",
-			max_wire_speed, h_br, h_br, h_br, max_wire_speed
-			);
+	// access router : mark 9
+	// default : 10Gbps
+	fprintf(f, "\n"
+		   "\t$TCA parent 1:1 classid 1:9 htb rate %ukbit ceil %ukbit prio 1\n", max_wire_speed, max_wire_speed);
+	fprintf(f, "\t$TQA parent 1:9 handle 9: $SFQ\n");
+	fprintf(f, "\t$TFA parent 1: prio 1 protocol ip u32 match mark 9 0x%x flowid 1:9\n", QOS_MASK);
+	fprintf(f, "\n"
+		   "\t$TCAU parent 2:1 classid 2:9 htb rate %ukbit ceil %ukbit prio 1\n", max_wire_speed, max_wire_speed);
+	fprintf(f, "\t$TQAU parent 2:9 handle 9: $SFQ\n");
+	fprintf(f, "\t$TFAU parent 2: prio 1 protocol ip u32 match mark 9 0x%x flowid 2:9\n", QOS_MASK);
 
-			// access router : mark 9
-			// default : 10Gbps
-			fprintf(f,
-			"\n"
-			"$TCA parent 1:1 classid 1:9 htb rate %ukbit ceil %ukbit prio 1\n"
-			"$TQA parent 1:9 handle 9: $SFQ\n"
-//			"$TFA parent 1: prio 1 protocol ip handle 9 fw flowid 1:9\n"
-			"$TFA parent 1: prio 1 protocol ip u32 match mark 9 0xf flowid 1:9\n"
-			"\n"
-			"$TCAU parent %d:1 classid %d:9 htb rate %ukbit ceil %ukbit prio 1\n"
-			"$TQAU parent %d:9 handle 9: $SFQ\n"
-//			"$TFAU parent %d: prio 1 protocol ip handle 9 fw flowid %d:9\n",
-			"$TFAU parent %d: prio 1 protocol ip u32 match mark 9 0xf flowid %d:9\n",
-			max_wire_speed, max_wire_speed,
-			h_br, h_br, max_wire_speed, max_wire_speed,
-			h_br, h_br, h_br
-			);
-		}
+	/* ASUSWRT
+	qos_bw_rulelist :
+		enable>addr>DL-Ceil>UL-Ceil>prio
+		enable : enable or disable this rule
+		addr : (source) IP or MAC or IP-range
+		DL-Ceil : the max download bandwidth
+		UL-Ceil : the max upload bandwidth
+		prio : priority for client
+	*/
 
-		while (g) {
-			char buf[16];
-			if ((p = strsep(&g, "<")) == NULL) break;
-			if ((vstrsep(p, ">", &enable, &addr, &dlc, &upc, &prio)) != 5) continue;
-			if (!strcmp(enable, "0")) continue;
+	g = buf = strdup(nvram_safe_get("qos_bw_rulelist"));
 
-			if (get_nr_wan_unit() == 2 && nvram_match("wans_mode", "lb") && get_gate_num() == 2) {
-				char *ratio, *r2;
-				int wan_weight[2];
-				ratio = nvram_safe_get("wans_lb_ratio");
-				r2 = strchr(ratio, ':');
-				if(r2 != NULL)
-				{
-					wan_weight[0] = atoi(ratio);
-					wan_weight[1] = atoi(r2+1);
-					snprintf(buf, sizeof(buf), "%lu", (strtoul(upc, NULL, 0) * wan_weight[unit]) / (wan_weight[unit] + wan_weight[!unit]));
-					upc = buf;
-				}
-			}
+	while (g) {
+		if ((p = strsep(&g, "<")) == NULL) break;
+		if ((vstrsep(p, ">", &enable, &addr, &dlc, &upc, &prio)) != 5) continue;
+		if (!strcmp(enable, "0")) continue;
 
-			address_checker(&addr_type, addr, addr_new, sizeof(addr_new));
-			class = atoi(prio) + 10;
+		address_format_checker(&addr_type, addr, addr_new, sizeof(addr_new));
+		class = atoi(prio) + 10;
 
 #ifdef RTCONFIG_PERMISSION_MANAGEMENT
-			if (*addr == '@') {
-				int dev_num, group_num;
-				PMS_DEVICE_INFO_T *dev_list = NULL;
-				PMS_DEVICE_GROUP_INFO_T *group_list = NULL, *follow_group = NULL;
+		if (*addr == '@') {
+			int dev_num, group_num;
+			PMS_DEVICE_INFO_T *dev_list = NULL;
+			PMS_DEVICE_GROUP_INFO_T *group_list = NULL, *follow_group = NULL;
 
-				/* Get account / group list */
-				if (PMS_GetDeviceInfo(PMS_ACTION_GET_FULL, &dev_list, &group_list, &dev_num, &group_num) < 0) {
-					_dprintf("Can't read dev / group list\n");
-					break;
-				}
-
-				/* Get the mac list of certain group */
-				for (follow_group = group_list; follow_group != NULL; follow_group = follow_group->next) {
-					if (!strcmp(follow_group->name, addr+1)) {
-						PMS_OWNED_INFO_T *owned_dev = follow_group->owned_device;
-						while (owned_dev != NULL) {
-							PMS_DEVICE_INFO_T *dev_owned = (PMS_DEVICE_INFO_T *) owned_dev->member;
-							//_dprintf("[%s] %s\n", follow_group->name, dev_owned->mac); // debug
-							sscanf(dev_owned->mac, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]);
-							fprintf(f,
-							"\n"
-								"$TCA parent 1:1 classid 1:%d htb rate %skbit ceil %skbit prio %d\n"
-								"$TQA parent 1:%d handle %d: $SFQ\n"
-								"$TFA parent 1: protocol ip prio %d u32 match u16 0x0800 0xFFFF at -2 match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12 match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%d"
-								"\n"
-								"$TCAU parent %d:1 classid %d:%d htb rate %skbit ceil %skbit prio %d\n"
-								"$TQAU parent %d:%d handle %d: $SFQ\n"
-								"$TFAU parent %d: prio %d protocol ip u32 match mark %d 0xf flowid %d:%d\n"
-								, class, dlc, dlc, class
-								, class, class
-								, class, s[2], s[3], s[4], s[5], s[0], s[1], class
-								, h_br, h_br, class, upc, upc, class
-								, h_br, class, class
-								, h_br, class, class, h_br, class
-							);
-							owned_dev = owned_dev->next;
-						}
-					}
-				}
-
-				/* Free device and group list*/
-				PMS_FreeDevInfo(&dev_list, &group_list);
+			/* Get account / group list */
+			if (PMS_GetDeviceInfo(PMS_ACTION_GET_FULL, &dev_list, &group_list, &dev_num, &group_num) < 0) {
+				_dprintf("Can't read dev / group list\n");
+				break;
 			}
+
+			/* Get the mac list of certain group */
+			for (follow_group = group_list; follow_group != NULL; follow_group = follow_group->next) {
+				PMS_OWNED_INFO_T *owned_dev;
+
+				if (strcmp(follow_group->name, addr+1))
+					continue;
+
+				owned_dev = follow_group->owned_device;
+				while (owned_dev != NULL) {
+					PMS_DEVICE_INFO_T *dev_owned = (PMS_DEVICE_INFO_T *) owned_dev->member;
+					//_dprintf("[%s] %s\n", follow_group->name, dev_owned->mac); // debug
+					sscanf(dev_owned->mac, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]);
+					fprintf(f, "\n"
+						   "$TCA parent 1:1 classid 1:%d htb rate %skbit ceil %skbit prio %d\n", class, dlc, dlc, class);
+					fprintf(f, "$TQA parent 1:%d handle %d: $SFQ\n", class, class);
+					fprintf(f, "$TFA parent 1: protocol ip prio %d u32 match u16 0x0800 0xFFFF at -2"
+						   " match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12"
+						   " match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%d",
+						   class, s[2], s[3], s[4], s[5], s[0], s[1], class);
+					fprintf(f, "\n");
+					fprintf(f, "$TCAU parent 2:1 classid 2:%d htb rate %skbit ceil %skbit prio %d\n", class, upc, upc, class);
+					fprintf(f, "$TQAU parent 2:%d handle %d: $SFQ\n", class, class);
+					fprintf(f, "$TFAU parent 2: prio %d protocol ip u32 match mark %d 0x%x flowid 2:%d\n", class, class, QOS_MASK, class);
+					owned_dev = owned_dev->next;
+				}
+			}
+
+			/* Free device and group list*/
+			PMS_FreeDevInfo(&dev_list, &group_list);
+		}
 #endif
 
-			if (addr_type == TYPE_MAC)
-			{
-				sscanf(addr_new, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]);
-				fprintf(f,
-					"\n"
-					"$TCA parent 1:1 classid 1:%d htb rate %skbit ceil %skbit prio %d\n"
-					"$TQA parent 1:%d handle %d: $SFQ\n"
-					"$TFA parent 1: protocol ip prio %d u32 match u16 0x0800 0xFFFF at -2 match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12 match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%d"
-					"\n"
-					"$TCAU parent %d:1 classid %d:%d htb rate %skbit ceil %skbit prio %d\n"
-					"$TQAU parent %d:%d handle %d: $SFQ\n"
-//					"$TFAU parent %d: prio %d protocol ip handle %d fw flowid %d:%d\n"
-					"$TFAU parent %d: prio %d protocol ip u32 match mark %d 0xf flowid %d:%d\n"
-					, class, dlc, dlc, class
-					, class, class
-					, class, s[2], s[3], s[4], s[5], s[0], s[1], class
-					, h_br, h_br, class, upc, upc, class
-					, h_br, class, class
-					, h_br, class, class, h_br, class
-				);
-			}
-			else if (addr_type == TYPE_IP || addr_type == TYPE_IPRANGE)
-			{
-				fprintf(f,
-					"\n"
-					"$TCA parent 1:1 classid 1:%d htb rate %skbit ceil %skbit prio %d\n"
-					"$TQA parent 1:%d handle %d: $SFQ\n"
-//					"$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n"
-					"$TFA parent 1: prio %d protocol ip u32 match mark %d 0xf flowid 1:%d\n"
-					"\n"
-					"$TCAU parent %d:1 classid %d:%d htb rate %skbit ceil %skbit prio %d\n"
-					"$TQAU parent %d:%d handle %d: $SFQ\n"
-//					"$TFAU parent %d: prio %d protocol ip handle %d fw flowid %d:%d\n"
-					"$TFAU parent %d: prio %d protocol ip u32 match mark %d 0xf flowid %d:%d\n"
-					, class, dlc, dlc, class
-					, class, class
-					, class, class, class
-					, h_br, h_br, class, upc, upc, class
-					, h_br, class, class
-					, h_br, class, class, h_br, class
-				);
-			}
-			else if (addr_type == TYPE_GUEST)
-			{
-				// setup guest network's bandwidth limiter
-				char mssid_mark[4];
-				char *wl_if = NULL, wl_ifname[IFNAMSIZ] = "";
-				int i, j;
-
-				if(sscanf(addr_new, "wl%d.%d", &i, &j) != 2){
-					_dprintf("[BWLIT] %s: fail to strip i, j from wlx.x\n", __FUNCTION__);
-				}
-
-				snprintf(mssid_mark, sizeof(mssid_mark), "%d", class);
-
-				if (!nvram_pf_match(addr_new, "_bss_enabled", "1")) {
-					_dprintf("[BWLIT] %s: wl%d.%d is not enabled, skip\n", __func__, i, j);
-					continue;
-				}
-
-				if(get_model()==MODEL_RTAC87U && (i == 1)){
-					if(j == 1) wl_if = "vlan4000";
-					if(j == 2) wl_if = "vlan4001";
-					if(j == 3) wl_if = "vlan4002";
-				}
-				else{
-					wl_if = get_wlifname(i, j, j, wl_ifname);
-					if (!wl_if || *wl_if == '\0')
-						wl_if = addr_new;
-				}
-
-				eval("ebtables", "-t", "nat", "-A", "PREROUTING", "-i", wl_if, "-j", "mark", "--set-mark", mssid_mark, "--mark-target", "ACCEPT");
-				eval("ebtables", "-t", "nat", "-A", "POSTROUTING", "-o", wl_if, "-j", "mark", "--set-mark", mssid_mark, "--mark-target", "ACCEPT");
-
-				fprintf(f,
-					"\n"
-					"tc qdisc del dev %s root 2>/dev/null\n"
-					"GUEST%d%d=%s\n"
-					"TQA%d%d=\"tc qdisc add dev $GUEST%d%d\"\n"
-					"TCA%d%d=\"tc class add dev $GUEST%d%d\"\n"
-					"TFA%d%d=\"tc filter add dev $GUEST%d%d\"\n" // 5
-					"\n"
-					"$TQA%d%d root handle %d: htb\n"
-					"$TCA%d%d parent %d: classid %d:1 htb rate %skbit\n" // 7
-					"\n"
-					"$TCA%d%d parent %d:1 classid %d:%d htb rate 1kbit ceil %skbit prio %d\n"
-					"$TQA%d%d parent %d:%d handle %d: $SFQ\n"
-//					"$TFA%d%d parent %d: prio %d protocol ip handle %d fw flowid %d:%d\n" // 10
-					"$TFA%d%d parent %d: prio %d protocol ip u32 match mark %d 0xf flowid %d:%d\n" // 10
-					"\n"
-					"$TCAU parent %d:1 classid %d:%d htb rate 1kbit ceil %skbit prio %d\n"
-					"$TQAU parent %d:%d handle %d: $SFQ\n"
-//					"$TFAU parent %d: prio %d protocol ip handle %d fw flowid %d:%d\n" // 13
-					"$TFAU parent %d: prio %d protocol ip u32 match mark %d 0xf flowid %d:%d\n" // 13
-					, wl_if
-					, i, j, wl_if
-					, i, j, i, j
-					, i, j, i, j
-					, i, j, i, j // 5
-					, i, j, guest
-					, i, j, guest, guest, dlc //7
-					, i, j, guest, guest, class, dlc, class
-					, i, j, guest, class, class
-					, i, j, guest, class, class, guest, class // 10
-					, h_br, h_br, class, upc, class
-					, h_br, class, class
-					, h_br, class, class, h_br, class //13
-				);
-				_dprintf("[BWLIT] %s: create %s bandwidth limiter, qdisc=%d, class=%d\n", __FUNCTION__, wl_if, guest, class);
-				guest++; // add guest 3: ~ 12: (9 guestnetwork)
-			}
+		address_format_checker(&addr_type, addr, addr_new, sizeof(addr_new));
+		class = atoi(prio) + INITIAL_MARKNUM;
+		if (addr_type == TYPE_MAC)
+		{
+			sscanf(addr_new, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]);
+			fprintf(f, "\n"
+				   "\t$TCA parent 1:1 classid 1:%d htb rate %skbit ceil %skbit prio %d\n", class, dlc, dlc, class);
+			fprintf(f, "\t$TQA parent 1:%d handle %d: $SFQ\n", class, class);
+			fprintf(f, "\t$TFA parent 1: protocol ip prio %d u32 match u16 0x0800 0xFFFF at -2"
+				   " match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12"
+				   " match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%d",
+				   class, s[2], s[3], s[4], s[5], s[0], s[1], class);
+			fprintf(f, "\n"
+				   "\t$TCAU parent 2:1 classid 2:%d htb rate %skbit ceil %skbit prio %d\n", class, upc, upc, class);
+			fprintf(f, "\t$TQAU parent 2:%d handle %d: $SFQ\n", class, class);
+			fprintf(f, "\t$TFAU parent 2: prio %d protocol ip u32 match mark %d 0x%x flowid 2:%d\n", class, class, QOS_MASK, class);
 		}
-		free(buf);
+		else if (addr_type == TYPE_IP || addr_type == TYPE_IPRANGE)
+		{
+			fprintf(f, "\n"
+				   "\t$TCA parent 1:1 classid 1:%d htb rate %skbit ceil %skbit prio %d\n", class, dlc, dlc, class);
+			fprintf(f, "\t$TQA parent 1:%d handle %d: $SFQ\n", class, class);
+			fprintf(f, "\t$TFA parent 1: prio %d protocol ip u32 match mark %d 0x%x flowid 1:%d\n", class, class, QOS_MASK, class);
+			fprintf(f, "\n"
+				   "\t$TCAU parent 2:1 classid 2:%d htb rate %skbit ceil %skbit prio %d\n", class, upc, upc, class);
+			fprintf(f, "\t$TQAU parent 2:%d handle %d: $SFQ\n", class, class);
+			fprintf(f, "\t$TFAU parent 2: prio %d protocol ip u32 match mark %d 0x%x flowid 2:%d\n", class, class, QOS_MASK, class);
+		}
+	}
 
-		fprintf(f,
-			";;\n"
-			"stop)\n"
-			"tc qdisc del dev $WAN root 2>/dev/null\n"
-			"tc qdisc del dev $WAN ingress 2>/dev/null\n"
-			"tc qdisc del dev br0 root 2>/dev/null\n"
-			"tc qdisc del dev br0 ingress 2>/dev/null\n"
-			";;\n"
-			"*)\n"
-			"tc -s -d class ls dev $WAN\n"
-			"tc -s -d class ls dev br0\n"
-			"esac"
+	// init guest 3: ~ 14: (12 guestnetwork), start number = 3
+	guest = 3;
+	int  guest_mark = GUEST_INIT_MARKNUM;
+	char wl[128], wlv[128], tmp[128], *next, *next2;
+	char *wl_if = wl_ifname;
+	int  i = 0;
+	int  j = 1;
+
+	/* Setup guest network's bandwidth limiter */
+	foreach(wl, nvram_safe_get("wl_ifnames"), next) {
+		SKIP_ABSENT_BAND_AND_INC_UNIT(i);
+		snprintf(prefix, sizeof(prefix), "wl%d_", i);
+		foreach(wlv, nvram_safe_get(strcat_r(prefix, "vifnames", tmp)), next2) {
+			if (!nvram_pf_get_int(wlv, "_bss_enabled") ||
+			    !nvram_pf_get_int(wlv, "_bw_enabled")) {
+				j++;
+				continue;
+			}
+			get_wlxy_ifname(i, j, wl_if);
+			QOSDBG("[BWLIT_GUEST] Processor [%s] Interface \n", wl_if);
+
+			fprintf(f, "\n"
+				   "\ttc qdisc del dev %s root 2>/dev/null\n", wl_if);
+			fprintf(f, "\tGUEST%d%d=%s\n", i, j, wl_if);
+			fprintf(f, "\tTQA%d%d=\"tc qdisc add dev $GUEST%d%d\"\n", i, j, i, j);
+			fprintf(f, "\tTCA%d%d=\"tc class add dev $GUEST%d%d\"\n", i, j, i, j);
+			fprintf(f, "\tTFA%d%d=\"tc filter add dev $GUEST%d%d\"\n", i, j, i, j); // 5
+			fprintf(f, "\n"
+				   "\t$TQA%d%d root handle %d: htb\n", i, j, guest);
+			fprintf(f, "\t$TCA%d%d parent %d: classid %d:1 htb rate %skbit\n", i, j, guest, guest, nvram_pf_safe_get(wlv, "_bw_dl")); //7
+			fprintf(f, "\n"
+				   "\t$TCA%d%d parent %d:1 classid %d:%d htb rate 1kbit ceil %skbit prio %d\n", i, j, guest, guest, guest_mark, nvram_pf_safe_get(wlv, "_bw_dl"), guest_mark);
+			fprintf(f, "\t$TQA%d%d parent %d:%d handle %d: $SFQ\n", i, j, guest, guest_mark, guest_mark);
+			fprintf(f, "\t$TFA%d%d parent %d: prio %d protocol ip u32 match mark %d 0x%x flowid %d:%d\n", i, j, guest, guest_mark, guest_mark, QOS_MASK, guest, guest_mark); // 10
+			fprintf(f, "\n"
+				   "\t$TCAU parent 2:1 classid 2:%d htb rate 1kbit ceil %skbit prio %d\n", guest_mark, nvram_safe_get(strcat_r(wlv, "_bw_ul", tmp)), guest_mark);
+			fprintf(f, "\t$TQAU parent 2:%d handle %d: $SFQ\n", guest_mark, guest_mark);
+			fprintf(f, "\t$TFAU parent 2: prio %d protocol ip u32 match mark %d 0x%x flowid 2:%d\n", guest_mark, guest_mark, QOS_MASK, guest_mark); //13
+			QOSDBG("[BWLIT_GUEST] create %s bandwidth limiter, qdisc=%d, class=%d\n", wl_if, guest, guest_mark);
+			guest++; // add guest 3: ~ 14: (12 guestnetwork)
+			guest_mark++;
+			j++;
+		}
+		i++; j = 1;
+	}
+
+	/* Stop Function */
+	fprintf(f,
+		"}\n\n"
+		"stop()\n"
+		"{\n"
+		/* Flush ebtables */
+		"\t#ebtables -t nat -F\n\n"
+		//WAN/LAN
+		"\ttc qdisc del dev $WAN root 2>/dev/null\n"
+		"\ttc qdisc del dev br0 root 2>/dev/null\n"
+		);
+	i = 0; j = 1;
+	foreach(wl, nvram_safe_get("wl_ifnames"), next) {
+		SKIP_ABSENT_BAND_AND_INC_UNIT(i);
+		snprintf(prefix, sizeof(prefix), "wl%d_", i);
+		foreach(wlv, nvram_safe_get(strcat_r(prefix, "vifnames", tmp)), next2) {
+			if (!nvram_pf_get_int(wlv, "_bss_enabled") ||
+			    !nvram_pf_get_int(wlv, "_bw_enabled")) {
+				j++;
+				continue;
+			}
+			wl_if = wl_ifname;
+			get_wlxy_ifname(i, j, wl_if);
+			fprintf(f, "\ttc qdisc del dev %s root 2>/dev/null\n", wl_if);
+			j++;
+		}
+		i++; j = 1;
+	}
+
+	/* Show Function */
+	fprintf(f,
+		"}\n\n"
+		"show()\n"
+		"{\n"
+		"\ttc -s -d class ls dev $WAN\n"
+		"\ttc -s -d class ls dev br0\n"
 		);
 
-		fclose(f);
-		chmod(fname, 0700);
+	/* Main Funtion */
+	fprintf(f,
+		"}\n\n"
+		"if [ $# != 1 ]; then\n"
+		"\techo \"Usage: $0 start/stop/restart\"\n"
+		"else\n"
+		"\tif [ $1 = \"start\" ]; then\n"
+		"\t\tstart\n"
+		"\telif [ $1 = \"stop\" ]; then\n"
+		"\t\tstop\n"
+		"\telif [ $1 = \"restart\" ]; then\n"
+		"\t\tstop\n"
+		"\t\tstart\n"
+		"\tfi\n"
+		"fi\n"
+		);
+	fclose(f);
 
-		fprintf(f_top, "[ -e %s ] && %s \"$1\"\n", fname, fname);
-	} /* for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit) */
-
-	fclose(f_top);
 	chmod(qosfn, 0700);
 	eval((char *)qosfn, "start");
-	_dprintf("[BWLIT] %s: create bandwidth limiter\n", __FUNCTION__);
+	QOSDBG("[BWLIT] Execute Bandwidth Limiter Done.\n");
 
 exit_start_bandwidth_limiter:
 	file_unlock(lock);
@@ -1866,4 +1873,42 @@ int start_iQos(void)
 		_dprintf("[%s] status = %d\n", __func__, status);
 
 	return status;
+}
+
+int check_wl_guest_bw_enable()
+{
+	char wl[128], wlv[128], tmp[128], *next, *next2;
+	char prefix[32];
+	int  i = 0;
+
+	foreach(wl, nvram_safe_get("wl_ifnames"), next) {
+		SKIP_ABSENT_BAND_AND_INC_UNIT(i);
+		snprintf(prefix, sizeof(prefix), "wl%d_", i);
+		foreach(wlv, nvram_safe_get(strcat_r(prefix, "vifnames", tmp)), next2) {
+			
+			if ( nvram_get_int(strcat_r(wlv, "_bss_enabled", tmp)) && 
+			     nvram_get_int(strcat_r(wlv, "_bw_enabled" , tmp))) {
+				return 1;
+			}
+		}
+		i++;
+	}
+	return 0;
+}
+
+void ForceDisableWLan_bw(void)
+{
+	char wl[128], wlv[128], tmp[128], *next, *next2;
+	char prefix[32];
+	int  i = 0;
+
+	foreach(wl, nvram_safe_get("wl_ifnames"), next) {
+		SKIP_ABSENT_BAND_AND_INC_UNIT(i);
+		snprintf(prefix, sizeof(prefix), "wl%d_", i);
+		foreach(wlv, nvram_safe_get(strcat_r(prefix, "vifnames", tmp)), next2) {
+			nvram_set_int(strcat_r(wlv, "_bw_enabled" , tmp), 0);
+		}
+		i++;
+	}
+	QOSDBG("[BWLIT] ALL Guest Netwok of Bandwidth Limiter has been Didabled.\n");
 }

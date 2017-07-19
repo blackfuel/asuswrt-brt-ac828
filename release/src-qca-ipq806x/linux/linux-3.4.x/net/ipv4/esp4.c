@@ -136,12 +136,19 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
 	int sglists;
 	int seqhilen;
 	__be32 *seqhi;
+	bool nosupp_sg;
 
 	/* skb is pure payload to encrypt */
 
 	esp = x->data;
 	aead = esp->aead;
 	alen = crypto_aead_authsize(aead);
+
+	nosupp_sg = crypto_tfm_alg_flags(&aead->base) & CRYPTO_ALG_NOSUPP_SG;
+	if (nosupp_sg && skb_linearize(skb)) {
+		err = -ENOMEM;
+		goto error;
+	}
 
 	tfclen = 0;
 	if (x->tfcpad) {
@@ -388,6 +395,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
 	struct scatterlist *sg;
 	struct scatterlist *asg;
 	int err = -EINVAL;
+	bool nosupp_sg;
 
 	if (!pskb_may_pull(skb, sizeof(*esph) + crypto_aead_ivsize(aead)))
 		goto out;
@@ -395,6 +403,12 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
 	if (elen <= 0)
 		goto out;
 
+	nosupp_sg = crypto_tfm_alg_flags(&aead->base) & CRYPTO_ALG_NOSUPP_SG;
+	if (nosupp_sg && skb_linearize(skb)) {
+		err = -ENOMEM;
+		goto out;
+	}
+	
 	if ((err = skb_cow_data(skb, 0, &trailer)) < 0)
 		goto out;
 	nfrags = err;

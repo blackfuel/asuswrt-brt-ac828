@@ -520,6 +520,9 @@ static const applets_t applets[] = {
 #if defined(RTCONFIG_KEY_GUARD)
 	{ "keyguard",			keyguard_main			},
 #endif
+#ifdef RTCONFIG_LETSENCRYPT
+	{ "le_acme",				le_acme_main			},
+#endif
 	{NULL, NULL}
 };
 

@@ -167,3 +167,7 @@ ifeq ($(RTCONFIG_GETREALIP),y)
 endif
 
 	install -m 0755 webs_scripts/ddns-start.sh $(INSTALLDIR)/usr/sbin
+
+ifeq ($(RTCONFIG_LETSENCRYPT),y)
+	install -m 0644 rom/etc/ssl/certs/ca-certificates.crt $(INSTALLDIR)/rom/etc/ssl/certs/ca-certificates.crt
+endif

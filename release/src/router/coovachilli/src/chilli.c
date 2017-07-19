@@ -283,7 +283,20 @@ void child_killall(int sig) {
   CHILD *node = children;
   while (node) {
     kill(node->pid, sig);
-    log_dbg("pid %d killed %d", getpid(), node->pid);
+    log_dbg("pid %d killed %d (%d)", getpid(), node->pid, sig);
+    node = node->next;
+  }
+}
+
+void child_killall_custm(int sig) {
+  CHILD *node = children;
+  while (node) {
+	if(node->pid == getpid()){
+	  node=node->next;
+	  continue;
+	}
+    kill(node->pid, sig);
+    log_dbg("pid %d killed %d (%d)", getpid(), node->pid, sig);
     node = node->next;
   }
 }
@@ -7842,10 +7855,10 @@ int chilli_main(int argc, char **argv) {
 #ifdef ENABLE_UAMDOMAINFILE
   garden_free_domainfile();
 #endif
+   selfpipe_finish();
 
-  selfpipe_finish();
-
-  /* child_killall(SIGKILL);*/
+  log_dbg("Before sigalrm %d", SIGALRM);  //John@add for debug
+  child_killall_custm(SIGALRM);   //John@add@2016/12/19 for kill all child processes
 
   options_cleanup();
 

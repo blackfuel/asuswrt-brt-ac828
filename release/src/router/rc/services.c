@@ -1074,15 +1074,8 @@ void start_dnsmasq(void)
 		fprintf(fp, "interface-name=norton.local,%s\n", lan_ifname);
 #endif /* __CONFIG_NORTON__ */
 
-#ifdef RTCONFIG_YANDEXDNS
-	if (nvram_get_int("yadns_enable_x") && nvram_get_int("yadns_mode") != YADNS_DISABLED) {
-		fprintf(fp, "no-resolv\n");	// no resolv
-	} else
-#endif
-	fprintf(fp, "resolv-file=%s\n",		// the real stuff is here
-		dmresolv);
-
-	fprintf(fp, "servers-file=%s\n"		// additional servers list
+	fprintf(fp, "no-resolv\n"		// no resolv
+		    "servers-file=%s\n"		// the real stuff is here
 		    "no-poll\n"			// don't poll resolv file
 		    "no-negcache\n"		// don't cace nxdomain
 		    "cache-size=%u\n"		// dns cache size
@@ -1554,31 +1547,30 @@ void start_ipv6(void)
 		if (nvram_get_int(ipv6_nvname("ipv6_dhcp_pd"))) {
 			nvram_set(ipv6_nvname("ipv6_prefix_length"), "");
 			nvram_set(ipv6_nvname("ipv6_rtr_addr"), "");
-		} else {
-			nvram_set_int(ipv6_nvname("ipv6_prefix_length"), 64);
+		} else
 			add_ip6_lanaddr();
-		}
 		nvram_set(ipv6_nvname("ipv6_get_dns"), "");
 		nvram_set(ipv6_nvname("ipv6_get_domain"), "");
 		break;
 #ifdef RTCONFIG_6RELAYD
 	case IPV6_PASSTHROUGH:
 		nvram_set(ipv6_nvname("ipv6_prefix"), "");
-		nvram_set(ipv6_nvname("ipv6_rtr_addr"), "::1");
-		nvram_set_int(ipv6_nvname("ipv6_prefix_length"), 64);
-		add_ip6_lanaddr();
+		nvram_set(ipv6_nvname("ipv6_prefix_length"), "");
+		nvram_set(ipv6_nvname("ipv6_rtr_addr"), "");
 		nvram_set(ipv6_nvname("ipv6_get_dns"), "");
 		nvram_set(ipv6_nvname("ipv6_get_domain"), "");
 		break;
 #endif
-	case IPV6_6IN4:
-		nvram_set(ipv6_nvname("ipv6_rtr_addr"), "");
-		nvram_set(ipv6_nvname("ipv6_prefix_length"), nvram_safe_get(ipv6_nvname("ipv6_prefix_length_s")));
-		nvram_set(ipv6_nvname("ipv6_prefix"), nvram_safe_get(ipv6_nvname("ipv6_prefix_s")));
-		/* fall through */
 	case IPV6_MANUAL:
-		nvram_set(ipv6_nvname("ipv6_rtr_addr"), nvram_safe_get(ipv6_nvname("ipv6_rtr_addr_s")));
+		nvram_set(ipv6_nvname("ipv6_prefix"), "");
 		nvram_set(ipv6_nvname("ipv6_prefix_length"), nvram_safe_get(ipv6_nvname("ipv6_prefix_length_s")));
+		nvram_set(ipv6_nvname("ipv6_rtr_addr"), nvram_safe_get(ipv6_nvname("ipv6_rtr_addr_s")));
+		add_ip6_lanaddr();
+		break;
+	case IPV6_6IN4:
+		nvram_set(ipv6_nvname("ipv6_prefix"), nvram_safe_get(ipv6_nvname("ipv6_prefix_s")));
+		nvram_set(ipv6_nvname("ipv6_prefix_length"), nvram_safe_get(ipv6_nvname("ipv6_prefix_length_s")));
+		nvram_set(ipv6_nvname("ipv6_rtr_addr"), "");
 		add_ip6_lanaddr();
 		break;
 	case IPV6_6TO4:
@@ -1634,7 +1626,7 @@ int no_need_to_start_wps(void)
 		return 1;
 
 	i = 0;
-	wps_band = nvram_get_int("wps_band");
+	wps_band = nvram_get_int("wps_band_x");
 	strcpy(ifnames, nvram_safe_get("wl_ifnames"));
 	foreach (word, ifnames, next) {
 		if (i >= MAX_NR_WL_IF)
@@ -1765,16 +1757,33 @@ wl_wpsPincheck(char *pin_string)
 	return -1;
 }
 
+void
+check_wps_enable()
+{
+	int wps_enable = nvram_get_int("wps_enable_x");
+	int unit = nvram_get_int("wps_band_x");
+
+	if (no_need_to_start_wps() ||
+		wps_band_ssid_broadcast_off(get_radio_band(unit))) {
+		nvram_set("wps_enable_x", "0");
+		wps_enable = 0;
+        }
+
+	nvram_set("wps_enable", (!wps_enable || wps_band_radio_off(get_radio_band(unit))) ? "0" : "1");
+}
+
 int
 start_wps_pbc(int unit)
 {
+	if (no_need_to_start_wps()) return 1;
+
 	if (wps_band_radio_off(get_radio_band(unit))) return 1;
 
 	if (wps_band_ssid_broadcast_off(get_radio_band(unit))) return 1;
 
-	if (!no_need_to_start_wps() && nvram_match("wps_enable", "0"))
+        if (nvram_match("wps_enable_x", "0"))
 	{
-		nvram_set("wps_enable", "1");
+		nvram_set("wps_enable_x", "1");
 #ifdef CONFIG_BCMWL5
 #ifdef RTCONFIG_BCMWL6
 		restart_wireless();
@@ -1787,14 +1796,14 @@ start_wps_pbc(int unit)
 #else
 		stop_wps();
 #if !defined(RTCONFIG_WPSMULTIBAND)
-		nvram_set_int("wps_band", unit);
+		nvram_set_int("wps_band_x", unit);
 #endif
 		start_wps();
 #endif
 	}
 
 #if !defined(RTCONFIG_WPSMULTIBAND)
-	nvram_set_int("wps_band", unit);
+	nvram_set_int("wps_band_x", unit);
 #endif
 	nvram_set("wps_sta_pin", "00000000");
 
@@ -1808,7 +1817,7 @@ start_wps_pin(int unit)
 
 	if (wl_wpsPincheck(nvram_safe_get("wps_sta_pin"))) return 0;
 
-	nvram_set_int("wps_band", unit);
+	nvram_set_int("wps_band_x", unit);
 
 	return start_wps_method();
 }
@@ -1847,12 +1856,11 @@ start_wps(void)
 	char *wps_argv[] = {"/bin/wps_monitor", NULL};
 	pid_t pid;
 #endif
-	if (wps_band_radio_off(get_radio_band(nvram_get_int("wps_band"))))
-		return 1;
 
-	if (no_need_to_start_wps() ||
-	    wps_band_ssid_broadcast_off(get_radio_band(nvram_get_int("wps_band"))))
-		nvram_set("wps_enable", "0");
+	check_wps_enable();
+
+	if (wps_band_radio_off(get_radio_band(nvram_get_int("wps_band_x"))))
+		return 1;
 
 	if (nvram_match("wps_restart", "1")) {
 		nvram_set("wps_restart", "0");
@@ -2460,6 +2468,14 @@ ddns_updated_main(int argc, char *argv[])
 
 	logmessage("ddns", "ddns update ok");
 
+#ifdef RTCONFIG_LETSENCRYPT
+	if (nvram_match("le_rc_notify", "1")) {
+		nvram_set("le_rc_notify", "0");
+		stop_letsencrypt();
+		start_letsencrypt();
+	}
+#endif
+
 	_dprintf("done\n");
 
 	return 0;
@@ -2587,7 +2603,7 @@ start_ddns(void)
 	else if (strcmp(server, "WWW.ASUS.COM")==0) {
 		service = "dyndns", asus_ddns = 1;
 	}
-	else if (strcmp(server, "WWW.GOOGLE-DDNS.COM")==0)
+	else if (strcmp(server, "DOMAINS.GOOGLE.COM") == 0)
 		service = "dyndns", asus_ddns=3;
 	else if (strcmp(server, "WWW.ORAY.COM")==0) {
 		service = "peanuthull", asus_ddns = 2;
@@ -2600,7 +2616,7 @@ start_ddns(void)
 
 	/* Show WAN unit used by ddns client to console and syslog. */
 	_dprintf("start_ddns update %s %s, wan_unit %d\n", server, service, unit);
-	logmessage("start_ddns update %s %s, wan_unit %d\n", server, service, unit);
+	logmessage("start_ddns", "update %s %s, wan_unit %d\n", server, service, unit);
 
 	nvram_set("ddns_return_code", "ddns_query");
 
@@ -3178,6 +3194,17 @@ start_httpd(void)
 	}
 
 #ifdef RTCONFIG_HTTPS
+#ifdef RTCONFIG_LETSENCRYPT
+	if(nvram_match("le_enable", "1") && !is_correct_le_certificate(HTTPD_CERT))
+		copy_le_certificate(HTTPD_CERT, HTTPD_KEY);
+	else if(nvram_match("le_enable", "2")){
+		if(f_exists(UPLOAD_CERT) && f_exists(UPLOAD_KEY)){
+			eval("cp", UPLOAD_CERT, HTTPD_CERT);
+			eval("cp", UPLOAD_KEY, HTTPD_KEY);
+		}
+	}
+#endif
+
 	enable = nvram_get_int("http_enable");
 	if (enable != 0) {
 		logmessage(LOGNAME, "start httpd - SSL");
@@ -4103,8 +4130,8 @@ start_detectWAN_arp(void)
 #define UAM_JS_SCRIPT	"/usr/lighttpd/js/jquery-1.7.1.min.js"
 #define UAM_JS	"/usr/lighttpd/css/uam.js"
 #define BYPASS_PAGE	"/usr/lighttpd/css/Bypass.html"
-#define	UAM_SRV_CONF	"/tmp/lighttpd.conf"
-#define UAM_WEB_DIR	"/tmp/lighttpd/www"
+#define	UAM_SRV_CONF	"/tmp/uamsrv.conf"
+#define UAM_WEB_DIR	"/tmp/uamsrv/www"
 int gen_uam_srv_conf()
 {
 	FILE *fp;
@@ -4135,10 +4162,10 @@ int gen_uam_srv_conf()
 	else
 		fprintf(fp, "server.document-root=\"%s\"\n", UAM_WEB_DIR);
 	//fprintf(fp, "server.upload-dirs=(\"/tmp/lighttpd/uploads\")\n");
-	fprintf(fp, "server.errorlog=\"/tmp/lighttpd/err.log\"\n");
-	fprintf(fp, "server.pid-file=\"/tmp/lighttpd/lighttpd.pid\"\n");
+	fprintf(fp, "server.errorlog=\"/tmp/uamsrv/err.log\"\n");
+	fprintf(fp, "server.pid-file=\"/tmp/uamsrv/uamsrv.pid\"\n");
 	//fprintf(fp, "server.errorfile-prefix=\"/usr/lighttpd/css/status-\"\n");
-	fprintf(fp, "server.syslog=\"/tmp/lighttpd/syslog.log\"\n");
+	fprintf(fp, "server.syslog=\"/tmp/uamsrv/syslog.log\"\n");
 	fprintf(fp, "server.error-handler-404=\"/index.html\"\n");
 
 	//	**** Minetype setting **** //	
@@ -4147,19 +4174,21 @@ int gen_uam_srv_conf()
 	fprintf(fp, "\".htm\" => \"text/html\",\n");
 	fprintf(fp, "\".css\" => \"text/css\",\n");
 	fprintf(fp, "\".js\" => \"text/javascript\",\n");
-	//fprintf(fp, "\".swf\" => \"application/x-shockwave-flash\",\n");
-	//fprintf(fp, "\".txt\" => \"text/plain\",\n");
-	//fprintf(fp, "\".jpg\" => \"image/jpeg\",\n");
-	//fprintf(fp, "\".gif\" => \"image/gif\",\n");
-	//fprintf(fp, "\".png\" => \"image/png\",\n");
-	//fprintf(fp, "\".pdf\" => \"application/pdf\",\n");
-	//fprintf(fp, "\".mp4\" => \"video/mp4\",\n");
-	//fprintf(fp, "\".m4v\" => \"video/mp4\",\n");
-	//fprintf(fp, "\".wmv\" => \"video/wmv\",\n");
-	//fprintf(fp, "\".mp3\" => \"audio/mpeg\",\n");
-	//fprintf(fp, "\".avi\" => \"video/avi\",\n");
-	//fprintf(fp, "\".mov\" => \"video/mov\"");
-	//fprintf(fp, "\"\" => \"application/x-octet-stream\"");
+/*
+	fprintf(fp, "\".swf\" => \"application/x-shockwave-flash\",\n");
+	fprintf(fp, "\".txt\" => \"text/plain\",\n");
+	fprintf(fp, "\".jpg\" => \"image/jpeg\",\n");
+	fprintf(fp, "\".gif\" => \"image/gif\",\n");
+	fprintf(fp, "\".png\" => \"image/png\",\n");
+	fprintf(fp, "\".pdf\" => \"application/pdf\",\n");
+	fprintf(fp, "\".mp4\" => \"video/mp4\",\n");
+	fprintf(fp, "\".m4v\" => \"video/mp4\",\n");
+	fprintf(fp, "\".wmv\" => \"video/wmv\",\n");
+	fprintf(fp, "\".mp3\" => \"audio/mpeg\",\n");
+	fprintf(fp, "\".avi\" => \"video/avi\",\n");
+	fprintf(fp, "\".mov\" => \"video/mov\"");
+	fprintf(fp, "\"\" => \"application/x-octet-stream\"");
+*/	
 	fprintf(fp, ")\n");
 
 	// **** Index file names **** //
@@ -4191,28 +4220,28 @@ int gen_uam_srv_conf()
 	//fprintf(fp, "   ssl.cipher-list=\"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4\"\n");
 //	fprintf(fp, "   ssl.cipher-list=\"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:AES256-GCM-SHA384:AES256-SHA256:AES256-SHA:AES128-GCM-SHA256:AES128-SHA256:AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!CAMELLIA:!DES:!MD5:!PSK:!RC4;\"\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/Uam($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/Uam\" => \"/tmp/lighttpd/www/Uam.html\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/Uam\" => \"%s/Uam.html\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/FreeUam($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/FreeUam\" => \"/tmp/lighttpd/www/FreeUam.html\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/FreeUam\" => \"%s/FreeUam.html\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/uam.js($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/uam.js\" => \"/tmp/lighttpd/www/uam.js\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/uam.js\" => \"%s/uam.js\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/jquery-1.7.1.min.js($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/jquery-1.7.1.min.js\" => \"/tmp/lighttpd/www/jquery-1.7.1.min.js\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/jquery-1.7.1.min.js\" => \"%s/jquery-1.7.1.min.js\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/Bypass.html($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/Bypass.html\" => \"/tmp/lighttpd/www/Bypass.html\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/Bypass.html\" => \"%s/Bypass.html\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/uam.html($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/uam.html\" => \"/tmp/lighttpd/www/uam.html\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/uam.html\" => \"%s/uam.html\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/Uam.css($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/Uam.css\" => \"/tmp/lighttpd/www/Uam.css\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/Uam.css\" => \"%s/Uam.css\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "   $HTTP[\"url\"] =~ \"^/FreeUam.css($|/)\"{\n");
-	fprintf(fp, "       alias.url = ( \"/FreeUam.css\" => \"/tmp/lighttpd/www/FreeUam.css\" ) \n");
+	fprintf(fp, "       alias.url = ( \"/FreeUam.css\" => \"%s/FreeUam.css\" ) \n", UAM_WEB_DIR);
 	fprintf(fp, "   }\n");
 	fprintf(fp, "}\n"); /*** SSL ***/
 
@@ -4230,9 +4259,9 @@ int gen_uam_srv_conf()
 void start_uam_srv()
 {
 	pid_t pid;
-	char *lighttpd_argv[] = { "/usr/sbin/lighttpd", "-f", "/tmp/lighttpd.conf", "-D", NULL };
+	char *lighttpd_argv[] = { "/usr/sbin/uamsrv", "-f", "/tmp/uamsrv.conf", "-D", NULL };
 	
-	if (nvram_match("enable_webdav", "1")) return;	/* don't  start uam server, start it in webdav process */
+//	if (nvram_match("enable_webdav", "1")) return;	/* don't  start uam server, start it in webdav process */
 
 	if(!check_if_file_exist("/etc/server.pem")) {
 		if(f_exists("/etc/cert.pem") && f_exists("/etc/key.pem")){
@@ -4249,10 +4278,10 @@ void start_uam_srv()
 	}
 
 	/* lighttpd directory */
-	mkdir_if_none("/tmp/lighttpd");
-	mkdir_if_none("/tmp/lighttpd/www");
-	mkdir_if_none("/tmp/lighttpd/www/USB");
-	chmod("/tmp/lighttpd/www", 0777);
+	mkdir_if_none("/tmp/uamsrv");
+	mkdir_if_none("/tmp/uamsrv/www");
+	mkdir_if_none("/tmp/uamsrv/www/USB");
+	chmod("/tmp/uamsrv/www", 0777);
 
 	/* copy web page to lighttpd dir */
 	eval("cp", UAM_WEB_PAGE, UAM_WEB_DIR);
@@ -4262,10 +4291,10 @@ void start_uam_srv()
 
 	if (gen_uam_srv_conf()) return;
 	//_dprintf("%s %d\n", __FUNCTION__, __LINE__);	// tmp test;
-	if (!pids("lighttpd"))
+	if (!pids("uamsrv"))
 		_eval(lighttpd_argv, NULL, 0, &pid);
 
-	if (pids("lighttpd"))
+	if (pids("uamsrv"))
 		logmessage("UAM server", "daemon is started");
 }
 
@@ -4276,9 +4305,9 @@ void stop_uam_srv()
 		return;
 	}
 
-	if (pids("lighttpd")){
-		kill_pidfile_tk("/tmp/lighttpd/lighttpd.pid");
-		unlink("/tmp/lighttpd/lighttpd.pid");
+	if (pids("uamsrv")){
+		kill_pidfile_tk("/tmp/uamsrv/uamsrv.pid");
+		unlink("/tmp/uamsrv/uamsrv.pid");
 		logmessage("UAM Server", "daemon is stoped");
 	}
 }
@@ -4557,7 +4586,7 @@ void chilli_config(void)
 	char chilli_url[100];
 	char domain[64];
 	char *tmp_str=NULL;
-	char *tmp=NULL;
+	char *tmp=NULL, *passwd=NULL;;
 	int time=0;
 	char ip_mask[32] = "192.168.182.0/24";
 	int gw[4] = { 192, 168, 182, 1}, cidr = 24;
@@ -4585,11 +4614,13 @@ void chilli_config(void)
 //	}else{
 #ifdef RTCONFIG_COOVACHILLI
 		fprintf(fp, "localusers %s\n", "/tmp/localusers");   
-		if (!(local_fp = fopen("/tmp/localusers", "a"))) {
+		if (!(local_fp = fopen("/tmp/localusers", "w"))) {
 			perror("/tmp/localusers");
 			return;
 		}
-		fprintf(local_fp, "noauth:noauth");
+		passwd=nvram_safe_get("captive_portal_passcode");
+		if(strlen(passwd) >0 ) fprintf(local_fp, "noauth:%s", passwd);
+	    else fprintf(local_fp, "noauth:noauth");
 		fclose(local_fp);
 #endif
 //	}
@@ -4668,7 +4699,15 @@ void chilli_config(void)
 	if (nvram_match("chilli_802.1Xauth", "1"))
 		fprintf(fp, "eapolenable\n");
 
-	
+	tmp_str=nvram_safe_get("chilli_bandwidthMaxUp");
+	if ((strcmp(tmp_str,"")!=0) && (strcmp(tmp_str,"0")!=0)){
+		fprintf(fp, "defbandwidthmaxup %ld\n", strtol(tmp_str, NULL, 10)*1024);
+	}
+	tmp_str=nvram_safe_get("chilli_bandwidthMaxDown");
+	if ((strcmp(tmp_str,"")!=0) && (strcmp(tmp_str,"0")!=0)){
+		fprintf(fp, "defbandwidthmaxdown %ld\n", strtol(tmp_str, NULL, 10)*1024);
+	}
+		
 	if (nvram_invmatch("chilli_additional", "")) {
 		char *add = nvram_safe_get("chilli_additional");
 
@@ -4799,9 +4838,32 @@ void chilli_config_CP(void)
 		fprintf(fp, "uamsecret %s\n", nvram_get("cp_uamsecret"));
 	if (nvram_invmatch("cp_uamanydns", "0"))
 		fprintf(fp, "uamanydns\n");
-	if (nvram_invmatch("cp_uamallowed", ""))
-		fprintf(fp, "uamallowed %s\n", nvram_get("cp_uamallowed"));
-
+	if (nvram_invmatch("cp_uamallowed", "")){
+		char *tmp=NULL, *allowed_domain=NULL, *allowed_IP=NULL;
+		char *sep=NULL, *tmpStr=NULL;
+		int length=0;
+		tmpStr=tmp=strdup(nvram_get("cp_uamallowed"));
+		length=strlen(tmp)+1;
+		allowed_domain=calloc(length+1, sizeof(char));
+		allowed_IP=calloc(length+1, sizeof(char));	
+		while((sep=strsep(&tmpStr, ",")) != NULL ){
+			if(*sep !='\0'){
+				if(illegal_ipv4_address(sep) !=0){
+					if(!strncmp(sep, "www.", 4)) sep+=4;
+					strncat(allowed_domain, sep, length-strlen(allowed_domain)-1);
+					strncat(allowed_domain, ",", length-strlen(allowed_domain)-1);
+				}else{
+					strncat(allowed_IP, sep, length-strlen(allowed_IP)-1);
+					strncat(allowed_IP, ",", length-strlen(allowed_IP)-1);
+				}
+			}
+     	}	
+		if(strlen(allowed_IP) > 0) fprintf(fp, "uamallowed %s\n", allowed_IP);
+		if(strlen(allowed_domain) > 0) fprintf(fp, "uamdomain %s\n", allowed_domain);
+		free(tmp);
+		free(allowed_domain);
+		free(allowed_IP);
+	}
 	if (nvram_match("cp_nowifibridge", "1"))
 	{
 		if (nvram_invmatch("cp_net", ""))
@@ -4819,6 +4881,14 @@ void chilli_config_CP(void)
 	if (nvram_match("cp_802.1Xauth", "1"))
 		fprintf(fp, "eapolenable\n");
 
+	tmp_str=nvram_safe_get("cp_bandwidthMaxUp");
+	if ((strcmp(tmp_str,"")!=0) && (strcmp(tmp_str,"0")!=0)){
+		fprintf(fp, "defbandwidthmaxup %ld\n", strtol(tmp_str, NULL, 10)*1024);
+	}
+	tmp_str=nvram_safe_get("cp_bandwidthMaxDown");
+	if ((strcmp(tmp_str,"")!=0) && (strcmp(tmp_str,"0")!=0)){
+		fprintf(fp, "defbandwidthmaxdown %ld\n", strtol(tmp_str, NULL, 10)*1024);
+	}
 	
 	if (nvram_invmatch("cp_additional", "")) {
 		char *add = nvram_safe_get("chilli_additional");
@@ -5448,13 +5518,12 @@ void stop_chilli(void)
 		nvram_set("chilli_enable", "0");
 	}
 
-	kill_pidfile_s("/var/run/chilli.pid", SIGTERM);
-	kill_pidfile_s("/var/run/chilli.pid", SIGKILL);
+	kill_pidfile_tk("/var/run/chilli.pid");
 	unlink("/tmp/chilli.conf");
 	unlink("/var/run/chilli.pid");
 	if(pids("chilli")) {
-		unlink("/tmp/lighttpd/www/FreeUam.html");
-		unlink("/tmp/lighttpd/www/FreeUam.css");
+		unlink("/tmp/uamsrv/www/FreeUam.html");
+		unlink("/tmp/uamsrv/www/FreeUam.css");
 		unlink("/tmp/chilli/ip-up.sh");
 		unlink("/tmp/chilli/ip-down.sh");
 		system("rm -rf /var/run/chilli");
@@ -5480,14 +5549,13 @@ void stop_CP(void)
 	   nvram_set("cp_enable", "0");
 	}
 
-	kill_pidfile_s("/var/run/chilli-cp.pid", SIGTERM);
-	kill_pidfile_s("/var/run/chilli-cp.pid", SIGKILL);
+	kill_pidfile_tk("/var/run/chilli-cp.pid");
 	unlink("/tmp/chilli-cp.conf");
 	unlink("/var/run/chilli-cp.pid");
 	if(pids("chilli")) {
 		unlink("/tmp/chilli-cp.conf");
-		unlink("/tmp/lighttpd/www/Uam.html");
-		unlink("/tmp/lighttpd/www/Uam.css");
+		unlink("/tmp/uamsrv/www/Uam.html");
+		unlink("/tmp/uamsrv/www/Uam.css");
 		unlink("/tmp/chilli/ip-up.sh");
 		unlink("/tmp/chilli/ip-down.sh");
 		system("rm -rf /var/run/chilli");
@@ -5590,11 +5658,13 @@ void start_CP(void)
 {	
 	char htmlPath[128];
 	char cssPath[128];
+	char jsonPath[128];
 	char *nv=NULL, *nvp=NULL, *b=NULL;
 	int brCount=0;
 	char *profileName=NULL, *htmlIdx=NULL,    *awayTime=NULL,   *sessionTime=NULL;
 	char *UIPath=NULL,      *ifName=NULL,     *UamAllowed=NULL, *authType=NULL, *RadiusOrNot=NULL;
 	char *RadiusIP=NULL,    *RadiusPort=NULL, *RadiusScrt=NULL, *RadiusNas=NULL;
+	char  *enService=NULL, *bandwidthMaxUp=NULL, *bandwidthMaxDown=NULL;
 	
 	if(!nvram_match("captive_portal_adv_enable", "on"))
 		return;
@@ -5605,14 +5675,14 @@ void start_CP(void)
 	nv = nvp = strdup(nvram_safe_get("captive_portal_adv_profile"));
         if (nv) {
 		   //prevent uam server not start yet
-		   mkdir_if_none("/tmp/lighttpd");
-		   mkdir_if_none("/tmp/lighttpd/www");
-		   chmod("/tmp/lighttpd/www", 0777);
+		   mkdir_if_none("/tmp/uamsrv");
+		   mkdir_if_none("/tmp/uamsrv/www");
+		   chmod("/tmp/uamsrv/www", 0777);
 
                    while ((b = strsep(&nvp, "<")) != NULL) {
                           if ((vstrsep(b, ">", &htmlIdx, &profileName, &awayTime, &sessionTime, 
 				&UIPath, &ifName, &UamAllowed, &authType, &RadiusOrNot, &RadiusIP,
-				&RadiusPort, &RadiusScrt, &RadiusNas) != 13 ))
+				&RadiusPort, &RadiusScrt, &RadiusNas, &enService, &bandwidthMaxDown, &bandwidthMaxUp) < 15 ))
                               continue;
 			  brCount++;
 			  if(!is_intf_up(CPIF)){
@@ -5623,6 +5693,7 @@ void start_CP(void)
 			  memset(cssPath, 0, sizeof(cssPath));
 			  sprintf(htmlPath, "/jffs/customized_splash/%s.html", htmlIdx);
 			  sprintf(cssPath, "/jffs/customized_splash/%s.css", htmlIdx);
+			  sprintf(jsonPath, "/jffs/customized_splash/%s.json", htmlIdx);
 			  bridge_ifByA(ifName, CPIF, 1);
 			  
 			  nvram_set("cp_sessiontime", sessionTime);
@@ -5642,7 +5713,10 @@ void start_CP(void)
 			     nvram_set("cp_radiusauthport", RadiusPort);
 			     nvram_set("cp_radiussecret", RadiusScrt);
 			     nvram_set("cp_radiusnasid", RadiusNas);
-			  } 				    
+			  }
+			  
+			  nvram_set("cp_bandwidthMaxUp", bandwidthMaxUp);
+			  nvram_set("cp_bandwidthMaxDown", bandwidthMaxDown);
  
 			  if(brCount > 0)
            		     nvram_set("cp_enable", "1");
@@ -5675,16 +5749,15 @@ void start_CP(void)
 	else if(nvram_match("hotss_enable", "1"))
 		hotspotsys_config();
 
-	//killall("chilli", SIGTERM);
-	//killall("chilli", SIGKILL);
-	kill_pidfile_s("/var/run/chilli-cp.pid", SIGTERM);
-	kill_pidfile_s("/var/run/chilli-cp.pid", SIGKILL);
+	kill_pidfile_tk("/var/run/chilli-cp.pid");
 	
 	if(htmlIdx!=NULL){
-	   unlink("/tmp/lighttpd/www/Uam.html");
-	   symlink(htmlPath, "/tmp/lighttpd/www/Uam.html"); 
-	   unlink("/tmp/lighttpd/www/Uam.css");
-	   symlink(cssPath, "/tmp/lighttpd/www/Uam.css"); 
+	   unlink("/tmp/uamsrv/www/Uam.html");
+	   symlink(htmlPath, "/tmp/uamsrv/www/Uam.html"); 
+	   unlink("/tmp/uamsrv/www/Uam.css");
+	   symlink(cssPath, "/tmp/uamsrv/www/Uam.css"); 
+	   unlink("/tmp/uamsrv/www/Uam.json");
+	   symlink(jsonPath, "/tmp/uamsrv/www/Uam.json"); 
 
 	}
 	start_firewall(wan_primary_ifunit(), 0);
@@ -5725,7 +5798,8 @@ void start_chilli(void)
 	char *nv=NULL, *nvp=NULL, *b=NULL;
 	int brCount=0;
 	char *ifName=NULL, /* *typeIdx=NULL,*/ *htmlIdx=NULL, *sessionTime=NULL;
-	char *UIType=NULL, *UIPath=NULL, *enService=NULL, *brdName=NULL;
+	char *UIType=NULL, *UIPath=NULL, *enService=NULL, *brdName=NULL, *enPass;
+	char *bandwidthMaxUp=NULL, *bandwidthMaxDown=NULL;
 	char BrandName[32];
 	int k=0;
 	#define BYPASS_CP 0 
@@ -5735,7 +5809,7 @@ void start_chilli(void)
 	#define EXTERNAL_UI 1
 	#define INTERNAL_UI 2
 	#define TEMPLATE_UI 3
-	#define BypassUI "/tmp/lighttpd/www/Bypass.html"
+	#define BypassUI "/tmp/uamsrv/www/Bypass.html"
 
 	if(!nvram_match("captive_portal_enable", "on"))
         	return;
@@ -5747,13 +5821,13 @@ void start_chilli(void)
 	nv = nvp = strdup(nvram_safe_get("captive_portal"));
         if (nv) {
 		   //prevent uam server not start yet
-		   mkdir_if_none("/tmp/lighttpd");
-		   mkdir_if_none("/tmp/lighttpd/www");
-		   chmod("/tmp/lighttpd/www", 0777);
+		   mkdir_if_none("/tmp/uamsrv");
+		   mkdir_if_none("/tmp/uamsrv/www");
+		   chmod("/tmp/uamsrv/www", 0777);
 
-                   while ((b = strsep(&nvp, "<")) != NULL) {
-                          if ((vstrsep(b, ">", &htmlIdx, &brdName, &sessionTime, &UIType, &UIPath, &ifName, &enService) != 7 ))
-                              continue;
+              while ((b = strsep(&nvp, "<")) != NULL) {
+                    if ((vstrsep(b, ">", &htmlIdx, &brdName, &sessionTime, &UIType, &UIPath, &ifName, &enService, &enPass, &bandwidthMaxDown, &bandwidthMaxUp) < 9 ))
+                        continue;
 			  brCount++;
 			  if(!is_intf_up(FREEWIFIIF)){
 		  	     eval("brctl", "addbr", FREEWIFIIF);
@@ -5784,22 +5858,26 @@ void start_chilli(void)
 			      nvram_set("external_UI", UIPath);
 			  }else 
 			      nvram_unset("external_UI");
-
+				
 			  if (INTERNAL_UI == atoi(UIType)){
 			      sprintf(tmpCmd, "http://%s", BrandName);
 			      nvram_set("external_UI", tmpCmd);
 			      nvram_set("usbUIpath", UIPath);
 			      if(d_exists(UIPath) || f_exists(UIPath)){
-	      			 remove("/tmp/lighttpd/www/USB");
-	      			 unlink("/tmp/lighttpd/www/USB");
-	      			 symlink(UIPath, "/tmp/lighttpd/www/USB");			
+	      			 remove("/tmp/uamsrv/www/USB");
+	      			 unlink("/tmp/uamsrv/www/USB");
+	      			 symlink(UIPath, "/tmp/uamsrv/www/USB");			
 	   		      }
 			  }else{
 			      nvram_unset("usbUIpath");
 			  }
+			  
+			  if((NULL == enPass) || (0 == atoi(enPass))) nvram_set("captive_portal_passcode", "");
 #ifndef RTCONFIG_COOVACHILLI
 			   DN2tmpfile(BrandName);
 #endif
+			   nvram_set("chilli_bandwidthMaxUp", bandwidthMaxUp);
+			   nvram_set("chilli_bandwidthMaxDown", bandwidthMaxDown);
 			   if(brCount > 0)
            		     nvram_set("chilli_enable", "1");
 			   else  
@@ -5848,15 +5926,14 @@ void start_chilli(void)
 		hotspotsys_config();
 	//_dprintf("66\n");
 
-	kill_pidfile_s("/var/run/chilli.pid", SIGTERM);
-	kill_pidfile_s("/var/run/chilli.pid", SIGKILL);
+	kill_pidfile_tk("/var/run/chilli.pid");
 	//_dprintf("77\n");
 	
 	if(htmlIdx!=NULL){
-	   	unlink("/tmp/lighttpd/www/FreeUam.html");
-	   	symlink(htmlPath, "/tmp/lighttpd/www/FreeUam.html"); 
-	   	unlink("/tmp/lighttpd/www/FreeUam.css");
-	   	symlink(cssPath, "/tmp/lighttpd/www/FreeUam.css"); 
+	   	unlink("/tmp/uamsrv/www/FreeUam.html");
+	   	symlink(htmlPath, "/tmp/uamsrv/www/FreeUam.html"); 
+	   	unlink("/tmp/uamsrv/www/FreeUam.css");
+	   	symlink(cssPath, "/tmp/uamsrv/www/FreeUam.css"); 
 	}
 	start_firewall(wan_primary_ifunit(), 0);
 	//_dprintf("88\n");
@@ -5965,6 +6042,9 @@ start_services(void)
 	start_lan_port(0);
 #ifdef RTCONFIG_CROND
 	start_cron();
+#endif
+#ifdef RTCONFIG_LETSENCRYPT
+	start_letsencrypt();
 #endif
 	start_cifs();
 	start_httpd();
@@ -6301,6 +6381,9 @@ stop_services(void)
 	stop_infosvr();
 	stop_httpd();
 	stop_cifs();
+#ifdef RTCONFIG_LETSENCRYPT
+	stop_letsencrypt();
+#endif
 #ifdef RTCONFIG_CROND
 	stop_cron();
 #endif
@@ -7623,13 +7706,30 @@ again:
 		}
 	}
 	else if (!strcmp(script, "subnet")) {
+		struct in_addr addr;
+		in_addr_t new_addr;
+#if defined(RTCONFIG_TAGGED_BASED_VLAN)
+		int r;
+		char ip_mask[32], new_ip[sizeof("192.168.100.200XXX")], *p;
+		char *lan_netmask;
+
+		lan_netmask = nvram_safe_get("lan_netmask");
+		snprintf(ip_mask, sizeof(ip_mask), "%s/%s", nvram_safe_get("lan_ipaddr"), lan_netmask);
+		r = test_and_get_free_char_network(7, ip_mask, EXCLUDE_NET_LAN);
+		if (r == 1) {
+			p = strchr(ip_mask, '/');
+			strlcpy(new_ip, ip_mask, min(p - ip_mask, sizeof(new_ip)));
+			strlcat(new_ip, "1", sizeof(new_ip));
+			inet_aton(new_ip , &addr);
+		}
+		else
+			goto skip;
+#else		
 		char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 		/* no multilan support so far *//*
 		char prefix_lan[sizeof("lanXXXXXXXXXX_")]; */
 		char *lan_ipaddr, *lan_netmask;
 		char *wan_ipaddr, *wan_netmask;
-		struct in_addr addr;
-		in_addr_t new_addr;
 		int unit;
 
 		lan_ipaddr = nvram_safe_get("lan_ipaddr");
@@ -7680,6 +7780,8 @@ again:
 			if (!inet_deconflict(lan_ipaddr, lan_netmask, wan_ipaddr, wan_netmask, &addr))
 				goto skip;
 		}
+#endif
+
 		/* no multilan support so far *//*
 		nvram_set(strcat_r(prefix_lan, "ipaddr", tmp), inet_ntoa(addr));
 		nvram_set(strcat_r(prefix_lan, "ipaddr_rt", tmp), inet_ntoa(addr)); */ // Sync to lan_ipaddr_rt, added by jerry5.
@@ -8744,6 +8846,14 @@ check_ddr_done:
 			start_script(count, cmd);
 		}
 	}
+#ifdef RTCONFIG_LETSENCRYPT
+	else if (strcmp(script, "ddns_le") == 0)
+	{
+		nvram_set("le_rc_notify", "1");
+		if(action & RC_SERVICE_STOP) stop_ddns();
+		if(action & RC_SERVICE_START) start_ddns();
+	}
+#endif
 	else if (strcmp(script, "ddns") == 0)
 	{
 		if(action & RC_SERVICE_STOP) stop_ddns();
@@ -9032,8 +9142,8 @@ check_ddr_done:
 				kill_pidfile_s("/var/run/watchdog.pid", SIGUSR2);
 		}
 		if(action & RC_SERVICE_START) {
-			if (!wps_band_radio_off(get_radio_band(nvram_get_int("wps_band"))) &&
-			    !wps_band_ssid_broadcast_off(get_radio_band(nvram_get_int("wps_band")))) {
+			if (!wps_band_radio_off(get_radio_band(nvram_get_int("wps_band_x"))) &&
+			    !wps_band_ssid_broadcast_off(get_radio_band(nvram_get_int("wps_band_x")))) {
 				start_wps_method();
 				if(!nvram_match("wps_ign_btn", "1"))
 					kill_pidfile_s("/var/run/watchdog.pid", SIGUSR1);
@@ -9676,6 +9786,13 @@ _dprintf("test 2. turn off the USB power during %d seconds.\n", reset_seconds[re
 		_dprintf("overwrite_fbwifi_ssid: start\n");
 		overwrite_fbwifi_ssid();
 		_dprintf("overwrite_fbwifi_ssid: end\n");
+	}
+#endif
+#ifdef RTCONFIG_LETSENCRYPT
+	else if (strcmp(script, "letsencrypt") == 0)
+	{
+		if(action & RC_SERVICE_STOP) stop_letsencrypt();
+		if(action & RC_SERVICE_START) start_letsencrypt();
 	}
 #endif
 	else

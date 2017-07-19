@@ -236,6 +236,30 @@ unsigned int get_radio_status(char *ifname)
 	return 0;
 }
 
+int match_radio_status(int unit, int status)
+{
+	int sub = 0, rs = status;
+	char tmp[100], prefix[] = "wlXXXXXXXXXXXXXX", athfix[]="athXXXXXX";
+
+	do {
+		if (sub > 0)
+			snprintf(prefix, sizeof(prefix), "wl%d.%d_", unit, sub);
+		else
+			snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+		strcpy(athfix, nvram_safe_get(strcat_r(prefix, "ifname", tmp)));
+
+		if (*athfix != '\0') {
+			if (status)
+				rs &= get_radio_status(athfix);
+			else
+				rs |= get_radio_status(athfix);
+		}
+		sub++;
+	} while (sub <= 3);
+
+	return (status == rs);
+}
+
 int get_radio(int unit, int subunit)
 {
 	char tmp[100], prefix[] = "wlXXXXXXXXXXXXXX";
@@ -254,29 +278,31 @@ int get_radio(int unit, int subunit)
 void set_radio(int on, int unit, int subunit)
 {
 	int led = (!unit)? LED_2G:LED_5G, onoff = (!on)? LED_OFF:LED_ON;
+	int sub = (subunit >= 0) ? subunit : 0;
 	char tmp[100], prefix[] = "wlXXXXXXXXXXXXXX", athfix[]="athXXXXXX";
 	char path[sizeof(NAWDS_SH_FMT) + 6];
 
-	if (subunit > 0)
-	{   
-		snprintf(prefix, sizeof(prefix), "wl%d.%d_", unit, subunit);
-	}	
-	else
-	{   
-		snprintf(prefix, sizeof(prefix), "wl%d_", unit);
-	}
-	strcpy(athfix, nvram_safe_get(strcat_r(prefix, "ifname", tmp)));
+	do {
+		if (sub > 0)
+			snprintf(prefix, sizeof(prefix), "wl%d.%d_", unit, sub);
+		else
+			snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+		strcpy(athfix, nvram_safe_get(strcat_r(prefix, "ifname", tmp)));
 
-	if (*athfix != '\0' && strncmp(athfix, "sta", 3)) {
-		/* all lan-interfaces except sta when running repeater mode */
-		_dprintf("%s: unit %d-%d, on %d\n", __func__, unit, subunit);
-		eval("ifconfig", athfix, on? "up":"down");
+		if (*athfix != '\0' && strncmp(athfix, "sta", 3)) {
+			/* all lan-interfaces except sta when running repeater mode */
+			_dprintf("%s: unit %d-%d, %s\n", __func__, unit, sub, (on?"on":"off"));
+			eval("ifconfig", athfix, on? "up":"down");
 
-		/* Reconnect to peer WDS AP */
-		sprintf(path, NAWDS_SH_FMT, unit? WIF_5G : WIF_2G);
-		if (!subunit && !nvram_match(strcat_r(prefix, "mode_x", tmp), "0") && f_exists(path))
-			doSystem(path);
-	}
+			/* Reconnect to peer WDS AP */
+			if (!sub) {
+				sprintf(path, NAWDS_SH_FMT, unit? WIF_5G : WIF_2G);
+				if (!nvram_match(strcat_r(prefix, "mode_x", tmp), "0") && f_exists(path))
+					doSystem(path);
+			}
+		}
+		sub++;
+	} while (subunit < 0 && sub <= 3);
 
 	led_control(led, onoff);
 }
