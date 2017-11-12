@@ -9810,6 +9810,9 @@ prf_file(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg, char_t *url, cha
 #if defined(RTCONFIG_COOVACHILLI)
 		"customized_splash",
 #endif
+#if defined(RTCONFIG_JFFS2USERICON)
+		"usericon",
+#endif
 		NULL
 	};
 #endif
@@ -11431,6 +11434,8 @@ struct mime_handler mime_handlers[] = {
 	{ "appGet_image_path.cgi", "text/html", no_cache_IE7, do_html_post_and_get, do_appGet_image_path_cgi, NULL },
 	{ "login.cgi", "text/html", no_cache_IE7, do_html_post_and_get, do_login_cgi, NULL },
 	{ "update_clients.asp", "text/html", no_cache_IE7, do_html_post_and_get, do_ej, NULL },
+	{ "update_networkmapd.asp", "text/html", no_cache_IE7, do_html_post_and_get, do_ej, NULL },
+	{ "update_customList.asp", "text/html", no_cache_IE7, do_html_post_and_get, do_ej, NULL },
 	{ "manifest.appcache", "text/html", no_cache_IE7, do_html_post_and_get, do_ej, NULL },
 	{ "offline.htm", "text/html", no_cache_IE7, do_html_post_and_get, do_ej, NULL },
 	{ "wcdma_list.js", "text/html", no_cache_IE7, do_html_post_and_get, do_ej, NULL },

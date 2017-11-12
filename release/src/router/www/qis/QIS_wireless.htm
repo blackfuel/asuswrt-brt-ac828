@@ -306,13 +306,11 @@ function check_wan_state(){
 		},
 		success: function(response){
 			setTimeout("check_wan_state();", 1000);
-			if((wanstate  == 1 && wansbstate == 0 && wanauxstate == 0) || (wanstate  == 6 && wansbstate == 0 && wanauxstate == 0) || (wanstate  == 4 && wansbstate == 2 && wanauxstate == 0)){
+			if(wanstate  == 4 && wansbstate == 2 && wanauxstate == 0){
 				parent.pppoe_failed_flag = true;
 			}
 			else{	
-				if(wanstate  == 2 && wansbstate == 0 && wanauxstate == 0){
-					parent.pppoe_failed_flag = false;
-				}
+				parent.pppoe_failed_flag = false;
 			}
 		}
 	});	

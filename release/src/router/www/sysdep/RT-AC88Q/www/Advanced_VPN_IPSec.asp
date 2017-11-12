@@ -507,10 +507,10 @@ function show_profilelist() {
 				code +='<td width="7%"><input class="remove_btn" onclick="del_profile_list(this);" value=""/></td>';
 				code +='<td width="20%">';
 				if(ipsec_profilelist_arraylist[i][38] == 0) {
-					code += '<input class="button_gen" type="button" onClick="connect_Row(this, \''+ipsec_profilelist_arraylist[i][0]+'\', \'active\');" value="Activate">';/*untranslated*/
+					code += '<input class="button_gen" type="button" onClick="connect_Row(this, \''+ipsec_profilelist_arraylist[i][0]+'\', \'active\');" value="<#CTL_Activate#>">';
 				}
 				else {
-					code += '<input class="button_gen" type="button" onClick="connect_Row(this, \''+ipsec_profilelist_arraylist[i][0]+'\', \'deactivate\');" value="Deactivate">';/*untranslated*/
+					code += '<input class="button_gen" type="button" onClick="connect_Row(this, \''+ipsec_profilelist_arraylist[i][0]+'\', \'deactivate\');" value="<#CTL_Deactivate#>">';
 					control_profile_flag = false;
 				}
 				code +='</td>';
@@ -1031,8 +1031,8 @@ function validForm() {
 
 					var subnetIP = existSubnetObj.value.split("/")[0];
 					var maskCIDR = parseInt(existSubnetObj.value.split("/")[1], 10);
-					if (isNaN(maskCIDR) || maskCIDR != 24){
-						alert("Mask address must be 24.");/*untranslated*/
+					if (isNaN(maskCIDR) || (maskCIDR != 24 && maskCIDR != 23)){
+						alert("Mask address must be 23 or 24.");/*untranslated*/
 						existSubnetObj.focus();
 						existSubnetObj.select();
 						return false;
@@ -1114,8 +1114,8 @@ function validForm() {
 			}
 			var subnetIP = document.form.ipsec_virtual_subnet.value.split("/")[0];
 			var maskCIDR = parseInt(document.form.ipsec_virtual_subnet.value.split("/")[1], 10);
-			if (isNaN(maskCIDR) || maskCIDR != 24){
-				alert("Mask address must be 24.");/*untranslated*/
+			if (isNaN(maskCIDR) || (maskCIDR != 24 && maskCIDR != 23)){
+				alert("Mask address must be 23 or 24.");/*untranslated*/
 				document.form.ipsec_virtual_subnet.focus();
 				document.form.ipsec_virtual_subnet.select();
 				return false;
@@ -1461,43 +1461,20 @@ function switchMode(mode) {
 	while(document.form.ipsec_local_public_interface.options.length > 0){
 		document.form.ipsec_local_public_interface.remove(0);
 	}
-	var add_public_interface = function() {
-		var wans_cap = '<% nvram_get("wans_cap"); %>'.split(" ");
-		var wan_type_list = [];
-		for(var i = 0; i < wans_cap.length; i += 1) {
-			var option_value = "";
-			var option_text = "";
-			option_value = wans_cap[i];
-			
-			switch(wans_cap[i]) {
-				case "wan" :
-					option_text = "<#menu5_3#>";
-					break;
-				case "wan2" :
-					option_text = wans_cap[i].toUpperCase();
-					break;
-				case "usb" :
-					option_text = wans_cap[i].toUpperCase();
-					break;
-				case "lan" :
-					option_text = "Ethernet LAN";
-					break;
-			}
+	var wan_type_list = [];
+	var option = ["wan", "<#dualwan_primary#>"];
+	wan_type_list.push(option);
+	if(dualWAN_support) {
+		option = ["wan2", "<#dualwan_secondary#>"];
+		wan_type_list.push(option);
+	}
 
-			var option = [option_value, option_text];
-			wan_type_list.push(option);
-		}
-		var selectobject = document.form.ipsec_local_public_interface;
-
-		for(var i = 0; i < wan_type_list.length; i += 1) {
-			var option = document.createElement("option");
-			option.value = wan_type_list[i][0];
-			option.text = wan_type_list[i][1];
-			selectobject.add(option);
-		}	
-	};
-
-	add_public_interface();
+	for(var i = 0; i < wan_type_list.length; i += 1) {
+		var option = document.createElement("option");
+		option.value = wan_type_list[i][0];
+		option.text = wan_type_list[i][1];
+		document.form.ipsec_local_public_interface.add(option);
+	}
 
 	showhide("tr_general_dns1", 0);
 	showhide("tr_general_dns2", 0);
@@ -1508,7 +1485,7 @@ function switchMode(mode) {
 		case "1":
 			showhide("tr_remote_gateway_method", 0);
 			showhide("tr_remote_gateway", 0);
-			document.getElementById("td_network_title").innerHTML = "Network - Subnet";/*untranslated*/
+			document.getElementById("td_network_title").innerHTML = "<#Network#> - <#Subnet#>";
 			document.form.ipsec_xauth[1].disabled = true;
 			settingRadioItemCheck(document.form.ipsec_xauth, "0");
 			document.form.ipsec_dead_peer_detection[2].disabled = true;
@@ -1523,19 +1500,19 @@ function switchMode(mode) {
 			document.getElementById("ipsec_ike_auto_label").style.display = "none";
 			break;
 		case "2":
-			document.getElementById("td_network_title").innerHTML = "Network - Subnet";/*untranslated*/
+			document.getElementById("td_network_title").innerHTML = "<#Network#> - <#Subnet#>";
 			document.form.ipsec_xauth[0].disabled = true;
 			settingRadioItemCheck(document.form.ipsec_xauth, "0");
 			break;
 		case "3":
-			document.getElementById("td_network_title").innerHTML = "Network - Subnet";/*untranslated*/
+			document.getElementById("td_network_title").innerHTML = "<#Network#> - <#Subnet#>";
 			settingRadioItemCheck(document.form.ipsec_xauth, "0");
 			break;
 		case "4":
 			showhide("tr_remote_gateway_method", 0);
 			showhide("tr_remote_gateway", 0);
 			showhide("tr_adv_exchange_mode", 1);
-			document.getElementById("td_network_title").innerHTML = "Network - Virtual IP";/*untranslated*/
+			document.getElementById("td_network_title").innerHTML = "<#Network#> - Virtual IP";/*untranslated*/
 			showhide("tr_net_local_private_subnet", 0);
 			showhide("tr_net_local_port", 0);
 			showhide("tr_net_remote_private_subnet", 0);
@@ -2082,7 +2059,7 @@ function changeExchangeMode() {
 										</thead>
 
 										<tr>
-											<th>Enable IPSec VPN Server<!--untranslated--></th>
+											<th><#vpn_ipsec_enable#></th>
 											<td>
 												<div align="center" class="left" style="float:left;cursor:pointer;" id="radio_ipsec_enable"></div>
 												<div class="iphone_switch_container" style="height:32px; width:74px; position: relative; overflow: hidden;"></div>
@@ -2219,13 +2196,13 @@ function changeExchangeMode() {
 				<input type="radio" name="ipsec_auth_method" id="ipsec_auth_method_rsa" class="input" value="0" onchange="changeAuthMethod(this);" style="display:none;">
 				<label for='ipsec_auth_method_rsa' style="display:none;">RSA Signature<!--untranslated--></label>
 				<input type="radio" name="ipsec_auth_method" id="ipsec_auth_method_psk" class="input" value="1" onchange="changeAuthMethod(this);" checked>
-				<label for='ipsec_auth_method_psk'>Preshared Key<!--untranslated--></label>
+				<label for='ipsec_auth_method_psk'><#vpn_preshared_key#></label>
 			</td>
 		</tr>
 		<tr id="tr_presharedKey">
-			<th>Preshared Key<!--untranslated--></th>
+			<th><#vpn_preshared_key#></th>
 			<td>
-				<input id="ipsec_preshared_key" name="ipsec_preshared_key" type="password" autocapitalization="off" onBlur="switchType(this, false);" onFocus="switchType(this, true);" class="input_25_table" maxlength="32" placeholder="Enter Preshared Key"><!--untranslated-->
+				<input id="ipsec_preshared_key" name="ipsec_preshared_key" type="password" autocapitalization="off" onBlur="switchType(this, false);" onFocus="switchType(this, true);" class="input_25_table" maxlength="32" placeholder="<#vpn_preshared_key_hint#>">
 			</td>
 		</tr>
 		<tr id="tr_importCA">
@@ -2247,14 +2224,14 @@ function changeExchangeMode() {
 			<th>Local Identity<!--untranslated--></th>
 			<td>
 				<input type="text" class="input_25_table" name="ipsec_local_id">
-				<span style="color:#FC0">(Optional)<!--untranslated--></span>
+				<span style="color:#FC0"><#feedback_optional#></span>
 			</td>
 		</tr>
 		<tr id="tr_adv_remote_id">
 			<th>Remote Identity<!--untranslated--></th>
 			<td>
 				<input type="text" class="input_25_table" name="ipsec_remote_id">
-				<span style="color:#FC0">(Optional)<!--untranslated--></span>
+				<span style="color:#FC0"><#feedback_optional#></span>
 			</td>
 		</tr>
 	</table>
@@ -2332,28 +2309,28 @@ function changeExchangeMode() {
 			<th><#IPConnection_x_DNSServer1_itemname#></th>
 			<td>
 				<input type="text" maxlength="15" class="input_15_table" name="ipsec_dns1"  onkeypress="return validator.isIPAddr(this, event)" >
-				<span style="color:#FC0">(Optional)<!--untranslated--></span>
+				<span style="color:#FC0"><#feedback_optional#></span>
 			</td>
 		</tr>
 		<tr id="tr_general_dns2">
 			<th><#IPConnection_x_DNSServer2_itemname#></th>
 			<td>
 				<input type="text" maxlength="15" class="input_15_table" name="ipsec_dns2"  onkeypress="return validator.isIPAddr(this, event)" >
-				<span style="color:#FC0">(Optional)<!--untranslated--></span>
+				<span style="color:#FC0"><#feedback_optional#></span>
 			</td>
 		</tr>
 		<tr id="tr_general_wins1">
 			<th><#IPConnection_x_WINSServer1_itemname#></th>
 			<td>
 				<input type="text" maxlength="15" class="input_15_table" name="ipsec_wins1"  onkeypress="return validator.isIPAddr(this, event)" >
-				<span style="color:#FC0">(Optional)<!--untranslated--></span>
+				<span style="color:#FC0"><#feedback_optional#></span>
 			</td>
 		</tr>
 		<tr id="tr_general_wins2">
 			<th><#IPConnection_x_WINSServer2_itemname#></th>
 			<td>
 				<input type="text" maxlength="15" class="input_15_table" name="ipsec_wins2"  onkeypress="return validator.isIPAddr(this, event)" >
-				<span style="color:#FC0">(Optional)<!--untranslated--></span>
+				<span style="color:#FC0"><#feedback_optional#></span>
 			</td>
 		</tr>
 		
@@ -2365,7 +2342,7 @@ function changeExchangeMode() {
 		<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable" style="margin-top:15px;">
 			<thead>
 			<tr>
-				<td colspan="2">Advanced Settings - Phase 1 Negotiations<!--untranslated--></td>
+				<td colspan="2"><#menu5#> - Phase 1 Negotiations<!--untranslated--></td>
 			</tr>
 			</thead>
 			<tr id="tr_adv_ike_version">
@@ -2494,7 +2471,7 @@ function changeExchangeMode() {
 		<table id="tb_adv_phase2" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable" style="margin-top:15px;">
 			<thead>
 			<tr>
-				<td colspan="2">Advanced Settings - Phase 2 Negotiations<!--untranslated--></td>
+				<td colspan="2"><#menu5#> - Phase 2 Negotiations<!--untranslated--></td>
 			</tr>
 			</thead>
 			<tr id="tr_adv_encryption_p2">

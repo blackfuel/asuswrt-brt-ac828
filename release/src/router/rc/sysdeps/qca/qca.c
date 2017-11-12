@@ -870,7 +870,8 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 	} else {
 		fprintf(fp2, "iwpriv %s vhtmubfee %d\n", wif, mumimo);	/* Multiple-user beam formee, STA only */
 	}
-	fprintf(fp2, "iwpriv %s implicitbf 0\n", wif);
+
+	fprintf(fp2, "iwpriv %s implicitbf %d\n", wif,nvram_get_int(strcat_r(tmpfix, "implicitxbf", tmp)));
 
 #ifdef RTCONFIG_OPTIMIZE_XBOX
 	// LDPC

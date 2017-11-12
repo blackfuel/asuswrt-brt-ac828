@@ -66,11 +66,11 @@ export BRANCH := $(shell git branch)
 ifeq ($(BRANCH),) 
 include ./router/extendno.conf
 else
-export EXTENDNO := $(shell git log --pretty=oneline asuswrt_$(KERNEL_VER).$(FS_VER).$(SERIALNO)..HEAD | wc -l)-g$(shell git log --pretty=format:'%h' -n 1)
+export EXTENDNO := $(shell git log --pretty=oneline asuswrt_$(KERNEL_VER).$(FS_VER).$(SERIALNO)..HEAD | wc -l)-g$(shell git log --pretty=format:'%h' -n 1|sed -e "s,\([0-9a-z]\{7\}\)[0-9a-z]*,\1,")
 endif
 
 ifeq ($(EXTENDNO),)
-export EXTENDNO := 0-g$(shell git log --pretty=format:'%h' -n 1)
+export EXTENDNO := 0-g$(shell git log --pretty=format:'%h' -n 1|sed -e "s,\([0-9a-z]\{7\}\)[0-9a-z]*,\1,")
 endif
 
 export SWPJNAME := $(shell git branch | grep "*" | grep "swpj-" | sed 's/.*swpj-//g')
@@ -88,7 +88,7 @@ export SWPJEXTENDNO := $(shell git describe --match swpj_$(SWPJNAME)_$(SWPJVERNO
 ifneq ($(SWPJEXTENDNO),)
 export EXTENDNO := $(SWPJEXTENDNO)
 else
-export EXTENDNO := 0-g$(shell git log --pretty=format:'%h' -n 1)
+export EXTENDNO := 0-g$(shell git log --pretty=format:'%h' -n 1|sed -e "s,\([0-9a-z]\{7\}\)[0-9a-z]*,\1,")
 endif
 endif
 
@@ -127,7 +127,7 @@ uppercase_B = $(shell echo $(BUILD_NAME) | tr a-z  A-Z)
 lowercase_B = $(shell echo $(BUILD_NAME) | tr A-Z a-z)
 BUILD_TIME := $(shell LC_ALL=C date -u)
 BUILD_USER ?= $(shell whoami)
-BUILD_INFO := $(shell git log --pretty="%h" -n 1)
+BUILD_INFO := $(shell git log --pretty="%h" -n 1|sed -e "s,\([0-9a-z]\{7\}\)[0-9a-z]*,\1,")
 
 ifeq ($(CONFIG_LINUX26),y)
 mips_rev = $(if $(filter $(MIPS32),r2),MIPSR2,MIPSR1)
@@ -485,6 +485,8 @@ define RouterOptions
 		echo "# RTCONFIG_JFFS2 is not set" >>$(1); \
 		sed -i "/RTCONFIG_JFFSV1/d" $(1); \
 		echo "# RTCONFIG_JFFSV1 is not set" >>$(1); \
+		sed -i "/RTCONFIG_JFFS2USERICON/d" $(1); \
+		echo "RTCONFIG_JFFS2USERICON=y" >>$(1); \
 	fi; \
 	if [ "$(FANCTRL)" = "y" ]; then \
 		sed -i "/RTCONFIG_FANCTRL/d" $(1); \
@@ -1127,8 +1129,13 @@ define RouterOptions
 	else \
 		sed -i "/RTCONFIG_JFFS2LOG/d" $(1); \
 		echo "# RTCONFIG_JFFS2LOG is not set" >>$(1); \
-		sed -i "/RTCONFIG_JFFS2USERICON/d" $(1); \
-		echo "# RTCONFIG_JFFS2USERICON is not set" >>$(1); \
+		if [ "$(UBIFS)" = "y" ]; then \
+			sed -i "/RTCONFIG_JFFS2USERICON/d" $(1); \
+			echo "RTCONFIG_JFFS2USERICON=y" >>$(1); \
+		else \
+			sed -i "/RTCONFIG_JFFS2USERICON/d" $(1); \
+			echo "# RTCONFIG_JFFS2USERICON is not set" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(WPSMULTIBAND)" = "y" ]; then \
 		sed -i "/RTCONFIG_WPSMULTIBAND/d" $(1); \
@@ -1926,6 +1933,12 @@ endef
 
 define KernelConfig
 	@( \
+	sed -i "/CONFIG_PPP_DEFLATE/d" $(1); \
+	echo "CONFIG_PPP_DEFLATE=m" >>$(1); \
+	sed -i "/CONFIG_PPP_FILTER/d" $(1); \
+	echo "# CONFIG_PPP_FILTER is not set" >>$(1); \
+	sed -i "/CONFIG_PPP_MULTILINK/d" $(1); \
+	echo "# CONFIG_PPP_MULTILINK is not set" >>$(1); \
 if [ "$(TUNEK)" != "n" ]; then \
 	sed -i "/CONFIG_NVRAM_SIZE/d" $(1); \
 	echo "CONFIG_NVRAM_SIZE=`printf 0x%x $(NVRAM_SIZE)`" >>$(1); \

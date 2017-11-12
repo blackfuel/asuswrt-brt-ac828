@@ -1257,6 +1257,78 @@ function addOnlineHelp(obj, keywordArray){
 	}
 }
 
+function set_FAQ_link(_objID, _faqNum, _name) {
+	var faqLang = {
+		EN : "/",
+		TW : "/",
+		CN : "/",
+		CZ : "/",
+		PL : "/",
+		RU : "/",
+		DE : "/",
+		FR : "/",
+		TR : "/",
+		TH : "/",
+		MS : "/",
+		NO : "/",
+		FI : "/",
+		DA : "/",
+		SV : "/",
+		BR : "/",
+		PT : "/",
+		JP : "/",
+		ES : "/",
+		IT : "/",
+		UK : "/",
+		HU : "/",
+		RO : "/",
+		KR : "/",
+		SL : "/",
+		NL : "/"
+	};
+
+	switch(_name) {
+		case "privateIP" :
+			faqLang.TW = "/tw/";
+			faqLang.CN = ".cn/";
+			console.log(_objID);
+			break;
+		case "IPSec" :
+			faqLang.TW = "/tw/";
+			faqLang.CN = ".cn/";
+			break;
+		case "OpenVPN" :
+			faqLang.TW = "/TW/";
+			faqLang.CN = "/CN/";
+			faqLang.CZ = "/CZ/";
+			faqLang.PL = "/PL/";
+			faqLang.RU = "/RU/";
+			faqLang.DE = "/DE/";
+			faqLang.FR = "/FR/";
+			faqLang.TR = "/TR/";
+			faqLang.TH = "/TH/";
+			faqLang.PT = "/PT/";
+			faqLang.KR = "/KR/";
+			faqLang.ES = "/ES/";
+			faqLang.IT = "/IT/";
+			faqLang.UK = "/UK/";
+			faqLang.HU = "/HU/";
+			faqLang.RO = "/RO/";
+			break;
+	}
+
+	var preferredLang = "";
+	preferredLang = faqLang.<% nvram_get("preferred_lang"); %>;
+	if(preferredLang == undefined)
+		preferredLang = "/";
+
+	var faqURL = "";
+	faqURL = "https://www.asus.com" + preferredLang;
+	faqURL += "support/FAQ/";
+	faqURL += _faqNum;
+	$("#" + _objID + "").attr("href", faqURL);
+}
+
 function Block_chars(obj, keywordArray){
 	// bolck ascii code 32~126 first
 	var invalid_char = "";		

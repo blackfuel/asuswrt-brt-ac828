@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <meta HTTP-EQUIV="Expires" CONTENT="-1">
-<title><#Web_Title#> - Two-Way IPS</title>
+<title><#Web_Title#> - <#AiProtection_two-way_IPS#></title>
 <link rel="stylesheet" type="text/css" href="index_style.css"> 
 <link rel="stylesheet" type="text/css" href="form_style.css">
 <script type="text/javascript" src="/state.js"></script>
@@ -462,7 +462,7 @@ function deleteHover(flag){
 										<table width="730px">
 											<tr>
 												<td align="left">
-													<span class="formfonttitle"><#AiProtection_title#> - Two-Way IPS</span>
+													<span class="formfonttitle"><#AiProtection_title#> - <#AiProtection_two-way_IPS#></span>
 												</td>
 											</tr>
 										</table>
@@ -472,7 +472,7 @@ function deleteHover(flag){
 										<table width="700px" style="margin-left:25px;">
 											<tr>
 												<td style="font-size:14px;">
-													<div>Two-Way IPS (Intrusion Prevention System) prevents Spam or DDoS from attacking Internet device and blocks malicious incoming packets to protect router from network vulnerability attacks like Shellshocked, Heartbleed, Bitcoin mining and Ransomware attack ; And also detects suspicious outgoing packets to find infected device out, and then prevent from being enslaved by Botnets.</div>
+													<div><#AiProtection_two-way_IPS_desc#></div>
 												</td>
 											</tr>									
 										</table>
@@ -486,7 +486,7 @@ function deleteHover(flag){
 												<div style="display:table-row">
 													<!--div style="display:inline-block;padding: 5px 0"><input id="mali_checkbox" type="checkbox" onclick="mali_check();"></div>
 													<div style="display:inline-block;font-size:14px;vertical-align:bottom;padding: 5px 0" title="<#AiProtection_scan_desc#>"><#AiProtection_sites_blocking#></div-->
-													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center">Security Event</div>
+													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center"><#AiProtection_event#></div>
 												</div>
 												<div id="vulner_table" style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;position:relative;">
 													<div id="bar_shade" style="position:absolute;width:330px;height:330px;background-color:#505050;opacity:0.6;margin:5px;display:none"></div>
@@ -511,7 +511,7 @@ function deleteHover(flag){
 											</div>
 
 											<div style="display:table-cell;width:370px;height:350px;padding-left:10px;">
-												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;">Severity Level</div>
+												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;"><#AiProtection_level#></div>
 
 												<!-- Line Chart -Block-->
 												<div style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;padding-left:10px;position:relative">

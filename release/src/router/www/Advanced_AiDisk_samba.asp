@@ -324,7 +324,7 @@ function show_permissions_of_account(account_order, protocol){
 	}
 }
 
-function get_permission_of_folder(accountName, poolName, folderName, protocol, flag){
+function get_permission_of_folder(accountName, poolName, folderName, protocol){
 
 	if(select_flag == "group"){
 		var permissions = get_group_permissions_in_pool(accountName, poolName);
@@ -395,9 +395,9 @@ function submitChangePermission(protocol){
 						continue;
 				
 					if(target_account == "guest")
-						orig_permission = get_permission_of_folder(null, usbPartitionMountPoint, target_folder, PROTOCOL, falg);
+						orig_permission = get_permission_of_folder(null, usbPartitionMountPoint, target_folder, PROTOCOL);
 					else
-						orig_permission = get_permission_of_folder(target_account, usbPartitionMountPoint, target_folder, PROTOCOL, flag);
+						orig_permission = get_permission_of_folder(target_account, usbPartitionMountPoint, target_folder, PROTOCOL);
 					if(changedPermissions[target_account][usbPartitionMountPoint][target_folder] == orig_permission)
 						continue;
 				

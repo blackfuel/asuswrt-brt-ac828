@@ -1177,16 +1177,20 @@ void ipsec_conf_phase1_set(FILE *fp, int prof_idx, ipsec_prof_type_t prof_type)
     fprintf(fp, "  ikelifetime=%d\n", prof[prof_type][prof_idx].keylife_p1);
     if((ENCRYPTION_TYPE_MAX_NUM != prof[prof_type][prof_idx].encryption_p1) &&
        (HASH_TYPE_MAX_NUM != prof[prof_type][prof_idx].hash_p1)){
-        fprintf(fp,"  ike=%s-%s-%s!\n", encryp[prof[prof_type][prof_idx].encryption_p1]
+        fprintf(fp,"  ike=%s-%s-%s\n", encryp[prof[prof_type][prof_idx].encryption_p1]
                   , hash[prof[prof_type][prof_idx].hash_p1], dh_group[DH_GROUP_14]);
     } else if((ENCRYPTION_TYPE_MAX_NUM == prof[prof_type][prof_idx].encryption_p1) && 
               (HASH_TYPE_MAX_NUM != prof[prof_type][prof_idx].hash_p1)){
-        fprintf(fp,"  ike=%s-%s-%s!\n", encryp[ENCRYPTION_TYPE_AES128]
+        fprintf(fp,"  ike=%s-%s-%s,%s-%s-%s!\n", encryp[ENCRYPTION_TYPE_AES128]
+                  , hash[prof[prof_type][prof_idx].hash_p1], dh_group[DH_GROUP_14]
+                  , encryp[ENCRYPTION_TYPE_3DES]
                   , hash[prof[prof_type][prof_idx].hash_p1], dh_group[DH_GROUP_14]);
     } else if((ENCRYPTION_TYPE_MAX_NUM != prof[prof_type][prof_idx].encryption_p1) && 
               (HASH_TYPE_MAX_NUM == prof[prof_type][prof_idx].hash_p1)){
-        fprintf(fp,"  ike=%s-%s-%s!\n", encryp[prof[prof_type][prof_idx].encryption_p1]
-                  , hash[HASH_TYPE_SHA1], dh_group[DH_GROUP_14]);
+        fprintf(fp,"  ike=%s-%s-%s,%s-%s-%s!\n", encryp[prof[prof_type][prof_idx].encryption_p1]
+                  , hash[HASH_TYPE_SHA1], dh_group[DH_GROUP_14]
+                  , encryp[prof[prof_type][prof_idx].encryption_p1]
+                  , hash[HASH_TYPE_SHA256], dh_group[DH_GROUP_14]);
     }
     return;
 }
@@ -1196,16 +1200,20 @@ void ipsec_conf_phase2_set(FILE *fp, int prof_idx, ipsec_prof_type_t prof_type)
     fprintf(fp, "  keylife=%d\n", prof[prof_type][prof_idx].keylife_p2);
     if((ENCRYPTION_TYPE_MAX_NUM != prof[prof_type][prof_idx].encryption_p2) && 
        (HASH_TYPE_MAX_NUM != prof[prof_type][prof_idx].hash_p2)){
-        fprintf(fp,"  esp=%s-%s!\n", encryp[prof[prof_type][prof_idx].encryption_p2]
+        fprintf(fp,"  esp=%s-%s\n", encryp[prof[prof_type][prof_idx].encryption_p2]
                   , hash[prof[prof_type][prof_idx].hash_p2]);
     } else if((ENCRYPTION_TYPE_MAX_NUM == prof[prof_type][prof_idx].encryption_p2) &&
               (HASH_TYPE_MAX_NUM != prof[prof_type][prof_idx].hash_p2)){
-        fprintf(fp,"  esp=%s-%s!\n", encryp[ENCRYPTION_TYPE_AES128]
+        fprintf(fp,"  esp=%s-%s,%s-%s!\n", encryp[ENCRYPTION_TYPE_AES128]
+                  , hash[prof[prof_type][prof_idx].hash_p2]
+                  , encryp[ENCRYPTION_TYPE_3DES]
                   , hash[prof[prof_type][prof_idx].hash_p2]);
     } else if((ENCRYPTION_TYPE_MAX_NUM != prof[prof_type][prof_idx].encryption_p2) &&
               (HASH_TYPE_MAX_NUM == prof[prof_type][prof_idx].hash_p2)){
-        fprintf(fp,"  esp=%s-%s!\n", encryp[prof[prof_type][prof_idx].encryption_p2]
-                  , hash[HASH_TYPE_SHA1]);
+        fprintf(fp,"  esp=%s-%s,%s-%s!\n", encryp[prof[prof_type][prof_idx].encryption_p2]
+                  , hash[HASH_TYPE_SHA1]
+                  , encryp[prof[prof_type][prof_idx].encryption_p2]
+                  , hash[HASH_TYPE_SHA256]);
     }
     return;
 }

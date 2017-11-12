@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <meta HTTP-EQUIV="Expires" CONTENT="-1">
-<title><#Web_Title#> - Malicious Sites Blocking</title>
+<title><#Web_Title#> - <#AiProtection_sites_blocking#></title>
 <link rel="stylesheet" type="text/css" href="index_style.css"> 
 <link rel="stylesheet" type="text/css" href="form_style.css">
 <script type="text/javascript" src="/state.js"></script>
@@ -412,7 +412,7 @@ function deleteHover(flag){
 			<table width="98%" border="0" align="left" cellpadding="0" cellspacing="0" >
 				<tr>
 					<td valign="top" >		
-						<table width="730px" border="0" cellpadding="4" cellspacing="0" class="FormTitle" id="FormTitle" >
+						<table width="730px" border="0" cellpadding="4" cellspacing="0" class="FormTitle" id="FormTitle">
 							<tbody>
 							<tr>
 								<td class="content_bg" valign="top">
@@ -443,7 +443,7 @@ function deleteHover(flag){
 
 											<div style="display:table-cell;width:370px;height:350px;">
 												<div style="display:table-row">
-													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center">Security Event</div>
+													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center"><#AiProtection_event#></div>
 												</div>
 												<div id="vulner_table" style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;position:relative;">
 													<div id="bar_shade" style="position:absolute;width:330px;height:330px;background-color:#505050;opacity:0.6;margin:5px;display:none"></div>
@@ -468,7 +468,7 @@ function deleteHover(flag){
 											</div>
 
 											<div style="display:table-cell;width:370px;height:350px;padding-left:10px;">
-												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;">Threat Activities</div>
+												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;"><#AiProtection_activity#></div>
 
 												<!-- Line Chart -Block-->
 												<div style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;padding-left:10px;position:relative">

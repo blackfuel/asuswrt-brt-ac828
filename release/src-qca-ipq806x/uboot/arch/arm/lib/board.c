@@ -884,9 +884,9 @@ static void handle_boottype_5(void)
 static void handle_boottype_7(void)
 {
 	int my_tmp, argc= 3;
-	char *argv[4];
 	cmd_tbl_t c, *cmdtp = &c;
 	char tftp_load_addr[] = "0x81000000XXX";
+	char *argv[4] = { "loadb", tftp_load_addr, NULL, NULL };
 	unsigned int addr = CONFIG_SYS_LOAD_ADDR;
 
 	sprintf(tftp_load_addr, "0x%x", addr);

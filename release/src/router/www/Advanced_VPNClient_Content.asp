@@ -144,38 +144,19 @@ function initial(){
 		while(document.ipsec_form.ipsec_local_public_interface.options.length > 0){
 			document.ipsec_form.ipsec_local_public_interface.remove(0);
 		}
-		var wans_cap = '<% nvram_get("wans_cap"); %>'.split(" ");
 		var wan_type_list = [];
-		for(var i = 0; i < wans_cap.length; i += 1) {
-			var option_value = "";
-			var option_text = "";
-			option_value = wans_cap[i];
-			
-			switch(wans_cap[i]) {
-				case "wan" :
-					option_text = "<#menu5_3#>";
-					break;
-				case "wan2" :
-					option_text = wans_cap[i].toUpperCase();
-					break;
-				case "usb" :
-					option_text = wans_cap[i].toUpperCase();
-					break;
-				case "lan" :
-					option_text = "Ethernet LAN";
-					break;
-			}
-
-			var option = [option_value, option_text];
+		var option = ["wan", "<#dualwan_primary#>"];
+		wan_type_list.push(option);
+		if(dualWAN_support) {
+			option = ["wan2", "<#dualwan_secondary#>"];
 			wan_type_list.push(option);
 		}
-		var selectobject = document.ipsec_form.ipsec_local_public_interface;
 
 		for(var i = 0; i < wan_type_list.length; i += 1) {
 			var option = document.createElement("option");
 			option.value = wan_type_list[i][0];
 			option.text = wan_type_list[i][1];
-			selectobject.add(option);
+			document.ipsec_form.ipsec_local_public_interface.add(option);
 		}
 	}
 }
@@ -1854,8 +1835,8 @@ function save_ipsec_profile_panel() {
 
 					var subnetIP = existSubnetObj.value.split("/")[0];
 					var maskCIDR = parseInt(existSubnetObj.value.split("/")[1], 10);
-					if (isNaN(maskCIDR) || maskCIDR != 24){
-						alert("Mask address must be 24.");/*untranslated*/
+					if (isNaN(maskCIDR) || (maskCIDR != 24 && maskCIDR != 23)){
+						alert("Mask address must be 23 or 24.");/*untranslated*/
 						existSubnetObj.focus();
 						existSubnetObj.select();
 						return false;
@@ -1928,6 +1909,7 @@ function save_ipsec_profile_panel() {
 		remote_subnet_list = get_subnet_list("remote");
 
 		var local_public_ip = "";
+		/*
 		var wans_dualwan_array = '<% nvram_get("wans_dualwan"); %>'.split(" ");
 		var wans_index = 0;
 		for(var i = 0; i < wans_dualwan_array.length; i += 1) {
@@ -1946,6 +1928,7 @@ function save_ipsec_profile_panel() {
 				local_public_ip = secondary_wanlink_ipaddr();
 				break;
 		}
+		*/
 
 		var auth_method_vaule = document.ipsec_form.ipsec_preshared_key.value;
 		var ipsec_profilename = document.ipsec_form.ipsec_profilename.value + "_c" + profile_idx;

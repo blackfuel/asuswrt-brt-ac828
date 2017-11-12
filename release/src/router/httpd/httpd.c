@@ -1077,7 +1077,7 @@ handle_request(void)
 	}
 // 2007.11 James. }
 
-	if( (strstr(url, ".asp") || strstr(url, ".htm")) && !strstr(url, "update_networkmapd.asp") && !strstr(url, "update_clients.asp") ) {
+	if( (strstr(url, ".asp") || strstr(url, ".htm")) && !strstr(url, "update_networkmapd.asp") && !strstr(url, "update_clients.asp") && !strstr(url, "update_customList.asp") ) {
 		memset(current_page_name, 0, sizeof(current_page_name));
 		snprintf(current_page_name, sizeof(current_page_name), "%s", url);
 	}

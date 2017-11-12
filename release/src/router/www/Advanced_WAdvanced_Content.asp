@@ -421,6 +421,11 @@ function initial(){
 		inputCtrl(document.form.wl_atf, 0);
 	}
 	
+
+	if( based_modelid == "BRT-AC828" ||  based_modelid == "RT-AC82U" ||  based_modelid == "RT-AC58U" || based_modelid == "MAP-AC1300" || based_modelid == "MAP-AC2200" || based_modelid == "VRZ-AC1300")
+		document.getElementById("wl_implicitxbf_field").style.display = "";
+	else
+		document.getElementById("wl_implicitxbf_field").style.display = "none";
 	/* Hardware WiFi offloading */
 	if(based_modelid == "RT-AC88Q" || based_modelid == "BRT-AC828"){
 		inputCtrl(document.form.wl_hwol, 1);
@@ -1574,7 +1579,7 @@ function handle_beamforming(value){
 						</td>
 					</tr>					
 					<tr id="wl_itxbf_field">
-						<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(3,25);"><#WLANConfig11b_x_uniBeam#></a></th>
+						<th><a id="wl_itxbf_desc" class="hintstyle" href="javascript:void(0);" onClick="openHint(3,25);"><#WLANConfig11b_x_uniBeam#></a></th>
 						<td>
 							<select name="wl_itxbf" class="input_option" disabled>
 								<option value="0" <% nvram_match("wl_itxbf", "0","selected"); %> ><#WLANConfig11b_WirelessCtrl_buttonname#></option>
@@ -1582,7 +1587,16 @@ function handle_beamforming(value){
 							</select>
 						</td>
 					</tr>					
-
+					<!-- RT-AC82U & RT-AC58U & MAP-AC1300 & MAP-AC2200 & VRZ-AC1300 -->
+					<tr id="wl_implicitxbf_field"  style="display:none">
+						<th><a class="hintstyle" href="javascript:void(0);" onClick="">Implicit beamforming</a></th>
+						<td>
+							<select name="wl_implicitxbf" class="input_option">
+								<option value="0" <% nvram_match("wl_implicitxbf", "0","selected"); %>><#WLANConfig11b_WirelessCtrl_buttonname#></option>
+								<option value="1" <% nvram_match("wl_implicitxbf", "1","selected"); %>><#WLANConfig11b_WirelessCtrl_button1name#></option>
+							</select>
+						</td>
+					</tr>
 					<tr id="wl_txPower_field">
 						<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(0, 16);"><#WLANConfig11b_TxPower_itemname#></a></th>
 						<td>

@@ -331,7 +331,7 @@ function toolbar_unit_help(event) {
 	code += "</div>";
 	code += "</div>";
 	code += "<div class='help_desc step1'>";
-	code += "<div class='help_desc_title'>1. <#FreeWiFi_Temp_Select#></div>";
+	code += "<div class='help_desc_title'>1. Select a template</div>";/*untranslated*/
 	code += "<div class='help_desc_text'><#FreeWiFi_Temp_Select_desc#></div>";
 	code += "</div>";
 	code += "</div>";
@@ -3978,13 +3978,13 @@ function finishRule(flag) {
 	document.form.force_change.value++;
 	document.form.action_script.value = "set_captive_portal_adv_wl;restart_wireless;restart_CP;restart_uam_srv";
 
-	if(based_modelid == "BRT-AC828") {
+	//if(based_modelid == "BRT-AC828") {
 		var captive_portal_adv_enable_ori = '<% nvram_get("captive_portal_adv_enable"); %>';
 		if(captive_portal_adv_enable_ori == "off") {
-			cookie.set("captive_portal_gn_idx", get_captive_portal_wl_idx("captivePortal"), 1);
+			cookie.set("captive_portal_gn_idx", get_captive_portal_wl_idx("captivePortal") + ">captivePortal", 1);
 			document.form.next_page.value = "Guest_network.asp";
 		}
-	}
+	//}
 
 	document.form.captive_portal_adv_wl_en.value = rc_service_wl_en;
 	document.form.captive_portal_adv_wl_dis.value = rc_service_wl_dis;
@@ -4673,7 +4673,7 @@ function show_event_log() {
 	code += "<tr id='tr_auth_pass' style='cursor:pointer;height:40px;'>";
 	code += "<th id='th_macAddress_pass' width='10%' onclick='connect_status_sorter.addBorder(\"pass\", this);connect_status_sorter.doSorter(\"pass\");' style='cursor:pointer;'><#PPPConnection_x_MacAddressForISP_itemname#></th>";
 	code += "<th id='th_ipAddress_pass' width='10%' onclick='connect_status_sorter.addBorder(\"pass\", this);connect_status_sorter.doSorter(\"pass\");'><#IPConnection_ExternalIPAddress_itemname#></th>";
-	code += "<th id='th_userName_pass' width='10%' onclick='connect_status_sorter.addBorder(\"pass\", this);connect_status_sorter.doSorter(\"pass\");'>User Name</th>";/*untranslated*/
+	code += "<th id='th_userName_pass' width='10%' onclick='connect_status_sorter.addBorder(\"pass\", this);connect_status_sorter.doSorter(\"pass\");'><#Username#></th>";
 	code += "<th id='th_auth_pass' width='10%' onclick='connect_status_sorter.addBorder(\"pass\", this);connect_status_sorter.doSorter(\"pass\");'><#PPPConnection_Authentication_itemname#></th>";
 	code += "<th id='th_session_pass' width='10%' onclick='connect_status_sorter.addBorder(\"pass\", this);connect_status_sorter.doSorter(\"pass\");'><#FreeWiFi_timeout#></th>";
 	code += "<th id='th_awayTimeout_pass' width='10%' onclick='connect_status_sorter.addBorder(\"pass\", this);connect_status_sorter.doSorter(\"pass\");'><#FreeWiFi_Idle#></th>";

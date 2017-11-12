@@ -168,16 +168,16 @@ function initial(){
 				change_apn_mode();
 			}
 			else{
-				document.getElementById("android_desc").style.display="";					
+				document.getElementById("android_desc").style.display="";
 				hide_usb_settings(1);
-			}				
+			}
 		},
 		function() {
 			if(dualWAN_support){
 				if(usb_index == 0)
-						document.form.wans_dualwan.value = wans_dualwan_array[1]+" none";
-					else
-						document.form.wans_dualwan.value = wans_dualwan_array[0]+" none";
+					document.form.wans_dualwan.value = wans_dualwan_array[1]+" none";
+				else
+					document.form.wans_dualwan.value = wans_dualwan_array[0]+" none";
 			}
 			else
 				document.form.modem_enable.value = "0";
@@ -820,10 +820,10 @@ function change_apn_mode(){
 					</tr>
 
 					<tr>
-						<th width="40%">APN Configuration</th><!--untranslated-->
+						<th width="40%"><#APN_configuration#></th>
 						<td>
 							<select name="modem_autoapn" id="modem_autoapn" class="input_option" onchange="change_apn_mode();">
-								<option value="1" <% nvram_match("modem_autoapn", "1","selected"); %>>Automatic</option><!--untranslated-->
+								<option value="1" <% nvram_match("modem_autoapn", "1","selected"); %>><#Auto#></option>
 								<option value="0" <% nvram_match("modem_autoapn", "0","selected"); %>><#Manual_Setting_btn#></option>
 							</select>
 						</td>
@@ -860,7 +860,7 @@ function change_apn_mode(){
 					</tr>
 
           			<tr id="modem_enable_div_tr" style="display:none;">
-						<th>Telecommunications Standards</th>
+						<th><#Tele_Standards#></th>
 	            		<td>
 							<div id="modem_enable_div" style="color:#FFFFFF; margin-left:1px;"></div>
 						</td>

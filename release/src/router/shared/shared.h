@@ -115,12 +115,13 @@
 /**
  * skb->mark usage
  * 1.	bit 28~31:	Load-balance rule, IPTABLES_MARK_LB_*
- * 2.	bit 26~27:	Facebook Wi-Fi, FBWIFI_MARK_*
+ * 2.	bit  6~7 :	Facebook Wi-Fi, FBWIFI_MARK_*
  * 3.	bit  0~5 :	QoS (T.QoS: bit 0~2, BWLIT: bit 0~5)
+ * 4.   bit 31~8 :	TrendMicro adaptive QoS needs bit 8~31.
  */
 #define IPTABLES_MARK_LB_SET(x)	((((x)&0xFU)|0x8)<<28)			/* mark for load-balance, bit 28~31, bit31 is always 1. */
 #define IPTABLES_MARK_LB_MASK	IPTABLES_MARK_LB_SET(0xf)
-#define FBWIFI_MARK_SET(x)	(((x)&0x3U)<<26)			/* Facebook Wi-Fi: bit 26~27 */
+#define FBWIFI_MARK_SET(x)	(((x)&0x3U)<<6)				/* Facebook Wi-Fi: bit 6~7 */
 #define FBWIFI_MARK_MASK	FBWIFI_MARK_SET(0x3)
 #define FBWIFI_MARK_INV_MASK	(~(FBWIFI_MARK_SET(0x3)))
 #define QOS_MASK		(0x3F)

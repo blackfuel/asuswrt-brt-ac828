@@ -565,6 +565,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_turbo_qam", "1"},
 	{ "wl_turbo_qam_brcm_intop", "1"},
 	{ "wl_txbf", "1" },
+	{ "wl_implicitxbf", "0" },
 	{ "wl_mumimo", "0" },
 #endif
 #endif
@@ -1100,7 +1101,7 @@ struct nvram_tuple router_defaults[] = {
 	 * LAN and WAN interface temporarilly.
 	 * GRO is not turn on if WAN is PPPoE, PPTP, L2TP, USB
 	 */
-	{ "qca_gro", "1" },
+	{ "qca_gro", "0" },
 #endif
 
 #if defined(RTCONFIG_SOC_QCA9557)

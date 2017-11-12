@@ -336,7 +336,7 @@ helpcontent[31] = new Array("",
 
 //VPN Fusion
 helpcontent[32] = new Array("",
-							"The client device which doesn't exist in the exception list will connect to default connection. You can set the default as VPN tunnel once VPN profile created. If the VPN tunnel setting as default is disconnected or deactivate, the client device will connect to Internet.",/*untranslated*/
+							"<#VPN_Fusion_Default_Cconnection#>",
 							"Enable this option allows VPN clients to access the subnet of your LAN",/*untranslated*/
 							"Enable this option allows VPN clients use the Internet from your router instead of the one at their location.",/*untranslated*/
 							"Virtual network device type. TUN devices encapsulate IPv4 or IPv6 (OSI Layer 3) while TAP devices encapsulate Ethernet 802.3 (OSI Layer 2).",/*untranslated*/

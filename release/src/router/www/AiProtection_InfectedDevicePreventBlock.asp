@@ -444,7 +444,7 @@ function deleteHover(flag){
 										<table width="700px" style="margin-left:25px;">
 											<tr>
 												<td style="font-size:14px;">
-													<div>Infected Device Prevention and Blocking prevents infected network device from being enslaved by Botnets or Zombies, and stealing your sensitive information or attacking other computers.</div>
+													<div><#AiProtection_detection_block_desc#></div>
 												</td>
 											</tr>									
 										</table>
@@ -456,7 +456,7 @@ function deleteHover(flag){
 
 											<div style="display:table-cell;width:370px;height:350px;">
 												<div style="display:table-row">
-													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center">Security Event</div>
+													<div style="font-size:16px;margin:0 0 5px 5px;text-align:center"><#AiProtection_event#></div>
 												</div>
 												<div id="vulner_table" style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;position:relative;">
 													<div id="bar_shade" style="position:absolute;width:330px;height:330px;background-color:#505050;opacity:0.6;margin:5px;display:none"></div>
@@ -481,7 +481,7 @@ function deleteHover(flag){
 											</div>
 
 											<div style="display:table-cell;width:370px;height:350px;padding-left:10px;">
-												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;">Threat Activities</div>
+												<div style="font-size:16px;margin:0 0 5px 5px;text-align:center;"><#AiProtection_activity#></div>
 
 												<!-- Line Chart -Block-->
 												<div style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;padding-left:10px;position:relative">

@@ -90,6 +90,8 @@ var ipsec_client_list_1 = decodeURIComponent('<% nvram_char_to_ascii("","ipsec_c
 var ipsec_client_list_array = ipsec_client_list_1;
 var ipsec_server_enable = '<% nvram_get("ipsec_server_enable"); %>';
 var ipsec_connect_status_array = new Array();
+var ddns_enable_x = '<% nvram_get("ddns_enable_x"); %>';
+var ddns_hostname_x = '<% nvram_get("ddns_hostname_x"); %>';
 
 function initial(){
 	show_menu();
@@ -116,44 +118,20 @@ function initial(){
 	while(document.form.ipsec_local_public_interface.options.length > 0){
 		document.form.ipsec_local_public_interface.remove(0);
 	}
-	var add_public_interface = function() {
-		var wans_cap = '<% nvram_get("wans_cap"); %>'.split(" ");
-		var wan_type_list = [];
-		for(var i = 0; i < wans_cap.length; i += 1) {
-			var option_value = "";
-			var option_text = "";
-			option_value = wans_cap[i];
-			
-			switch(wans_cap[i]) {
-				case "wan" :
-					option_text = "<#menu5_3#>";
-					break;
-				case "wan2" :
-					option_text = wans_cap[i].toUpperCase();
-					break;
-				case "usb" :
-					option_text = wans_cap[i].toUpperCase();
-					break;
-				case "lan" :
-					option_text = "Ethernet LAN";
-					break;
-			}
+	var wan_type_list = [];
+	var option = ["wan", "<#dualwan_primary#>"];
+	wan_type_list.push(option);
+	if(dualWAN_support) {
+		option = ["wan2", "<#dualwan_secondary#>"];
+		wan_type_list.push(option);
+	}
 
-			var option = [option_value, option_text];
-			wan_type_list.push(option);
-		}
-		var selectobject = document.form.ipsec_local_public_interface;
-
-		for(var i = 0; i < wan_type_list.length; i += 1) {
-			var option = document.createElement("option");
-			option.value = wan_type_list[i][0];
-			option.text = wan_type_list[i][1];
-			selectobject.add(option);
-		}	
-	};
-
-	add_public_interface();
-
+	for(var i = 0; i < wan_type_list.length; i += 1) {
+		var option = document.createElement("option");
+		option.value = wan_type_list[i][0];
+		option.text = wan_type_list[i][1];
+		document.form.ipsec_local_public_interface.add(option);
+	}
 	
 	if(ipsec_profile_1 != "") {
 		var editProfileArray = [];
@@ -164,6 +142,16 @@ function initial(){
 		document.form.ipsec_clients_start.value = editProfileArray[15];
 		document.form.ipsec_dpd.value = editProfileArray[31];
 		settingRadioItemCheck(document.form.ipsec_dead_peer_detection, editProfileArray[32]);
+	}
+	else {
+		var ipsecLanIPAddr = "10.10.10.1";
+		var ipsecLanNetMask = "255.255.255.0";
+		var ipConflict;
+		//1.check LAN IP
+		ipConflict = checkIPConflict("LAN", ipsecLanIPAddr, ipsecLanNetMask);
+		if(ipConflict.state) {
+			document.form.ipsec_clients_start.value = "10.10.11";
+		}
 	}
 
 	changeAdvDeadPeerDetection(document.form.ipsec_dead_peer_detection);
@@ -176,6 +164,12 @@ function initial(){
 
 	//check DUT is belong to private IP.
 	setTimeout("show_warning_message();", 100);
+
+	//set FAQ URL
+	set_FAQ_link("faq_windows", "1033576", "IPSec");
+	set_FAQ_link("faq_macOS", "1033575", "IPSec");
+	set_FAQ_link("faq_iPhone", "1033574", "IPSec");
+	set_FAQ_link("faq_android", "1033572", "IPSec");
 }
 
 var MAX_RETRY_NUM = 5;
@@ -190,30 +184,50 @@ function show_warning_message(){
 		}
 		else if(realip_state != "2"){
 			if(validator.isPrivateIP(wanlink_ipaddr())){
-				document.getElementById("privateIP_notes").innerHTML = "<#vpn_privateIP_hint#>"
+				document.getElementById("privateIP_notes").innerHTML = "<#vpn_privateIP_hint#>";
 				document.getElementById("privateIP_notes").style.display = "";
 				$(".general_server_addr").html("-");
+				set_FAQ_link("faq_port_forwarding", "1033906", "privateIP");//this id is include in string : #vpn_privateIP_hint#
 			}
-			else
-				$(".general_server_addr").html(wanlink_ipaddr());
+			else {
+				if(ddns_enable_x == "1" && ddns_hostname_x != "") {
+					$(".general_server_addr").html(ddns_hostname_x);
+				}
+				else {
+					$(".general_server_addr").html(wanlink_ipaddr() + ', ' + '<a href="../Advanced_ASUSDDNS_Content.asp" target="_blank" style="text-decoration: underline; font-family:Lucida Console;">please click here to set the DDNS.</a>');/*untranslated*/
+				}
+			}
 		}
 		else{
 			if(!external_ip){
-				document.getElementById("privateIP_notes").innerHTML = "<#vpn_privateIP_hint#>"
+				document.getElementById("privateIP_notes").innerHTML = "<#vpn_privateIP_hint#>";
 				document.getElementById("privateIP_notes").style.display = "";
 				$(".general_server_addr").html("-");
+				set_FAQ_link("faq_port_forwarding", "1033906", "privateIP");//this id is include in string : #vpn_privateIP_hint#
 			}
-			else
-				$(".general_server_addr").html(wanlink_ipaddr());
+			else {
+				if(ddns_enable_x == "1" && ddns_hostname_x != "") {
+					$(".general_server_addr").html(ddns_hostname_x);
+				}
+				else {
+					$(".general_server_addr").html(wanlink_ipaddr() + ', ' + '<a href="../Advanced_ASUSDDNS_Content.asp" target="_blank" style="text-decoration: underline; font-family:Lucida Console;">please click here to set the DDNS.</a>');/*untranslated*/
+				}
+			}
 		}
 	}
 	else if(validator.isPrivateIP(wanlink_ipaddr())){
-		document.getElementById("privateIP_notes").innerHTML = "<#vpn_privateIP_hint#>"
+		document.getElementById("privateIP_notes").innerHTML = "<#vpn_privateIP_hint#>";
 		document.getElementById("privateIP_notes").style.display = "";
 		$(".general_server_addr").html("-");
+		set_FAQ_link("faq_port_forwarding", "1033906", "privateIP");//this id is include in string : #vpn_privateIP_hint#
 	}
 	else {
-		$(".general_server_addr").html(wanlink_ipaddr());
+		if(ddns_enable_x == "1" && ddns_hostname_x != "") {
+			$(".general_server_addr").html(ddns_hostname_x);
+		}
+		else {
+			$(".general_server_addr").html(wanlink_ipaddr() + ', ' + '<a href="../Advanced_ASUSDDNS_Content.asp" target="_blank" style="text-decoration: underline; font-family:Lucida Console;">please click here to set the DDNS.</a>');/*untranslated*/
+		}
 	}
 }
 
@@ -242,16 +256,12 @@ function ipsecShowAndHide(server_enable) {
 	document.form.ipsec_server_enable.value = ipsec_server_enable;
 	if(ipsec_server_enable == "1") {
 		showhide("tr_general_server_addr", 1);
-		showhide("tr_ike_isakmp", 1);
-		showhide("tr_ike_isakmp_nat", 1);
 		showhide("tr_general_connection_status", 1);
 		showhide("tr_general_log", 1);
 		$("#ipsec_main_setting").css("display", "");
 	}
 	else{
 		showhide("tr_general_server_addr", 0);
-		showhide("tr_ike_isakmp", 0);
-		showhide("tr_ike_isakmp_nat", 0);
 		showhide("tr_general_connection_status", 0);
 		showhide("tr_general_log", 0);
 		$("#ipsec_main_setting").css("display", "none");
@@ -482,6 +492,18 @@ function validForm() {
 			return false;
 		}
 
+		var ipsecLanIPAddr = ipAddr;
+		var ipsecLanNetMask = "255.255.255.0";
+		var ipConflict;
+		//1.check LAN IP
+		ipConflict = checkIPConflict("LAN", ipsecLanIPAddr, ipsecLanNetMask);
+		if(ipConflict.state) {
+			alert("Conflict with LAN IP: " + ipConflict.ipAddr + ",\n" + "Network segment is " + ipConflict.netLegalRangeStart + " ~ " + ipConflict.netLegalRangeEnd);
+			document.form.ipsec_clients_start.focus();
+			document.form.ipsec_clients_start.select();
+			return false;
+		}
+
 		if(getRadioItemCheck(document.form.ipsec_dead_peer_detection) == "1") {
 			if(!validator.numberRange(document.form.ipsec_dpd, 10, 900)) {
 				return false;
@@ -617,10 +639,17 @@ function update_connect_status() {
 			}
 			if(ipsec_connect_status_array["Host-to-Net"] != undefined) {
 				var connected_count = (ipsec_connect_status_array["Host-to-Net"].split("<").length - 1);
-				var code = "";
-				code +='<a class="hintstyle2" href="javascript:void(0);" onClick="showIPSecClients(\'Host-to-Net\', event);">';
-				code +='<#btn_Enabled#>(' + connected_count + ')</a>';
-				$(".general_connection_status").html(code);
+				if(connected_count > 0) {
+					var code = "";
+					code +='<a class="hintstyle2" href="javascript:void(0);" onClick="showIPSecClients(\'Host-to-Net\', event);">';
+					code +='<#btn_Enabled#>(' + connected_count + ')</a>';
+					$(".general_connection_status").html(code);
+				}
+				else
+					$(".general_connection_status").html("-");
+			}
+			else {
+				$(".general_connection_status").html("-");
 			}
 			setTimeout("update_connect_status();",3000);
 		}
@@ -764,6 +793,16 @@ function showIPSecClients(profileName, e) {
 									</table>
 
 									<div id="ipsec_main_setting">
+										<div class="formfontdesc" style="margin-top:8px;">
+											How to setup IPSec VPN client
+											<br>
+											<ol>
+												<li><a id="faq_windows" href="https://www.asus.com/support/FAQ/1033576" target="_blank" style="text-decoration:underline;">Windows</a></li>
+												<li><a id="faq_macOS" href="https://www.asus.com/support/FAQ/1033575" target="_blank" style="text-decoration:underline;">Mac OS</a></li>
+												<li><a id="faq_iPhone" href="https://www.asus.com/support/FAQ/1033574" target="_blank" style="text-decoration:underline;">iOS</a></li>
+												<li><a id="faq_android" href="https://www.asus.com/support/FAQ/1033572" target="_blank" style="text-decoration:underline;">Android</a></li>
+											<ol>
+										</div>
 										<!-- Quick Select table start-->
 										<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable" style="margin-top:15px;">
 											<thead>

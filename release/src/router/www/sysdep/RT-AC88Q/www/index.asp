@@ -314,7 +314,7 @@ function initial(){
 					document.getElementById("deviceText_" + usbIndex).appendChild(divUsbMountCount);
 
 					$(".usb_count_circle").mouseover(function(){
-						return overlib(this.innerHTML + " usb devices are plugged in <#Web_Title2#> through this port.");
+						return overlib(this.innerHTML + " usb devices are plugged in <% nvram_get("productid"); %> through this port.");
 					});
 
 					$(".usb_count_circle").mouseout(function(){
@@ -2602,7 +2602,7 @@ function closeClientDetailView() {
 				</tr>
 			</table>
 			</div>
-			<div style="clear:both;">
+			<div style="clear:both;"></div>
 		</div>
 	</div>
 <!--==============Ending of hint content=============-->

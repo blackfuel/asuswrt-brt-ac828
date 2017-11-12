@@ -560,13 +560,12 @@ static int test_one_class(const struct ip_mask_s *pt, const struct ip_mask_s *pk
 					if (p->cidr < max_cidr)
 						max_cidr = p->cidr;
 					dbg("\t%08x/%d conflicts, max_cidr %d.\n", p->ip, p->cidr, max_cidr);
+					logmessage("", "\t%08x/%d conflicts, max_cidr %d.\n", p->ip, p->cidr, max_cidr);
 					c++;
 				}
 			}
 
 			if (c == 0) {
-				dbg("Find non-conflicts network %08x/%d for %08x/%d\n",
-					s, i, *exp_ip, exp_cidr);
 				new_ip = s;
 				found = 1;
 				break;
@@ -590,6 +589,8 @@ static int test_one_class(const struct ip_mask_s *pt, const struct ip_mask_s *pk
 		if ((new_ip & m) == (*exp_ip & m))
 			return 0;
 		else {
+			dbg("Find non-conflicts network %08x/%d for %08x/%d\n",
+				s, i, *exp_ip, exp_cidr);
 			// dbg("New IP/mask %08x/%d\n", new_ip, exp_cidr);
 			*exp_ip = new_ip;
 			return 1;
@@ -1078,10 +1079,10 @@ static int get_known_networks(unsigned int nr, struct ip_mask_s *tbl, uint32_t e
  */
 int test_and_get_free_uint_network(int t_class, uint32_t *exp_ip, uint32_t exp_cidr, uint32_t excl)
 {
-	int i, exp_class_idx, r = -1, nr;
+	int i, exp_class_idx, r = -1, nr, may_conflicts = 0;
 	uint32_t m, ip, cidr;
 	const struct ip_mask_s *pv;
-	struct ip_mask_s known_network_tbl[50];
+	struct ip_mask_s known_network_tbl[50], *kn;
 
 	if (!exp_ip || exp_cidr <= 0 || exp_cidr > 30)
 		return -1;
@@ -1108,6 +1109,18 @@ int test_and_get_free_uint_network(int t_class, uint32_t *exp_ip, uint32_t exp_c
 	nr = ARRAY_SIZE(known_network_tbl);
 	memset(known_network_tbl, 0, nr);
 	get_known_networks(--nr, known_network_tbl, excl);   /* leave last elements */
+
+	for (i = 0, kn = &known_network_tbl[0];
+	    i < ARRAY_SIZE(known_network_tbl) && kn->ip && kn->cidr;
+	    ++i, ++kn)
+	{
+		m = min(exp_cidr, kn->cidr);
+		if ((*exp_ip & m) == (kn->ip & m))
+			may_conflicts++;
+	}
+
+	if (!may_conflicts)
+		return 0;
 
 	/* Try class own @exp_ip/@exp_cidr. */
 	if (exp_class_idx >= 0 && exp_class_idx < ARRAY_SIZE(private_network_tbl)) {

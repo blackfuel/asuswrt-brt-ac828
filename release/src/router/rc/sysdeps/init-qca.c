@@ -1138,7 +1138,7 @@ void init_syspara(void)
 	char pin[9];
 	char productid[13];
 	char fwver[8];
-	char blver[20];
+	char blver[32];
 #ifdef RTCONFIG_ODMPID
 	char modelname[16];
 #endif

@@ -662,10 +662,16 @@ void create_passwd(void)
 			"%s:x:100:100:nas:/dev/null:/dev/null\n"
 #endif	//!!TB
 			"nobody:x:65534:65534:nobody:/dev/null:/dev/null\n"
+#ifdef RTCONFIG_IPSEC
+			"admin:x:0:0:%s:/root:/dev/null\n"
+#endif
 			, http_user, http_user
 #ifdef RTCONFIG_SAMBASRV	//!!TB
 			, smbd_user
 #endif	//!!TB
+#ifdef RTCONFIG_IPSEC
+			,http_user
+#endif
 			);
 	f_write_string("/etc/passwd", s, 0, 0644);
 	fappend_file("/etc/passwd", "/etc/passwd.custom");
@@ -920,6 +926,8 @@ void start_dnsmasq(void)
 	char *lan_ifname, *lan_ipaddr;
 	char *value;
 	int /*i,*/ have_dhcp = 0;
+	char max_queries_str[sizeof("10000XXX")];
+	unsigned int max_queries = 150;
 #ifdef RTCONFIG_IPSEC	
 	int unit;
 	char tmpStr[20];
@@ -1331,10 +1339,27 @@ void start_dnsmasq(void)
 	/* Create resolv.dnsmasq with empty server list */
 	f_write(dmservers, NULL, 0, FW_APPEND, 0666);
 
+#if defined(RTCONFIG_SOC_IPQ8064)
+	max_queries = 1500;
+#endif
+	if (nvram_get("max_dns_queries") != NULL) {
+		unsigned int v;
+
+		v = nvram_get_int("max_dns_queries");
+		if (v < 150)
+			v = 150;
+		else if (v > 10000)
+			v = 10000;
+
+		max_queries = v;
+	}
+
+	snprintf(max_queries_str, sizeof(max_queries_str), "%d", max_queries);
+
 #if (defined(RTCONFIG_TR069) && !defined(RTCONFIG_TR181))
-	eval("dnsmasq", "--log-async", "-6", "/sbin/dhcpc_lease");
+	eval("dnsmasq", "--log-async", "-6", "/sbin/dhcpc_lease", "-0", max_queries_str);
 #else
-	eval("dnsmasq", "--log-async");
+	eval("dnsmasq", "--log-async", "-0", max_queries_str);
 #endif
 
 	TRACE_PT("end\n");
@@ -5775,9 +5800,12 @@ void start_CP(void)
 		}
 	}
 	if(conn_flag){
-	   	eval("iptables-restore", NAT_RULES);
+		nvram_set_int("nat_state", NAT_STATE_UPDATE);
+		_dprintf("nat_rule: start_nat_rules CP.\n");
+		start_nat_rules();
 	}else{
-   	   	eval("iptables-restore", "/tmp/redirect_rules");
+		_dprintf("nat_rule: stop_nat_rules CP.\n");
+		stop_nat_rules();
 	}
 	//dd_syslog(LOG_INFO, "chilli : chilli daemon successfully started\n");
 #ifdef CONFIG_BCMWL5
@@ -5953,9 +5981,12 @@ void start_chilli(void)
 		}
 	}
 	if(conn_flag){
-	   	eval("iptables-restore", NAT_RULES);
+		nvram_set_int("nat_state", NAT_STATE_UPDATE);
+		_dprintf("nat_rule: start_nat_rules chilli.\n");
+		start_nat_rules();
 	}else{
-   	   	eval("iptables-restore", "/tmp/redirect_rules");
+		_dprintf("nat_rule: stop_nat_rules chilli.\n");
+		stop_nat_rules();
 	}
 	//dd_syslog(LOG_INFO, "chilli : chilli daemon successfully started\n");
 #ifdef CONFIG_BCMWL5
@@ -9630,8 +9661,10 @@ _dprintf("test 2. turn off the USB power during %d seconds.\n", reset_seconds[re
 #if defined(RTCONFIG_IPSEC)
         else if(0 == strcmp(script, "ipsec_set")){
             rc_ipsec_set(IPSEC_SET,PROF_SVR);
+			start_dnsmasq();
         } else if(0 == strcmp(script, "ipsec_start")){
             rc_ipsec_set(IPSEC_START,PROF_SVR);
+			start_dnsmasq();
         } else if(0 == strcmp(script, "ipsec_stop")){
             rc_ipsec_set(IPSEC_STOP,PROF_SVR);
         } else if(0 == strcmp(script, "ipsec_set_cli")){
@@ -10664,6 +10697,30 @@ set_captive_portal_wl(void) {
 			_dprintf("set %s : %s\n", wl_item, "10");
 		}
 
+		//bw_enabled
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_enabled", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "0")) {
+			nvram_set(wl_item, "0");
+			_dprintf("set %s : %s\n", wl_item, "0");
+		}
+
+		//bw_dl
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_dl", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
+		//bw_ul
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_ul", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
 		//captive_portal_2g_if_temp
 		if(strcmp(nvram_safe_get("captive_portal_2g_if_temp"),wl_unit)) {
 			nvram_set("captive_portal_2g_if_temp", wl_unit);
@@ -10767,6 +10824,30 @@ set_captive_portal_wl(void) {
 			_dprintf("set %s : %s\n", wl_item, "10");
 		}
 
+		//bw_enabled
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_enabled", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "0")) {
+			nvram_set(wl_item, "0");
+			_dprintf("set %s : %s\n", wl_item, "0");
+		}
+
+		//bw_dl
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_dl", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
+		//bw_ul
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_ul", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
 		//captive_portal_2g_if_temp
 		if(strcmp(nvram_safe_get("captive_portal_5g_if_temp"),wl_unit)) {
 			nvram_set("captive_portal_5g_if_temp", wl_unit);
@@ -10868,6 +10949,30 @@ set_captive_portal_wl(void) {
 		if(strcmp(nvram_safe_get(wl_item), "10")) {
 			nvram_set(wl_item, "10");
 			_dprintf("set %s : %s\n", wl_item, "10");
+		}
+
+		//bw_enabled
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_enabled", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "0")) {
+			nvram_set(wl_item, "0");
+			_dprintf("set %s : %s\n", wl_item, "0");
+		}
+
+		//bw_dl
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_dl", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
+		//bw_ul
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_ul", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
 		}
 
 		//captive_portal_2g_if_temp
@@ -11015,6 +11120,30 @@ set_captive_portal_adv_wl(void) {
 			if(strcmp(nvram_safe_get(wl_item), "10")) {
 				nvram_set(wl_item, "10");
 				_dprintf("set %s : %s\n", wl_item, "10");
+			}
+
+			//bw_enabled
+			memset(wl_item, 0, sizeof(wl_item));
+			(void)strcat_r(wl_if_en, "_bw_enabled", wl_item);
+			if(strcmp(nvram_safe_get(wl_item), "0")) {
+				nvram_set(wl_item, "0");
+				_dprintf("set %s : %s\n", wl_item, "0");
+			}
+
+			//bw_dl
+			memset(wl_item, 0, sizeof(wl_item));
+			(void)strcat_r(wl_if_en, "_bw_dl", wl_item);
+			if(strcmp(nvram_safe_get(wl_item), "")) {
+				nvram_set(wl_item, "");
+				_dprintf("set %s : %s\n", wl_item, "");
+			}
+
+			//bw_ul
+			memset(wl_item, 0, sizeof(wl_item));
+			(void)strcat_r(wl_if_en, "_bw_ul", wl_item);
+			if(strcmp(nvram_safe_get(wl_item), "")) {
+				nvram_set(wl_item, "");
+				_dprintf("set %s : %s\n", wl_item, "");
 			}
 		}
 	}
@@ -11217,6 +11346,30 @@ set_fbwifi_profile(void) {
 			_dprintf("set %s : %s\n", wl_item, "1");
 		}
 
+		//bw_enabled
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_enabled", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "0")) {
+			nvram_set(wl_item, "0");
+			_dprintf("set %s : %s\n", wl_item, "0");
+		}
+
+		//bw_dl
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_dl", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
+		//bw_ul
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_ul", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
 		//fbwifi_2g
 		if(strcmp(nvram_safe_get("fbwifi_2g_temp"),wl_unit)) {
 			nvram_set("fbwifi_2g_temp", wl_unit);
@@ -11383,6 +11536,30 @@ set_fbwifi_profile(void) {
 		if(strcmp(nvram_safe_get(wl_item), "1")) {
 			nvram_set(wl_item, "1");
 			_dprintf("set %s : %s\n", wl_item, "1");
+		}
+
+		//bw_enabled
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_enabled", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "0")) {
+			nvram_set(wl_item, "0");
+			_dprintf("set %s : %s\n", wl_item, "0");
+		}
+
+		//bw_dl
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_dl", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
+		//bw_ul
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_ul", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
 		}
 
 		//fbwifi_5g
@@ -11552,6 +11729,30 @@ set_fbwifi_profile(void) {
 		if(strcmp(nvram_safe_get(wl_item), "1")) {
 			nvram_set(wl_item, "1");
 			_dprintf("set %s : %s\n", wl_item, "1");
+		}
+
+		//bw_enabled
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_enabled", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "0")) {
+			nvram_set(wl_item, "0");
+			_dprintf("set %s : %s\n", wl_item, "0");
+		}
+
+		//bw_dl
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_dl", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
+		}
+
+		//bw_ul
+		memset(wl_item, 0, sizeof(wl_item));
+		(void)strcat_r(wl_unit, "_bw_ul", wl_item);
+		if(strcmp(nvram_safe_get(wl_item), "")) {
+			nvram_set(wl_item, "");
+			_dprintf("set %s : %s\n", wl_item, "");
 		}
 
 		//fbwifi_5g_2
