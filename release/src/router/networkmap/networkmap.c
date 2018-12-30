@@ -1710,7 +1710,7 @@ int main(int argc, char *argv[])
 		if (nvram_get_int("vlan_index")){
 			NMP_DEBUG("vlan index %d\n", nvram_get_int("vlan_index"));
 			int shm_key = 1003;
-			for (i = 0; i <= (nvram_get_int("vlan_index") - 3); i++){
+			for (i = 0, j = 0; i <= (nvram_get_int("vlan_index") - 3); i++){
 				//same_subnet = 0;
 				memset(prefix, 0x00, sizeof(prefix));
 				snprintf(prefix, sizeof(prefix), "lan%d_subnet", (i + 3));
@@ -1725,41 +1725,29 @@ int main(int argc, char *argv[])
 					*netmask = '\0';
 					strcpy(router_ipaddr, subnet_ipaddr);
 					NMP_DEBUG("vlan IP %s!!\n", router_ipaddr);
-					inet_aton(router_ipaddr, &vlan_hw_ipaddr[i].sin_addr);
-#if 0
-					/* check if subnet exists in previous vlan */
-					for (j = 0; j < i; j++){
-						if (vlan_ipaddr[j] && !memcmp(&vlan_hw_ipaddr[i].sin_addr, vlan_ipaddr[j], 4)){
-							same_subnet = 1;
-							NMP_DEBUG("find the same subnet %d %d %d %d\n", vlan_ipaddr[j][0], vlan_ipaddr[j][1], vlan_ipaddr[j][2], vlan_ipaddr[j][3]);
-							break;
-						}
-					}
-					if (same_subnet)
-						continue;
-					/*end of check same subnet */
-#endif
-					memcpy(vlan_ipaddr[i], &vlan_hw_ipaddr[i].sin_addr, sizeof(vlan_ipaddr[i]));
+					inet_aton(router_ipaddr, &vlan_hw_ipaddr[j].sin_addr);
+					memcpy(vlan_ipaddr[j], &vlan_hw_ipaddr[j].sin_addr, sizeof(vlan_ipaddr[j]));
 					/* end of setting IP */
 
 					/* create UDP socket and bind to "vlan" to get ARP packet */
 					snprintf(prefix, sizeof(prefix), "lan%d_ifname", (i + 3));
 					NMP_DEBUG("interface %s\n", prefix);
-					vlan_arp_sockfd[i] = create_socket(nvram_get(prefix));
-					if(vlan_arp_sockfd[i] < 0)
+					vlan_arp_sockfd[j] = create_socket(nvram_get(prefix));
+					if(vlan_arp_sockfd[j] < 0)
 						perror("create socket ERR:");
 					else {
 						set_arp_timeout(arp_timeout, 0, 5000);
-						setsockopt(vlan_arp_sockfd[i], SOL_SOCKET, SO_RCVTIMEO, arp_timeout, sizeof(struct timeval));//set receive timeout
+						setsockopt(vlan_arp_sockfd[j], SOL_SOCKET, SO_RCVTIMEO, arp_timeout, sizeof(struct timeval));//set receive timeout
 						//Copy sockaddr info to dst
-						memset(&vlan_dst_sockll[i], 0, sizeof(src_sockll));
-						memcpy(&vlan_dst_sockll[i], &src_sockll, sizeof(src_sockll));
+						memset(&vlan_dst_sockll[j], 0, sizeof(src_sockll));
+						memcpy(&vlan_dst_sockll[j], &src_sockll, sizeof(src_sockll));
 						/* set vlan subnet client list shm */
-						vlan_client_detail_info_tab[i] = set_client_table_shm(vlan_client_detail_info_tab[i], shm_key);
+						vlan_client_detail_info_tab[j] = set_client_table_shm(vlan_client_detail_info_tab[j], shm_key);
 						NMP_DEBUG("tagged vlan%d memory set\n", (i + 3));
 						/* end of setting vlan subnet client list shm */
 						NMP_DEBUG("vlan %s socket create success!!\n", nvram_get(prefix));
-						vlan_flag |= 1<<(i);
+						vlan_flag |= 1<<(j);
+						j++;
 					}
 					/* end of creating vlan socket */
 					shm_key++;

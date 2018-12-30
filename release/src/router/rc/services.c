@@ -379,9 +379,7 @@ static int build_temp_rootfs(const char *newroot)
 #endif
 		;
 	const char *usrbin = "killall";
-#ifdef RTCONFIG_BCMARM
-	const char *usrsbin = "nvram";
-#endif
+	const char *usrsbin __attribute__((unused)) = "nvram";
 	const char *usrlib = "libnvram.so libshared.so libcrypto.so* libbcm* libjson*"
 #if defined(RTCONFIG_BWDPI) || defined(RTCONFIG_BWDPI_DEP)
 			     " libbwdpi.so libbwdpi_sql.so"
@@ -420,7 +418,7 @@ static int build_temp_rootfs(const char *newroot)
 		"usb-common\\|"			/* usb-common.ko, kernel 3.2 or above */
 #endif
 #endif
-		"nvram_linux\\)";		/* nvram_linux.ko */
+		"nvram_linux\\)'";		/* nvram_linux.ko */
 
 	if (!newroot || *newroot == '\0')
 		newroot = TMP_ROOTFS_MNT_POINT;
@@ -436,9 +434,7 @@ static int build_temp_rootfs(const char *newroot)
 	__cp("", "/lib", lib, newroot);
 	__cp("", "/lib", "libcrypt*", newroot);
 	__cp("", "/usr/bin", usrbin, newroot);
-#ifdef RTCONFIG_BCMARM
 	__cp("", "/usr/sbin", usrsbin, newroot);
-#endif
 	__cp("", "/usr/lib", usrlib, newroot);
 	__cp("L", "/etc", "", newroot);		/* don't creat symbolic link (/tmp/etc/foo) that will be broken soon */
 
@@ -3383,10 +3379,10 @@ void start_upnp(void)
 	FILE *f;
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char et0macaddr[18];
-	char *proto, *port, *lport, *dstip, *desc;
+	char *proto, *port, *lport, *srcip, *dstip, *desc;
 	char *nv, *nvp, *b;
 	int upnp_enable, upnp_mnp_enable, upnp_port;
-	int unit, i, httpx_port;
+	int unit, i, httpx_port, cnt;
 #if defined(RTCONFIG_APP_PREINSTALLED) || defined(RTCONFIG_APP_NETINSTALLED)
 	FILE *ifp = NULL;
 	char tmpstr[80];
@@ -3493,8 +3489,10 @@ void start_upnp(void)
 					while (nv && (b = strsep(&nvp, "<")) != NULL) {
 						char *portv, *portp, *c;
 
-						if ((vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto) != 5))
+						if ((cnt = vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto, &srcip)) < 5)
 							continue;
+						else if (cnt < 6)
+							srcip = "";
 
 						// Handle port1,port2,port3 format
 						portp = portv = strdup(port);
@@ -4608,7 +4606,10 @@ void chilli_localUser(void)
 		++p;
 	}
 
-	fp=fopen("/etc/shadow.chilli-cp", "w");
+	if(nvram_match("cp_authtype", "0"))
+		fp = fopen("/tmp/localusers_cp", "w");
+	else
+		fp = fopen("/etc/shadow.chilli-cp", "w");
 
     if (fp==NULL){
 	   perror("open local user file failed\n");
@@ -4635,27 +4636,29 @@ void chilli_localUser(void)
 	}
 	PMS_FreeAccInfo(&account_list, &group_list);	
 #endif
-	//fprintf(fp, "noauth:noauth\n");
-	nv = nvp = strdup(nvram_safe_get("captive_portal_adv_local_clientlist"));
-    if (nv) {
-		while ((b = strsep(&nvp, "<")) != NULL) {
-        	if ((vstrsep(b, ">", &profile_idx, &userlist) != 2 ))
-            	continue;
-			   
-			while((tmp = strsep(&userlist, ",")) != NULL ){
-				/*if(strlen(tmp) > 0){
-					fprintf(fp, "%s\n", tmp);
-				}*/
-				if((vstrsep(tmp, ":", &username, &passwd)!=2)) continue;
-				if(strlen(username)==0||strlen(passwd)==0) continue;
+	if(nvram_match("cp_authtype", "0"))
+		fprintf(fp, "noauth:noauth\n");
+	else
+	{
+		nv = nvp = strdup(nvram_safe_get("captive_portal_adv_local_clientlist"));
+	    if (nv) {
+			while ((b = strsep(&nvp, "<")) != NULL) {
+				if ((vstrsep(b, ">", &profile_idx, &userlist) != 2 ))
+					continue;
+				while((tmp = strsep(&userlist, ",")) != NULL ){
+					/*if(strlen(tmp) > 0){
+						fprintf(fp, "%s\n", tmp);
+					}*/
+					if((vstrsep(tmp, ":", &username, &passwd)!=2)) continue;
+					if(strlen(username)==0||strlen(passwd)==0) continue;
 
-				p = crypt(passwd, salt);
-				fprintf(fp, "%s:%s:0:0:99999:7:0:0:\n", username, p);
-
+					p = crypt(passwd, salt);
+					fprintf(fp, "%s:%s:0:0:99999:7:0:0:\n", username, p);
+				}
 			}
-	    }
-        free(nv);
-    }
+			free(nv);
+		}
+	}
 //EXIT:
 	if(fp!=NULL) fclose(fp);
 
@@ -4957,7 +4960,10 @@ void chilli_config_CP(void)
 		fprintf(fp, "radiusserver2 %s\n", "127.0.0.1");
 #ifdef RTCONFIG_COOVACHILLI
 		chilli_localUser();
-		fprintf(fp, "localusers %s\n", "/etc/shadow.chilli-cp");
+		if(nvram_match("cp_authtype", "0"))
+			fprintf(fp, "localusers %s\n", "/tmp/localusers_cp");
+		else
+			fprintf(fp, "localusers %s\n", "/etc/shadow.chilli-cp");
 #endif
 	}else{
 		fprintf(fp, "radiusserver1 %s\n", nvram_get("cp_radius"));

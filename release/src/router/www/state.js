@@ -530,6 +530,7 @@ var nz_isp_support = isSupport("nz_isp");
 var app_support = false;
 var letsencrypt_support = isSupport("letsencrypt");
 var pm_support = isSupport("permission_management");
+var amesh_support = isSupport("amas");
 
 if( based_modelid == "RT-AC5300" || based_modelid == "GT-AC5300" || based_modelid == "RT-AC3100" || based_modelid == "RT-AC88U" || based_modelid == "RT-AC86U" || based_modelid == "AC2900"
  || based_modelid == "RT-AC3200"

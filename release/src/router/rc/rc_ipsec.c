@@ -405,8 +405,12 @@ void ipsec_prof_fill_ext(int prof_idx, char *p_data, ipsec_prof_type_t prof_type
     p_end += i; /*to shifft next '>'*/
 
 	/*hash_p2_ext*/
-	/*the last one doesn't need to parse ">".*/
-    prof[prof_type][prof_idx].hash_p2_ext = atoi(p_end);
+    prof[prof_type][prof_idx].hash_p2_ext = (uint8_t)ipsec_profile_int_parse(FLAG_NONE,
+                                                               p_end, &i);
+	p_end += i; /*to shifft next '>'*/
+
+	/*pfs_group*/
+    prof[prof_type][prof_idx].pfs_group= atoi(p_end); /*the last one doesn't need to parse ">".*/
 
 	/*the end of profile*/
 	return;
@@ -609,7 +613,7 @@ void rc_ipsec_start(FILE *fp)
 void rc_ipsec_up(FILE *fp, int prof_idx, ipsec_prof_type_t prof_type)
 {
     if((NULL != fp) && ('\0' != prof[prof_type][prof_idx].profilename[0])){
-        fprintf(fp, "ipsec up %s & \n", prof[prof_type][prof_idx].profilename);
+        //fprintf(fp, "ipsec up %s & \n", prof[prof_type][prof_idx].profilename);
 #if defined(RTCONFIG_QUICKSEC)
 		//fprintf(fp, "quicksecpm -f /tmp/%s.xml -d\n", prof[prof_type][prof_idx].profilename);
 #endif
@@ -1304,9 +1308,9 @@ void ipsec_conf_phase1_set(FILE *fp, int prof_idx, ipsec_prof_type_t prof_type)
 
 void ipsec_conf_phase2_set(FILE *fp, int prof_idx, ipsec_prof_type_t prof_type)
 {
-	char str[128];
+	char str[1024];
     fprintf(fp, "  keylife=%d\n", prof[prof_type][prof_idx].keylife_p2);
-	fprintf(fp, "  esp=%s!\n", get_ike_esp_bit_convert1(str, prof[prof_type][prof_idx].encryption_p2_ext, prof[prof_type][prof_idx].hash_p2_ext, 0) + 1);
+	fprintf(fp, "  esp=%s!\n", get_ike_esp_bit_convert1(str, prof[prof_type][prof_idx].encryption_p2_ext, prof[prof_type][prof_idx].hash_p2_ext, prof[prof_type][prof_idx].pfs_group) + 1);
 	//fprintf(fp, "  esp=%s", get_ike_esp_bit_convert(str, ENCRYPTION_TYPE_MAX_NUM, prof[prof_type][prof_idx].encryption_p2_ext, FLAG_IKE_ENCRYPT) + 1);
 	//fprintf(fp, "%s\n", get_ike_esp_bit_convert(str, HASH_TYPE_MAX_NUM, prof[prof_type][prof_idx].hash_p2_ext, FLAG_ESP_HASH));
 
@@ -1407,6 +1411,9 @@ void rc_ipsec_topology_set()
 				if(DPD_NONE != prof[prof_count][i].dead_peer_detection)
 					fprintf(fp,"  dpddelay=%ds\n", prof[prof_count][i].ipsec_dpd);
 				
+				if(VPN_TYPE_NET_NET_CLI == prof[prof_count][i].vpn_type || VPN_TYPE_NET_NET_PEER == prof[prof_count][i].vpn_type)
+					fprintf(fp,"  auto=start\n");
+				else
 		        fprintf(fp,"  auto=add\n");
 			}
 	    }
@@ -1419,8 +1426,11 @@ void rc_ipsec_topology_set()
 void rc_ipsec_nvram_convert_check(void)
 {
 	int i, prof_count = 0;
-	char buf[SZ_MIN], buf_ext[SZ_MIN];
-	char *nvp=NULL, *b=NULL;
+	char buf[SZ_MIN], buf_ext[SZ_MIN], tmpStr[SZ_MIN];
+	char *nv=NULL, *nvp=NULL, *b=NULL;
+	char *encryption_p1=NULL, *hash_p1=NULL, *dh_group=NULL;
+	char *encryption_p2=NULL, *hash_p2=NULL, *pfs_group=NULL;
+
 	for(prof_count = PROF_CLI; prof_count < PROF_ALL; prof_count++){
 	    for(i = 1; i <= MAX_PROF_NUM; i++){
 			if(PROF_SVR == prof_count){
@@ -1431,13 +1441,24 @@ void rc_ipsec_nvram_convert_check(void)
 				sprintf(&buf[0], "ipsec_profile_client_%d", i);
 				sprintf(&buf_ext[0], "ipsec_profile_client_%d_ext", i);
 			}
-			if(0 != strcmp(nvram_safe_get(&buf[0]), "") && 0 == strcmp(nvram_safe_get(&buf_ext[0]),"")){
-				nvp = strdup(nvram_safe_get(&buf[0]));
-				b = strsep(&nvp, ">");
-				if(0 == strcmp(b, "4"))
-					nvram_set(&buf_ext[0], "0>0>0>0>0");	/* none */
-				else
-					nvram_set(&buf_ext[0], "6>6>255>6>6");	/* 3des-aes128-sha1-sha256-modp768-modp1024-modp1536-modp2048-modp3072-modp4096-modp6144-modp8192 */
+			if(0 != strcmp(nvram_safe_get(&buf[0]), "")){
+				if(0 == strcmp(nvram_safe_get(&buf_ext[0]),""))	/* if there no ext nvram, filled them. */
+				{
+					nvp = strdup(nvram_safe_get(&buf[0]));
+					b = strsep(&nvp, ">");
+					if(0 == strcmp(b, "4"))
+						nvram_set(&buf_ext[0], "0>0>0>0>0>0");	/* none */
+					else
+						nvram_set(&buf_ext[0], "6>6>255>6>6>255");
+				}
+				else	/* if there is ext nvram but format not match, replace them. */
+				{
+					nv = nvp = strdup(nvram_safe_get(&buf_ext[0]));
+					if (vstrsep(nv, ">", &encryption_p1, &hash_p1, &dh_group, &encryption_p2, &hash_p2, &pfs_group) == 6)
+						continue;
+					sprintf(tmpStr, "%s>%s>%s>%s>%s>255", encryption_p1, hash_p1, dh_group, encryption_p2, hash_p2);
+					nvram_set(&buf_ext[0], tmpStr);
+				}
 			}
 
 		}
@@ -1618,7 +1639,7 @@ void rc_ipsec_topology_set_XML()
 	qs_virtual_ip_t virtual_ip;
 	char lan_class[32];
 	char *subnet, *subnet_total;
-	
+
     memset(p_tmp, 0, sizeof(char) * SZ_MIN);
 	memset(&virtual_ip, 0, sizeof(qs_virtual_ip_t));
 	memset(alg_buf, 0, sizeof(char)* SZ_64BUF);

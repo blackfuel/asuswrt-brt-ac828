@@ -294,15 +294,21 @@ enum {
 #define FREE_MEM_INODE "2"
 #define FREE_MEM_ALL   "3"
 
-#define is_routing_enabled() (nvram_get_int("sw_mode")==SW_MODE_ROUTER||nvram_get_int("sw_mode")==SW_MODE_HOTSPOT)
+#ifdef RTCONFIG_DEFAULT_REPEATER_MODE
+#define sw_mode()            (nvram_get("sw_mode") ? nvram_get_int("sw_mode") : SW_MODE_REPEATER)
+#else
+#define sw_mode()            (nvram_get("sw_mode") ? nvram_get_int("sw_mode") : SW_MODE_ROUTER)
+#endif
+#define is_routing_enabled() (sw_mode()==SW_MODE_ROUTER||sw_mode()==SW_MODE_HOTSPOT)
+#define is_router_mode()     (sw_mode()==SW_MODE_ROUTER)
 #if defined(RTCONFIG_DUALWAN)
 extern int is_nat_enabled(void);
 #else
-#define is_nat_enabled()     ((nvram_get_int("sw_mode")==SW_MODE_ROUTER||nvram_get_int("sw_mode")==SW_MODE_HOTSPOT)&&nvram_get_int("wan0_nat_x")==1)
+#define is_nat_enabled()     ((sw_mode()==SW_MODE_ROUTER||sw_mode()==SW_MODE_HOTSPOT)&&nvram_get_int("wan0_nat_x")==1)
 #endif
 #define is_lan_connected()   (nvram_get_int("lan_state")==LAN_STATE_CONNECTED)
 #ifdef RTCONFIG_WIRELESSWAN
-#define is_wirelesswan_enabled() (nvram_get_int("sw_mode")==SW_MODE_HOTSPOT)
+#define is_wirelesswan_enabled() (sw_mode()==SW_MODE_HOTSPOT)
 #endif
 // todo: multiple wan
 

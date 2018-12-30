@@ -225,6 +225,8 @@ extern int check_lang_support(char *lang);
 extern int load_dictionary (char *lang, pkw_t pkw);
 extern void release_dictionary (pkw_t pkw);
 extern char* search_desc (pkw_t pkw, char *name);
+extern int change_preferred_lang();
+extern int get_lang_num();
 //extern char Accept_Language[16];
 #else
 static inline int check_lang_support(char *lang) { return 1; }
@@ -296,5 +298,6 @@ extern char* ipisdomain(char* hostname, char* str);
 extern int referer_check(char* referer, int fromapp_flag);
 extern int check_noauth_referrer(char* referer, int fromapp_flag);
 extern char current_page_name[128];
+extern int auto_set_lang;
 
 #endif /* _httpd_h_ */

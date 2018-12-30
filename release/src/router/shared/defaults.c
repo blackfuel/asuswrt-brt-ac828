@@ -1998,7 +1998,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "x_Setting", "0"},		// is any setting set
 	{ "r_Setting", "0"},		// is repeater set
 	{ "w_Setting", "0"},		// is wilreess set
-	{ "ui_Setting", "0"},		// for Language change in QIS
 
 	{ "asus_mfg", "0"},		// 2008.03 James.
 	{ "asus_mfg_flash", ""},	// 2008.03 James.
@@ -2006,6 +2005,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "btn_ez", "0"},		// 2008.03 James.
 	{ "btn_ez_radiotoggle", "0"},	// Turn WPS into radio toggle
 	{ "btn_ez_mode", "0"},	//Turn WPS into led toggle. 0: wps, 1:led
+
 	//TODO: maybe
 	//1: led. led on/off
 	//2: radio. Wifi radio on/off (btn_ez_radiotoggle=1) ?
@@ -5200,7 +5200,8 @@ nvram_default_get(const char *name)
 	}
 #endif
 #ifdef RTCONFIG_TCODE
-	if (strncmp(name, "lan_", 4) == 0 || strncmp(name, "dhcp_", 5) == 0) {
+	/* varaible can be any, no skipping is possible */
+	{
 		char *value = tcode_default_get(fixed_name);
 		if (value) {
 			return value;

@@ -4,7 +4,6 @@
  * based on RR's ip_nat_ftp.c and other modules.
  * (C) 2007 United Security Providers
  * (C) 2007, 2008 Patrick McHardy <kaber@trash.net>
- * Copyright (c) 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -74,25 +73,19 @@ static int map_addr(struct sk_buff *skb, unsigned int dataoff,
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-	struct nf_conn_help *help = nfct_help(ct);
 	char buffer[sizeof("nnn.nnn.nnn.nnn:nnnnn")];
 	unsigned int buflen;
 	__be32 newaddr;
 	__be16 newport;
 
-	if (ct->tuplehash[dir].tuple.src.u3.ip == addr->ip) {
+	if (ct->tuplehash[dir].tuple.src.u3.ip == addr->ip &&
+	    ct->tuplehash[dir].tuple.src.u.udp.port == port) {
 		newaddr = ct->tuplehash[!dir].tuple.dst.u3.ip;
-		if(ct->tuplehash[dir].tuple.src.u.udp.port == port)
-			newport = ct->tuplehash[!dir].tuple.dst.u.udp.port;
-		else
-			newport = ct->tuplehash[dir].tuple.src.u.udp.port;
-	} else if (ct->tuplehash[dir].tuple.dst.u3.ip == addr->ip ) {
+		newport = ct->tuplehash[!dir].tuple.dst.u.udp.port;
+	} else if (ct->tuplehash[dir].tuple.dst.u3.ip == addr->ip &&
+		   ct->tuplehash[dir].tuple.dst.u.udp.port == port) {
 		newaddr = ct->tuplehash[!dir].tuple.src.u3.ip;
-		if(ct->tuplehash[dir].tuple.dst.u.udp.port == port)
-			newport = help->help.ct_sip_info.forced_dport ? :
-			  ct->tuplehash[!dir].tuple.src.u.udp.port;
-		else
-			newport = ct->tuplehash[dir].tuple.dst.u.udp.port;
+		newport = ct->tuplehash[!dir].tuple.src.u.udp.port;
 	} else
 		return 1;
 
@@ -128,7 +121,6 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-	struct nf_conn_help *help = nfct_help(ct);
 	unsigned int coff, matchoff, matchlen;
 	enum sip_header_types hdr;
 	union nf_inet_addr addr;
@@ -156,25 +148,26 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
 	if (ct_sip_parse_header_uri(ct, *dptr, NULL, *datalen,
 				    hdr, NULL, &matchoff, &matchlen,
 				    &addr, &port) > 0) {
-		unsigned int olen, matchend, poff, plen, buflen, n;
+		unsigned int matchend, poff, plen, buflen, n;
 		char buffer[sizeof("nnn.nnn.nnn.nnn:nnnnn")];
 
 		/* We're only interested in headers related to this
-		 * host,support VIA info port different with session source port*/
+		 * connection */
 		if (request) {
-			if (addr.ip != ct->tuplehash[dir].tuple.src.u3.ip )
+			if (addr.ip != ct->tuplehash[dir].tuple.src.u3.ip ||
+			    port != ct->tuplehash[dir].tuple.src.u.udp.port)
 				goto next;
 		} else {
-			if (addr.ip != ct->tuplehash[dir].tuple.dst.u3.ip)
+			if (addr.ip != ct->tuplehash[dir].tuple.dst.u3.ip ||
+			    port != ct->tuplehash[dir].tuple.dst.u.udp.port)
 				goto next;
 		}
 
-		olen = *datalen;
 		if (!map_addr(skb, dataoff, dptr, datalen, matchoff, matchlen,
 			      &addr, port))
 			return NF_DROP;
 
-		matchend = matchoff + matchlen + *datalen - olen;
+		matchend = matchoff + matchlen;
 
 		/* The maddr= parameter (RFC 2361) specifies where to send
 		 * the reply. */
@@ -236,20 +229,6 @@ next:
 	    !map_sip_addr(skb, dataoff, dptr, datalen, SIP_HDR_TO))
 		return NF_DROP;
 
-	/* Mangle destination port for Cisco phones, then fix up checksums */
-	if (dir == IP_CT_DIR_REPLY && help->help.ct_sip_info.forced_dport) {
-		struct udphdr *uh;
-
-		if (!skb_make_writable(skb, skb->len))
-			return NF_DROP;
-
-		uh = (struct udphdr *)(skb->data + ip_hdrlen(skb));
-		uh->dest = help->help.ct_sip_info.forced_dport;
-
-		if (!nf_nat_mangle_udp_packet(skb, ct, ctinfo, 0, 0, NULL, 0))
-			return NF_DROP;
-	}
-
 	return NF_ACCEPT;
 }
 
@@ -301,10 +280,8 @@ static unsigned int ip_nat_sip_expect(struct sk_buff *skb, unsigned int dataoff,
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-	struct nf_conn_help *help = nfct_help(ct);
 	__be32 newip;
 	u_int16_t port;
-	__be16 srcport;
 	char buffer[sizeof("nnn.nnn.nnn.nnn:nnnnn")];
 	unsigned buflen;
 
@@ -317,9 +294,8 @@ static unsigned int ip_nat_sip_expect(struct sk_buff *skb, unsigned int dataoff,
 	/* If the signalling port matches the connection's source port in the
 	 * original direction, try to use the destination port in the opposite
 	 * direction. */
-	srcport = help->help.ct_sip_info.forced_dport ? :
-		  ct->tuplehash[dir].tuple.src.u.udp.port;
-	if (exp->tuple.dst.u.udp.port == srcport)
+	if (exp->tuple.dst.u.udp.port ==
+	    ct->tuplehash[dir].tuple.src.u.udp.port)
 		port = ntohs(ct->tuplehash[!dir].tuple.dst.u.udp.port);
 	else
 		port = ntohs(exp->tuple.dst.u.udp.port);
@@ -488,7 +464,6 @@ static unsigned int ip_nat_sdp_media(struct sk_buff *skb, unsigned int dataoff,
 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	u_int16_t port;
-	int portloop = 0;
 
 	/* Connection will come from reply */
 	if (ct->tuplehash[dir].tuple.src.u3.ip ==
@@ -511,13 +486,8 @@ static unsigned int ip_nat_sdp_media(struct sk_buff *skb, unsigned int dataoff,
 
 	/* Try to get same pair of ports: if not, try to change them. */
 	for (port = ntohs(rtp_exp->tuple.dst.u.udp.port);
-	     port != 0 || 0 == portloop; port += 2) {
+	     port != 0; port += 2) {
 		int ret;
-		/* support edge case port 65534/65535 */
-		if(0 == port) {
-			portloop = 1;
-			port +=	2;
-		}
 
 		rtp_exp->tuple.dst.u.udp.port = htons(port);
 		ret = nf_ct_expect_related(rtp_exp);
@@ -531,10 +501,7 @@ static unsigned int ip_nat_sdp_media(struct sk_buff *skb, unsigned int dataoff,
 		ret = nf_ct_expect_related(rtcp_exp);
 		if (ret == 0)
 			break;
-		else if (ret == -EBUSY) {
-			nf_ct_unexpect_related(rtp_exp);
-			continue;
-		} else if (ret < 0) {
+		else if (ret != -EBUSY) {
 			nf_ct_unexpect_related(rtp_exp);
 			port = 0;
 			break;

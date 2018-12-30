@@ -2047,18 +2047,37 @@ function updateClientsCount() {
 			setTimeout("updateClientsCount();", 1000);
 		},
 		success: function(response){
+			var re_tune_client_count = function() {
+				var count = 0;
+				count = fromNetworkmapd_maclist[0].length;
+				for(var i in fromNetworkmapd_maclist[0]){
+					if (fromNetworkmapd_maclist[0].hasOwnProperty(i)) {
+						if(clientList[fromNetworkmapd_maclist[0][i]] != undefined) {
+							if(clientList[fromNetworkmapd_maclist[0][i]].amesh_isRe)
+								count--;
+						}
+					}
+				}
+				return count;
+			};
 			//When not click iconClient and not click View Client List need update client count.
 			if(lastName != "iconClient") {
 				if(document.getElementById("clientlist_viewlist_content")) {
 					if(document.getElementById("clientlist_viewlist_content").style.display == "none") {
-						show_client_status(fromNetworkmapd.length - 1);
+						if(amesh_support && (isSwMode("rt") || isSwMode("ap")))
+							show_client_status(re_tune_client_count());
+						else
+							show_client_status(fromNetworkmapd_maclist[0].length);
 					}
 				}
 				else {
-					show_client_status(fromNetworkmapd.length - 1);
+					if(amesh_support && (isSwMode("rt") || isSwMode("ap")))
+						show_client_status(re_tune_client_count());
+					else
+						show_client_status(fromNetworkmapd_maclist[0].length);
 				}
 			}
-			setTimeout("updateClientsCount();", 3000);
+			setTimeout("updateClientsCount();", 5000);
 		}
 	});
 }

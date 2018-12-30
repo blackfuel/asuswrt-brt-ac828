@@ -1546,6 +1546,9 @@ function initialIPSecProfile() {
 	$('input:checkbox[name=ipsec_dh_group_p1]').prop("checked", true);
 	$('input:checkbox[name=ipsec_encryption_p2]').prop("checked", true);
 	$('input:checkbox[name=ipsec_hash_p2]').prop("checked", true);
+	settingRadioItemCheck(document.ipsec_form.ipsec_pfs, "1");
+	changePFS();
+	$('input:checkbox[name=ipsec_pfs_group]').prop("checked", true);
 }
 function editIPSecProfile(mode) {
 	add_profile_flag = false;
@@ -1732,6 +1735,7 @@ function UpdatePSecProfile(array, array_ext) {
 	$('input:checkbox[name=ipsec_dh_group_p1]').prop("checked", false);
 	$('input:checkbox[name=ipsec_encryption_p2]').prop("checked", false);
 	$('input:checkbox[name=ipsec_hash_p2]').prop("checked", false);
+	$('input:checkbox[name=ipsec_pfs_group]').prop("checked", false);
 	var set_checkboxlist = function(_objName, _value) {
 		var binary = parseInt(_value).toString(2);
 		var binary_length = binary.length;
@@ -1748,6 +1752,19 @@ function UpdatePSecProfile(array, array_ext) {
 	set_checkboxlist("ipsec_dh_group_p1", array_ext[2]);
 	set_checkboxlist("ipsec_encryption_p2", array_ext[3]);
 	set_checkboxlist("ipsec_hash_p2", array_ext[4]);
+	if(array_ext[5] == undefined) {
+		settingRadioItemCheck(document.ipsec_form.ipsec_pfs, "1");
+		$('input:checkbox[name=ipsec_pfs_group]').prop("checked", true);
+	}
+	else {
+		if(array_ext[5] == "0")
+			settingRadioItemCheck(document.ipsec_form.ipsec_pfs, "0");
+		else {
+			settingRadioItemCheck(document.ipsec_form.ipsec_pfs, "1");
+			set_checkboxlist("ipsec_pfs_group", array_ext[5]);
+		}
+	}
+	changePFS();
 }
 function getRadioItemCheck(obj) {
 	var checkValue = "";
@@ -2018,6 +2035,13 @@ function save_ipsec_profile_panel() {
 			return false;
 		}
 
+		if(getRadioItemCheck(document.ipsec_form.ipsec_pfs) == "1") {
+			if($('input:checkbox[name=ipsec_pfs_group]:checked').length == 0) {
+				alert("Please choose at least one PFS Groups.");/*untranslated*/
+				return false;
+			}
+		}
+
 		return true;
 	}
 
@@ -2123,7 +2147,7 @@ function save_ipsec_profile_panel() {
 				profile_array[37] + ">" + profile_array[38];
 		
 		/* data structure ext
-		1 encryption_p1, hash_p1, DHGroup, encryption_p2, hash_p2
+		1 encryption_p1, hash_p1, DHGroup, encryption_p2, hash_p2, PFS
 		*/
 		var result_ext = "";
 		var encryption_p1 = 0;
@@ -2131,6 +2155,7 @@ function save_ipsec_profile_panel() {
 		var dh_group = 0;
 		var encryption_p2 = 0;
 		var hash_p2 = 0;
+		var pfs_group = 0;
 		var get_checkboxlist = function(_objName) {
 			var value = 0;
 			$('input:checkbox[name=' + _objName + ']:checked').map(function() {
@@ -2143,7 +2168,9 @@ function save_ipsec_profile_panel() {
 		dh_group = get_checkboxlist("ipsec_dh_group_p1");
 		encryption_p2 = get_checkboxlist("ipsec_encryption_p2");
 		hash_p2 = get_checkboxlist("ipsec_hash_p2");
-		var profile_ext_array = [encryption_p1, hash_p1, dh_group, encryption_p2, hash_p2];
+		if(getRadioItemCheck(document.ipsec_form.ipsec_pfs) == "1")
+			pfs_group = get_checkboxlist("ipsec_pfs_group");
+		var profile_ext_array = [encryption_p1, hash_p1, dh_group, encryption_p2, hash_p2, pfs_group];
 		result_ext = profile_ext_array.join(">");
 
 		document.getElementById(document.ipsec_form.ipsec_profile_item.value).value = result;
@@ -2378,6 +2405,13 @@ function controlSubnetStatus(_ikeVersion, _type) {
 			break;
 	}
 }
+function changePFS() {
+	var clickItem = getRadioItemCheck(document.ipsec_form.ipsec_pfs);
+	if(clickItem == "0")
+		$("#tr_adv_pfs_group").hide();
+	else
+		$("#tr_adv_pfs_group").show();
+}
 </script>
 </head>
 
@@ -2442,7 +2476,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 						</td>
 					</tr>  		
 					<tr>
-						<th><#HSDPAConfig_Username_itemname#></th>
+						<th><#Username#></th>
 						<td>
 							<input type="text" maxlength="64" name="vpnc_account_edit" value="" class="input_32_table" style="float:left;" autocomplete="off" autocorrect="off" autocapitalize="off"></input>
 						</td>
@@ -2533,7 +2567,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 							</table>          					
 							<div id="vpnc_clientlist_Block"></div>
 							<div class="apply_gen">
-								<input class="button_gen_long" onclick="Add_profile(10)" type="button" value="<#vpnc_step1#>">
+								<input class="button_gen" onclick="Add_profile(10)" type="button" value="<#vpnc_step1#>">
 							</div>
           				</td>
         			</tr>        			
@@ -2576,7 +2610,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 	<input type="hidden" name="action_mode" value="apply">
 	<input type="hidden" name="action_script" value="ipsec_set_cli">
 	<input type="hidden" name="action_wait" value="3">
-	<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+	<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 	<input type="hidden" name="ipsec_profile_item" value="">
 	<input type="hidden" name="ipsec_profile_client_1" id="ipsec_profile_client_1" value="">
 	<input type="hidden" name="ipsec_profile_client_2" id="ipsec_profile_client_2" value="">
@@ -2853,6 +2887,26 @@ function controlSubnetStatus(_ikeVersion, _type) {
 								<label><input type="checkbox" name="ipsec_hash_p2" value="16">SHA512</label-->
 							</td>
 						</tr>
+						<tr id="tr_adv_pfs">
+							<th>Perfect Forward Secrecy (PFS)</th><!-- untranslated -->
+							<td>
+								<label><input type="radio" name="ipsec_pfs" class="input" value="1" onchange="changePFS();"><#WLANConfig11b_WirelessCtrl_button1name#></label>
+								<label><input type="radio" name="ipsec_pfs" class="input" value="0" onchange="changePFS();"><#WLANConfig11b_WirelessCtrl_buttonname#></label>
+							</td>
+						</tr>
+						<tr id="tr_adv_pfs_group">
+							<th>PFS Groups</th><!-- untranslated -->
+							<td>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="1">1</label>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="2">2</label>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="4">5</label>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="8">14</label>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="16">15</label>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="32">16</label>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="64">17</label>
+								<label><input type="checkbox" name="ipsec_pfs_group" value="128">18</label>
+							</td>
+						</tr>
 						<tr id="tr_adv_keylife_time_p2">
 							<th><#vpn_ipsec_Key_Lifetime#></th>
 							<td>
@@ -2889,7 +2943,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 <input type="hidden" name="action_mode" value="apply">
 <input type="hidden" name="action_script" value="saveNvram">
 <input type="hidden" name="action_wait" value="1">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="vpnc_clientlist" value='<% nvram_get("vpnc_clientlist"); %>'>
 <input type="hidden" name="vpn_upload_type" value="ovpn">
@@ -2924,7 +2978,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 							</td>
 						</tr>  			
 						<tr>
-							<th><#HSDPAConfig_Username_itemname#> (option)</th>
+							<th><#Username#> (option)</th>
 							<td>
 								<input type="text" maxlength="64" name="vpnc_openvpn_username" value="" class="input_32_table" style="float:left;" autocomplete="off" autocorrect="off" autocapitalize="off"></input>
 							</td>
@@ -2959,7 +3013,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 <input type="hidden" name="action_mode" value="apply">
 <input type="hidden" name="action_script" value="saveNvram">
 <input type="hidden" name="action_wait" value="1">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="vpn_upload_type" value="ca">
 <input type="hidden" name="vpn_upload_unit" value="1">
@@ -2982,7 +3036,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 <input type="hidden" name="action_mode" value="apply">
 <input type="hidden" name="action_script" value="saveNvram">
 <input type="hidden" name="action_wait" value="1">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="vpn_upload_type" value="cert">
 <input type="hidden" name="vpn_upload_unit" value="1">
@@ -3004,7 +3058,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 <input type="hidden" name="action_mode" value="apply">
 <input type="hidden" name="action_script" value="saveNvram">
 <input type="hidden" name="action_wait" value="1">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="vpn_upload_type" value="key">
 <input type="hidden" name="vpn_upload_unit" value="1">
@@ -3026,7 +3080,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 <input type="hidden" name="action_mode" value="apply">
 <input type="hidden" name="action_script" value="saveNvram">
 <input type="hidden" name="action_wait" value="1">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="vpn_upload_type" value="static">
 <input type="hidden" name="vpn_upload_unit" value="1">
@@ -3057,7 +3111,7 @@ function controlSubnetStatus(_ikeVersion, _type) {
 <input type="hidden" name="action_mode" value="apply">
 <input type="hidden" name="action_script" value="saveNvram">
 <input type="hidden" name="action_wait" value="1">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="vpn_upload_unit" value="1">
 <input type="hidden" name="vpn_crt_client1_ca" value="" disabled>

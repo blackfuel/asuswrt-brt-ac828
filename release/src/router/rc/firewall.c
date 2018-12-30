@@ -48,6 +48,10 @@
 #define CONTENTFILTER 1
 
 #define foreach_x(x)	for (i=0; i<nvram_get_int(x); i++)
+/* addr types */
+#define TYPE_IP      0
+#define TYPE_MAC     1
+#define TYPE_IPRANGE 2
 
 #define STOP_TIME  0
 #define START_TIME 1
@@ -225,6 +229,52 @@ void nvram_unsets(char *name, int count)
 	}
 }
 */
+
+static int addr_type_parse(const char *src, char *dst, int size)
+{
+	char addr[100], *next = addr;
+	struct in_addr min_addr, max_addr;
+	int c;
+
+	if (!src || *src == '\0' || strcmp(src, "ALL") == 0)
+		return -1;
+
+	/* XX:XX:XX:XX:XX:XX */
+	if (sscanf(src, "%2x:%2x:%2x:%2x:%2x:%2x", &c, &c, &c, &c, &c, &c) == 6) {
+		strlcpy(dst, src, size);
+		return TYPE_MAC;
+	}
+
+	strlcpy(addr, src, sizeof(addr));
+
+	/* 0.0.0.0-255
+	 * 0.0.0.0-255.255.255.255 */
+	next = addr, strsep(&next, "-");
+	if (next && *next) {
+		min_addr.s_addr = inet_addr_(addr);
+		max_addr.s_addr = (strchr(next, '.') != NULL) ? inet_addr_(next) :
+			(min_addr.s_addr & htonl(0xffffff00)) | htonl(atoi(next) & 0xff);
+		if (min_addr.s_addr == max_addr.s_addr &&
+		    min_addr.s_addr == INADDR_ANY)
+			return -1;
+		if (ntohl(min_addr.s_addr) > ntohl(max_addr.s_addr))
+			return -1;
+
+		strlcpy(addr, inet_ntoa(min_addr), sizeof(addr));
+		snprintf(dst, size, "%s-%s", addr, inet_ntoa(max_addr));
+		return TYPE_IPRANGE;
+	}
+
+	/* 255.255.255.255
+	 * 255.255.255.255/32 */
+	next = addr, strsep(&next, "/");
+	if (inet_addr_(addr) == INADDR_ANY)
+		return -1;
+
+	strlcpy(dst, src, size);
+	return TYPE_IP;
+}
+
 
 char *proto_conv(char *proto, char *buf)
 {
@@ -1189,16 +1239,248 @@ void repeater_filter_setting(int mode){
 #endif
 #endif
 
+void write_port_forwarding(FILE *fp, char *config, char *lan_ip, char *lan_if)
+{
+	char *proto, *protono, *port, *lport, *srcip, *dstip, *desc;
+	char *nv, *nvp, *b;
+	char srcips[64], dstips[64];
+	char *chain;
+#ifdef RTCONFIG_MULTIWAN_CFG
+	char *wanx_ip;
+#endif
+	int wan_port;
+	int cnt;
+#if defined(RTCONFIG_MULTIWAN_CFG)
+	int unit, wanx_rules, wan_max_unit = WAN_UNIT_MAX;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+#endif
+
+	if (strcmp(config, "vts_rulelist") == 0)
+		chain = "VSERVER";
+	else if (strcmp(config, "game_vts_rulelist") == 0)
+		chain = "GAME_VSERVER";
+	else
+		return;
+
+	if (strcmp(config, "vts_rulelist") == 0) {
+		// need multiple instance for tis?
+		if (nvram_get_int("misc_http_x")) {
+#ifdef RTCONFIG_HTTPS
+			int enable = nvram_get_int("http_enable");
+			if (enable != 0) {
+				wan_port = nvram_get_int("misc_httpsport_x") ? : 8443;
+				fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%d\n",
+					wan_port, lan_ip, nvram_get_int("https_lanport") ? : 443);
+			}
+			/* do not support http (enable != 1) */
+#else
+			{
+				wan_port = nvram_get_int("misc_httpport_x") ? : 8080;
+				fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%d\n",
+					wan_port, lan_ip, nvram_get_int("http_lanport") ? : 80);
+			}
+#endif
+		}
+	}
+
+#if !defined(RTCONFIG_MULTIWAN_CFG)
+	if (is_nat_enabled() && nvram_match("vts_enable_x", "1")) {
+		nvp = nv = strdup(nvram_safe_get(config));
+		while (nv && (b = strsep(&nvp, "<")) != NULL) {
+			char *portv, *portp, *c;
+
+			if ((cnt = vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto, &srcip)) < 5)
+				continue;
+			else if (cnt < 6)
+				srcip = "";
+
+			// Handle source type format
+			srcips[0] = '\0';
+			if (srcip && *srcip) {
+				char srcAddr[32];
+				int src_type = addr_type_parse(srcip, srcAddr, sizeof(srcAddr));
+				if (src_type == TYPE_IP)
+					snprintf(srcips, sizeof(srcips), "-s %s", srcAddr);
+				else if (src_type == TYPE_MAC)
+					snprintf(srcips, sizeof(srcips), "-m mac --mac-source %s", srcAddr);
+				else if (src_type == TYPE_IPRANGE)
+					snprintf(srcips, sizeof(srcips), "-m iprange --src-range %s", srcAddr);
+			}
+
+			// Handle port1,port2,port3 format
+			portp = portv = strdup(port);
+			while (portv && (c = strsep(&portp, ",")) != NULL) {
+				if (lport && *lport)
+					snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
+				else
+					snprintf(dstips, sizeof(dstips), "--to %s", dstip);
+
+				if (strcmp(proto, "TCP") == 0 || strcmp(proto, "BOTH") == 0)
+					fprintf(fp, "-A %s %s -p tcp -m tcp --dport %s -j DNAT %s\n", chain, srcips, c, dstips);
+				if (strcmp(proto, "UDP") == 0 || strcmp(proto, "BOTH") == 0)
+					fprintf(fp, "-A %s %s -p udp -m udp --dport %s -j DNAT %s\n", chain, srcips, c, dstips);
+				// Handle raw protocol in port field, no val1:val2 allowed
+				if (strcmp(proto, "OTHER") == 0) {
+					protono = strsep(&c, ":");
+					fprintf(fp, "-A %s %s -p %s -j DNAT --to %s\n", chain, srcips, protono, dstip);
+				}
+			}
+			free(portv);
+		}
+		free(nv);
+	}
+#else
+	// Port forwarding or Virtual Server for multiple WAN configurations
+	if (is_nat_enabled() && nvram_match("vts_enable_x", "1")) {
+		int i, mtwancfg = 0;
+
+		if (get_nr_wan_unit() == 2 && nvram_match("wans_mode", "lb"))
+			mtwancfg = 1;
+
+		if (mtwancfg) {
+			/* dualwan + load-balance */
+			for (unit = WAN_UNIT_FIRST; unit < wan_max_unit; ++unit) {
+				char vts_nv[sizeof("vts_rulelistXXXXXX")];
+				char dst_ip[sizeof("-d 111.222.333.444XXXXXX")];
+				char *wan_iface[3];	/* 0: br0; 1: wan_if; 2: wanx_if; */
+
+				snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+				if(nvram_get_int(strcat_r(prefix, "state_t", tmp)) != WAN_STATE_CONNECTED)
+					continue;
+
+				snprintf(dst_ip, sizeof(dst_ip), "-d %s", nvram_pf_safe_get(prefix, "ipaddr"));
+				wanx_rules = 1;
+				wan_iface[0] = lan_if;
+				wan_iface[1] = get_wan_ifname(unit);
+				wan_iface[2] = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
+				wanx_ip = nvram_safe_get(strcat_r(prefix, "xipaddr", tmp));
+
+				if (strcmp(wan_iface[0], wan_iface[1]) && inet_addr_(wanx_ip))
+					wanx_rules = 2;
+
+				/* FIXME: Below statments ignore @config. */
+				if (unit)
+					snprintf(vts_nv, sizeof(vts_nv), "vts%d_rulelist", unit);
+				else
+					strlcpy(vts_nv, "vts_rulelist", sizeof(vts_nv));
+				nvp = nv = strdup(nvram_safe_get(vts_nv));
+				while (nv && (b = strsep(&nvp, "<")) != NULL) {
+					char *portv, *portp, *c;
+
+					if ((cnt = vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto, &srcip)) < 5)
+						continue;
+					else if (cnt < 6)
+						srcip = "";
+
+					// Handle source type format
+					srcips[0] = '\0';
+					if (srcip && *srcip) {
+						char srcAddr[32];
+						int src_type = addr_type_parse(srcip, srcAddr, sizeof(srcAddr));
+						if (src_type == TYPE_IP)
+							snprintf(srcips, sizeof(srcips), "-s %s", srcAddr);
+						else if (src_type == TYPE_MAC)
+							snprintf(srcips, sizeof(srcips), "-m mac --mac-source %s", srcAddr);
+						else if (src_type == TYPE_IPRANGE)
+							snprintf(srcips, sizeof(srcips), "-m iprange --src-range %s", srcAddr);
+					}
+
+					// Handle port1,port2,port3 format
+					portp = portv = strdup(port);
+					while (portv && (c = strsep(&portp, ",")) != NULL) {
+						if (lport && *lport)
+							snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
+						else
+							snprintf(dstips, sizeof(dstips), "--to %s", dstip);
+
+						if (!strcmp(proto, "TCP") || !strcmp(proto, "BOTH")){
+							for (i = 0; i <= wanx_rules; ++i) {
+								fprintf(fp, "-A %s %s -i %s %s -p tcp -m tcp --dport %s -j DNAT %s\n",
+									chain, srcips, wan_iface[i], i? "" : dst_ip, c, dstips);
+							}
+						}
+						if (!strcmp(proto, "UDP") || !strcmp(proto, "BOTH")) {
+							for (i = 0; i <= wanx_rules; ++i) {
+								fprintf(fp, "-A %s %s -i %s %s -p udp -m udp --dport %s -j DNAT %s\n",
+									chain, srcips, wan_iface[i], i? "" : dst_ip, c, dstips);
+							}
+						}
+						// Handle raw protocol in port field, no val1:val2 allowed
+						if (strcmp(proto, "OTHER") == 0) {
+							protono = strsep(&c, ":");
+							for (i = 0; i <= wanx_rules; ++i) {
+								fprintf(fp, "-A %s %s -i %s %s -p %s -j DNAT --to %s\n",
+									chain, srcips, wan_iface[i], i? "" : dst_ip, protono, dstip);
+							}
+						}
+					}
+					free(portv);
+				}
+				free(nv);
+			}
+		} else {
+			/* singlewan or dualwan + failover/fallback, only primary available. */
+			nvp = nv = strdup(nvram_safe_get(config));
+			while (nv && (b = strsep(&nvp, "<")) != NULL) {
+				char *portv, *portp, *c;
+
+				if ((cnt = vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto, &srcip)) < 5)
+					continue;
+				else if (cnt < 6)
+					srcip = "";
+
+				// Handle source type format
+				srcips[0] = '\0';
+				if (srcip && *srcip) {
+					char srcAddr[32];
+					int src_type = addr_type_parse(srcip, srcAddr, sizeof(srcAddr));
+					if (src_type == TYPE_IP)
+						snprintf(srcips, sizeof(srcips), "-s %s", srcAddr);
+					else if (src_type == TYPE_MAC)
+						snprintf(srcips, sizeof(srcips), "-m mac --mac-source %s", srcAddr);
+					else if (src_type == TYPE_IPRANGE)
+						snprintf(srcips, sizeof(srcips), "-m iprange --src-range %s", srcAddr);
+				}
+
+				// Handle port1,port2,port3 format
+				portp = portv = strdup(port);
+				while (portv && (c = strsep(&portp, ",")) != NULL) {
+					if (lport && *lport)
+						snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
+					else
+						snprintf(dstips, sizeof(dstips), "--to %s", dstip);
+
+					if (strcmp(proto, "TCP") == 0 || strcmp(proto, "BOTH") == 0){
+						fprintf(fp, "-A %s %s -p tcp -m tcp --dport %s -j DNAT %s\n",
+							chain, srcips, c, dstips);
+					}
+					if (strcmp(proto, "UDP") == 0 || strcmp(proto, "BOTH") == 0)
+						fprintf(fp, "-A %s %s -p udp -m udp --dport %s -j DNAT %s\n",
+							chain, srcips, c, dstips);
+					// Handle raw protocol in port field, no val1:val2 allowed
+					if (strcmp(proto, "OTHER") == 0) {
+						protono = strsep(&c, ":");
+						fprintf(fp, "-A %s %s -p %s -j DNAT --to %s\n",
+							chain, srcips, protono, dstip);
+					}
+				}
+				free(portv);
+			}
+			free(nv);
+		}
+	}
+#endif	/* RTCONFIG_MULTIWAN_CFG */
+}
+
 void nat_setting(char *wan_if, char *wan_ip, char *wanx_if, char *wanx_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	// oleg patch
 {
 	FILE *fp;
 	char lan_class[32];
-	int wan_port;
-	char dstips[64];
-	char *proto, *protono, *port, *lport, *dstip, *desc;
-	char *nv, *nvp, *b;
 	char name[PATH_MAX];
-	int wan_unit, wanx_rules = 0;
+	int wan_unit;
+#ifdef RTCONFIG_MULTIWAN_CFG
+	int wanx_rules = 0;
+#endif
 
 	sprintf(name, "%s_%s_%s", NAT_RULES, wan_if, wanx_if);
 	remove_slash(name + strlen(NAT_RULES));
@@ -1215,16 +1497,17 @@ void nat_setting(char *wan_if, char *wan_ip, char *wanx_if, char *wanx_ip, char 
 	fprintf(fp,
 		":YADNS - [0:0]\n");
 #endif
-
 #ifdef RTCONFIG_PARENTALCTRL
 	fprintf(fp,
 		":PCREDIRECT - [0:0]\n");
 #endif
-
 #if defined(RTCONFIG_FBWIFI)
 	fprintf(fp,
 		":CLIENT_TO_INTERNET - [0:0]\n");
 #endif
+
+	ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
+
 	_dprintf("writting prerouting %s %s %s %s %s %s\n", wan_if, wan_ip, wanx_if, wanx_ip, lan_if, lan_ip);
 
 	//Log
@@ -1259,10 +1542,11 @@ void nat_setting(char *wan_if, char *wan_ip, char *wanx_if, char *wanx_ip, char 
 		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", wan_ip);
 	/* prerouting physical WAN port connection (DHCP+PPP case) */
 	if (strcmp(wan_if, wanx_if) && inet_addr_(wanx_ip)) {
+#ifdef RTCONFIG_MULTIWAN_CFG
 		wanx_rules = 1;
+#endif
 		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", wanx_ip);
 	}
-
 
 #ifdef RTCONFIG_CAPTIVE_PORTAL
 	if(nvram_match("chilli_enable", "1")){
@@ -1285,8 +1569,6 @@ void nat_setting(char *wan_if, char *wan_ip, char *wanx_if, char *wanx_ip, char 
 
 #ifdef RTCONFIG_TOR
 	 if(nvram_match("Tor_enable", "1")){
-		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
-
 		nv = strdup(nvram_safe_get("Tor_redir_list"));
 		if (strlen(nv) == 0) {
 		fprintf(fp, "-A PREROUTING -i %s -p udp --dport 53 -j REDIRECT --to-ports %s\n", lan_if, nvram_safe_get("Tor_dnsport"));
@@ -1314,61 +1596,13 @@ void nat_setting(char *wan_if, char *wan_ip, char *wanx_if, char *wanx_ip, char 
 	}
 #endif
 
-	// need multiple instance for tis?
-	if (nvram_get_int("misc_http_x")) {
-#ifdef RTCONFIG_HTTPS
-		wan_port = nvram_get_int("misc_httpsport_x") ? : 8443;
-		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%d\n",
-			wan_port, lan_ip, nvram_get_int("https_lanport") ? : 433);
-#else
-		wan_port = nvram_get_int("misc_httpport_x") ? : 8080;
-		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%d\n",
-			wan_port, lan_ip, 80);
-#endif
-	}
-
 #ifdef RTCONFIG_FREERADIUS
 	if(nvram_get_int("radius_serv_enable")){
 		fprintf(fp, "-A VSERVER -p udp --dport %d -j DNAT --to-destination %s:%d\n", 1812, lan_ip, 1812);
 	}
 #endif
 	// Port forwarding or Virtual Server
-	if (is_nat_enabled() && nvram_match("vts_enable_x", "1"))
-	{
-		nvp = nv = strdup(nvram_safe_get("vts_rulelist"));
-		while (nv && (b = strsep(&nvp, "<")) != NULL) {
-			char *portv, *portp, *c;
-
-			if ((vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto) != 5))
-				continue;
-
-			// Handle port1,port2,port3 format
-			portp = portv = strdup(port);
-			while (portv && (c = strsep(&portp, ",")) != NULL) {
-				if (lport && *lport)
-					snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
-				else
-					snprintf(dstips, sizeof(dstips), "--to %s", dstip);
-
-				if (strcmp(proto, "TCP") == 0 || strcmp(proto, "BOTH") == 0){
-					fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s -j DNAT %s\n", c, dstips);
-
-					int local_ftpport = nvram_get_int("vts_ftpport");
-					if(!strcmp(c, "21") && local_ftpport != 0 && local_ftpport != 21)
-						fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:21\n", local_ftpport, lan_ip);
-				}
-				if (strcmp(proto, "UDP") == 0 || strcmp(proto, "BOTH") == 0)
-					fprintf(fp, "-A VSERVER -p udp -m udp --dport %s -j DNAT %s\n", c, dstips);
-				// Handle raw protocol in port field, no val1:val2 allowed
-				if (strcmp(proto, "OTHER") == 0) {
-					protono = strsep(&c, ":");
-					fprintf(fp, "-A VSERVER -p %s -j DNAT --to %s\n", protono, dstip);
-				}
-			}
-			free(portv);
-		}
-		free(nv);
-	}
+	write_port_forwarding(fp, "vts_rulelist", lan_ip, lan_if);
 
 	if (is_nat_enabled() && nvram_get_int("upnp_enable"))
 	{
@@ -1383,10 +1617,8 @@ void nat_setting(char *wan_if, char *wan_ip, char *wanx_if, char *wanx_ip, char 
 #if 0
 	if (is_nat_enabled() && !nvram_match("sp_battle_ips", "0") && inet_addr_(wan_ip))	// oleg patch
 	{
-		#define BASEPORT 6112
-		#define BASEPORT_NEW 10000
-
-		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
+#define BASEPORT 6112
+#define BASEPORT_NEW 10000
 
 		/* run starcraft patch anyway */
 		fprintf(fp, "-A PREROUTING -p udp -d %s --sport %d -j NETMAP --to %s\n", wan_ip, BASEPORT, lan_class);
@@ -1472,7 +1704,6 @@ void nat_setting(char *wan_if, char *wan_ip, char *wanx_if, char *wanx_ip, char 
 			fprintf(fp, "-A POSTROUTING %s -o %s ! -s %s -j MASQUERADE\n", p, wanx_if, wanx_ip);
 
 		/* masquerade lan to lan */
-		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
 		fprintf(fp, "-A POSTROUTING %s -o %s -s %s -d %s -j MASQUERADE\n", p, lan_if, lan_class, lan_class);
 	}
 #ifdef RTCONFIG_FBWIFI
@@ -1501,21 +1732,23 @@ _dprintf("nat_rule: start_nat_rules 1.\n");
 _dprintf("nat_rule: skip nat_rules because of no PHY.\n");
 }
 
-#ifdef RTCONFIG_DUALWAN // RTCONFIG_DUALWAN
+#if defined(RTCONFIG_DUALWAN) || defined(RTCONFIG_MULTICAST_IPTV) // RTCONFIG_DUALWAN || RTCONFIG_MULTICAST_IPTV
 void nat_setting2(char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	// oleg patch
 {
 	FILE *fp = NULL;	// oleg patch
 	char lan_class[32];	// oleg patch
-	int wan_port;
-	char dstips[64];
-	char *proto, *protono, *port, *lport, *dstip, *desc;
-	char *nv, *nvp, *b;
 	char *wan_if = "", *wan_ip;
 	char *wanx_if = "", *wanx_ip;
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char name[PATH_MAX];
-	int wan_max_unit = WAN_UNIT_MAX, wanx_rules = 0;
+	int wan_max_unit = WAN_UNIT_MAX;
+#ifdef RTCONFIG_MULTIWAN_CFG
+	int wanx_rules = 0;
+#endif
+
+
+	ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
 
 #ifdef RTCONFIG_MULTICAST_IPTV
 	if (nvram_get_int("switch_stb_x") > 6)
@@ -1527,6 +1760,7 @@ void nat_setting2(char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	//
 		if(nvram_get_int(strcat_r(prefix, "state_t", tmp)) != WAN_STATE_CONNECTED)
 			continue;
 
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 		wan_if = get_wan_ifname(unit);
 		wan_ip = nvram_safe_get(strcat_r(prefix, "ipaddr", tmp));
 		wanx_if = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
@@ -1602,8 +1836,6 @@ void nat_setting2(char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	//
 
 #ifdef RTCONFIG_TOR
 	if(nvram_match("Tor_enable", "1")){
-		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
-
 		nv = strdup(nvram_safe_get("Tor_redir_list"));
 		if (strlen(nv) == 0) {
 		fprintf(fp, "-A PREROUTING -i %s -p udp --dport 53 -j REDIRECT --to-ports %s\n", lan_if, nvram_safe_get("Tor_dnsport"));
@@ -1659,181 +1891,13 @@ void nat_setting2(char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	//
 	}
 #endif
 
-	// need multiple instance for tis?
-	if (nvram_get_int("misc_http_x")) {
-#ifdef RTCONFIG_HTTPS
-		wan_port = nvram_get_int("misc_httpsport_x") ? : 8443;
-		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%d\n",
-			wan_port, lan_ip, nvram_get_int("https_lanport") ? : 433);
-#else
-		wan_port = nvram_get_int("misc_httpport_x") ? : 8080;
-		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%d\n",
-			wan_port, lan_ip, 80);
-#endif
-	}
 #ifdef RTCONFIG_FREERADIUS
 	if(nvram_get_int("radius_serv_enable")){
 		fprintf(fp, "-A VSERVER -p udp --dport %d -j DNAT --to-destination %s:%d\n", 1812, lan_ip, 1812);
 	}
 #endif
-
-#if !defined(RTCONFIG_MULTIWAN_CFG)
 	// Port forwarding or Virtual Server
-	if (is_nat_enabled() && nvram_match("vts_enable_x", "1"))
-	{
-		nvp = nv = strdup(nvram_safe_get("vts_rulelist"));
-		while (nv && (b = strsep(&nvp, "<")) != NULL) {
-			char *portv, *portp, *c;
-
-			if ((vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto) != 5))
-				continue;
-
-			// Handle port1,port2,port3 format
-			portp = portv = strdup(port);
-			while (portv && (c = strsep(&portp, ",")) != NULL) {
-				if (lport && *lport)
-					snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
-				else
-					snprintf(dstips, sizeof(dstips), "--to %s", dstip);
-
-				if (strcmp(proto, "TCP") == 0 || strcmp(proto, "BOTH") == 0){
-					fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s -j DNAT %s\n", c, dstips);
-
-					int local_ftpport = nvram_get_int("vts_ftpport");
-					if(!strcmp(c, "21") && local_ftpport != 0 && local_ftpport != 21)
-						fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:21\n", local_ftpport, lan_ip);
-				}
-				if (strcmp(proto, "UDP") == 0 || strcmp(proto, "BOTH") == 0)
-					fprintf(fp, "-A VSERVER -p udp -m udp --dport %s -j DNAT %s\n", c, dstips);
-				// Handle raw protocol in port field, no val1:val2 allowed
-				if (strcmp(proto, "OTHER") == 0) {
-					protono = strsep(&c, ":");
-					fprintf(fp, "-A VSERVER -p %s -j DNAT --to %s\n", protono, dstip);
-				}
-			}
-			free(portv);
-		}
-		free(nv);
-	}
-#else
-	// Port forwarding or Virtual Server for multiple WAN configurations
-	if (is_nat_enabled() && nvram_match("vts_enable_x", "1")) {
-		int i, mtwancfg = 0;
-
-		if (get_nr_wan_unit() == 2 && nvram_match("wans_mode", "lb"))
-			mtwancfg = 1;
-
-		if (mtwancfg) {
-			/* dualwan + load-balance */
-			for (unit = WAN_UNIT_FIRST; unit < wan_max_unit; ++unit) {
-				char vts_nv[sizeof("vts_rulelistXXXXXX")];
-				char dst_ip[sizeof("-d 111.222.333.444XXXXXX")];
-				char *wan_iface[3];	/* 0: br0; 1: wan_if; 2: wanx_if; */
-
-				snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-				if(nvram_get_int(strcat_r(prefix, "state_t", tmp)) != WAN_STATE_CONNECTED)
-					continue;
-
-				snprintf(dst_ip, sizeof(dst_ip), "-d %s", nvram_pf_safe_get(prefix, "ipaddr"));
-				wanx_rules = 1;
-				wan_iface[0] = lan_if;
-				wan_iface[1] = get_wan_ifname(unit);
-				wan_iface[2] = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
-				wanx_ip = nvram_safe_get(strcat_r(prefix, "xipaddr", tmp));
-
-				if (strcmp(wan_iface[0], wan_iface[1]) && inet_addr_(wanx_ip))
-					wanx_rules = 2;
-
-				if (unit)
-					snprintf(vts_nv, sizeof(vts_nv), "vts%d_rulelist", unit);
-				else
-					strlcpy(vts_nv, "vts_rulelist", sizeof(vts_nv));
-				nvp = nv = strdup(nvram_safe_get(vts_nv));
-				while (nv && (b = strsep(&nvp, "<")) != NULL) {
-					char *portv, *portp, *c;
-
-					if ((vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto) != 5))
-						continue;
-
-					// Handle port1,port2,port3 format
-					portp = portv = strdup(port);
-					while (portv && (c = strsep(&portp, ",")) != NULL) {
-						if (lport && *lport)
-							snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
-						else
-							snprintf(dstips, sizeof(dstips), "--to %s", dstip);
-
-						if (!strcmp(proto, "TCP") || !strcmp(proto, "BOTH")){
-							for (i = 0; i <= wanx_rules; ++i) {
-								fprintf(fp, "-A VSERVER -i %s %s -p tcp -m tcp --dport %s -j DNAT %s\n",
-									wan_iface[i], i? "" : dst_ip, c, dstips);
-							}
-
-							int local_ftpport = nvram_get_int("vts_ftpport");
-							if (!strcmp(c, "21") && local_ftpport != 0 && local_ftpport != 21) {
-								for (i = 0; i <= wanx_rules; ++i) {
-									fprintf(fp, "-A VSERVER -i %s %s -p tcp -m tcp --dport %d -j DNAT --to-destination %s:21\n",
-										wan_iface[i], i? "" : dst_ip, local_ftpport, lan_ip);
-								}
-							}
-						}
-						if (!strcmp(proto, "UDP") || !strcmp(proto, "BOTH")) {
-							for (i = 0; i <= wanx_rules; ++i) {
-								fprintf(fp, "-A VSERVER -i %s %s -p udp -m udp --dport %s -j DNAT %s\n",
-									wan_iface[i], i? "" : dst_ip, c, dstips);
-							}
-						}
-						// Handle raw protocol in port field, no val1:val2 allowed
-						if (strcmp(proto, "OTHER") == 0) {
-							protono = strsep(&c, ":");
-							for (i = 0; i <= wanx_rules; ++i) {
-								fprintf(fp, "-A VSERVER -i %s %s -p %s -j DNAT --to %s\n",
-									wan_iface[i], i? "" : dst_ip, protono, dstip);
-							}
-						}
-					}
-					free(portv);
-				}
-				free(nv);
-			}
-		} else {
-			/* singlewan or dualwan + failover/fallback, only primary available. */
-			nvp = nv = strdup(nvram_safe_get("vts_rulelist"));
-			while (nv && (b = strsep(&nvp, "<")) != NULL) {
-				char *portv, *portp, *c;
-
-				if ((vstrsep(b, ">", &desc, &port, &dstip, &lport, &proto) != 5))
-					continue;
-
-				// Handle port1,port2,port3 format
-				portp = portv = strdup(port);
-				while (portv && (c = strsep(&portp, ",")) != NULL) {
-					if (lport && *lport)
-						snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
-					else
-						snprintf(dstips, sizeof(dstips), "--to %s", dstip);
-
-					if (strcmp(proto, "TCP") == 0 || strcmp(proto, "BOTH") == 0){
-						fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s -j DNAT %s\n", c, dstips);
-
-						int local_ftpport = nvram_get_int("vts_ftpport");
-						if(!strcmp(c, "21") && local_ftpport != 0 && local_ftpport != 21)
-							fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:21\n", local_ftpport, lan_ip);
-					}
-					if (strcmp(proto, "UDP") == 0 || strcmp(proto, "BOTH") == 0)
-						fprintf(fp, "-A VSERVER -p udp -m udp --dport %s -j DNAT %s\n", c, dstips);
-					// Handle raw protocol in port field, no val1:val2 allowed
-					if (strcmp(proto, "OTHER") == 0) {
-						protono = strsep(&c, ":");
-						fprintf(fp, "-A VSERVER -p %s -j DNAT --to %s\n", protono, dstip);
-					}
-				}
-				free(portv);
-			}
-			free(nv);
-		}
-	}
-#endif	/* RTCONFIG_MULTIWAN_CFG */
+	write_port_forwarding(fp, "vts_rulelist", lan_ip, lan_if);
 
 	if (is_nat_enabled() && nvram_get_int("upnp_enable"))
 	{
@@ -1857,8 +1921,6 @@ void nat_setting2(char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	//
 	{
 #define BASEPORT 6112
 #define BASEPORT_NEW 10000
-
-		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
 
 		/* run starcraft patch anyway */
 		fprintf(fp, "-A PREROUTING -p udp -d %s --sport %d -j NETMAP --to %s\n", wan_ip, BASEPORT, lan_class);
@@ -1963,6 +2025,7 @@ void nat_setting2(char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	//
 			if(nvram_get_int(strcat_r(prefix, "state_t", tmp)) != WAN_STATE_CONNECTED)
 				continue;
 
+			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 			wan_if = get_wan_ifname(unit);
 			wan_ip = nvram_safe_get(strcat_r(prefix, "ipaddr", tmp));
 			wanx_if = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
@@ -1977,7 +2040,6 @@ void nat_setting2(char *lan_if, char *lan_ip, char *logaccept, char *logdrop)	//
 		}
 
 		// masquerade lan to lan
-		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
 		fprintf(fp, "-A POSTROUTING %s -o %s -s %s -d %s -j MASQUERADE\n", p, lan_if, lan_class, lan_class);
 	}
 #ifdef RTCONFIG_FBWIFI

@@ -45,9 +45,9 @@ function initial(){
 		document.getElementById("monoBtn").style.display = "";
 		document.getElementById("monoDesc").style.display = "none";
 	}
-	httpApi.faqURL("faq1", "114046", "https://www.asus.com", "/support/FAQ/");
-	httpApi.faqURL("faq2", "114024", "https://www.asus.com", "/support/FAQ/");
-	httpApi.faqURL("faq3", "113661", "https://www.asus.com", "/support/FAQ/");
+	httpApi.faqURL("114046", function(url){document.getElementById("faq1").href=url;});
+	httpApi.faqURL("114024", function(url){document.getElementById("faq2").href=url;});
+	httpApi.faqURL("113661", function(url){document.getElementById("faq3").href=url;});
 }
 
 function cleanTask(){

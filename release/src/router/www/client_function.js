@@ -321,7 +321,7 @@ function getUploadIcon(clientMac) {
 			setTimeout("getUploadIcon('" + clientMac + "');", 1000);
 		},
 		success: function(response){
-			result = upload_icon;
+			result = htmlEnDeCode.htmlEncode(upload_icon);
 		}
 	});
 	return result

@@ -187,6 +187,19 @@ function load_ISP_profile(){
     else if(document.form.switch_wantag.value == "hinet") {
 		setting_value = [["", "0"], ["", "0"], ["", "0"], "4"];
     }
+	else if(document.form.switch_wantag.value == "stuff_fibre"){
+		setting_value = [["10", "0"], ["", "0"], ["", "0"], "0"];
+	}
+	else if(document.form.switch_wantag.value == "spark" || document.form.switch_wantag.value == "2degrees" || document.form.switch_wantag.value == "slingshot" ||
+			document.form.switch_wantag.value == "orcon" || document.form.switch_wantag.value == "voda_nz" || document.form.switch_wantag.value == "iinet"){
+		setting_value = [["10", "0"], ["", "0"], ["", "0"], "0"];
+	}
+	else if(document.form.switch_wantag.value == "tpg" || document.form.switch_wantag.value == "aapt" || document.form.switch_wantag.value == "intronode"){
+		setting_value = [["2", "0"], ["", "0"], ["", "0"], "0"];
+	}
+	else if(document.form.switch_wantag.value == "amaysim" || document.form.switch_wantag.value == "dodo" || document.form.switch_wantag.value == "iprimus"){
+		setting_value = [["100", "0"], ["", "0"], ["", "0"], "0"];
+	}
 	
 	if(setting_value.length == 4){
 		document.form.switch_wan0tagid.value = setting_value[0][0];
@@ -224,7 +237,9 @@ function load_ISP_profile(){
 
 function control_wans_primary() {
 	if(based_modelid == "BRT-AC828" ){
-		if(document.form.switch_stb_x.value != "0" || document.form.switch_wantag.value == "unifi_biz"){
+		if(document.form.switch_stb_x.value == "0" && document.form.switch_wantag.value == "none")
+			document.getElementById("tr_wans_primary").style.display = "none";
+		else{
 			var primary_wan = wans_dualwan_orig.split(" ")[0];
 			if(primary_wan != "lan") {
 				document.getElementById("tr_wans_primary").style.display = "";
@@ -239,8 +254,6 @@ function control_wans_primary() {
 				document.getElementById("cur_primary").innerHTML = primary_wan.toUpperCase();
 			}
 		}
-		else
-			document.getElementById("tr_wans_primary").style.display = "none";
 	}
 }
 
@@ -264,7 +277,9 @@ function ISP_Profile_Selection(isp){
 	else if(isp == "unifi_home" || isp == "singtel_others" || isp == "meo" || isp == "hinet"){
 		ISP_setting = ["none", "", "none", "none", "none", "none", "4", "", "", "none", "none"];
 	}
-	else if(isp == "unifi_biz"){
+	else if(isp == "unifi_biz" || isp == "stuff_fibre" || isp == "spark" || isp == "2degrees" || isp == "slingshot" ||
+		isp == "orcon" || isp == "voda_nz" || isp == "tpg" || isp == "iinet" || isp == "aapt" ||
+		isp == "intronode" || isp == "amaysim" || isp == "dodo" || isp == "iprimus"){
 		ISP_setting = ["none", "none", "none", "none", "none", "none", "0", "", "", "none", "none"];
 	}
 	else if(isp == "singtel_mio"){
@@ -1334,12 +1349,21 @@ function pass_checked(obj){
 					<option value="maxis_fiber_sp" <% nvram_match("switch_wantag", "maxis_fiber_sp", "selected"); %>>Maxis-Fiber-Special</option>
 					<option id="movistarOption" value="movistar" <% nvram_match("switch_wantag", "movistar", "selected"); %>>Movistar Triple VLAN</option>
 					<option id="meoOption" value="meo" <% nvram_match("switch_wantag", "meo", "selected"); %>>Meo</option>
-					<option id="vodafoneOption" value="vodafone" <% nvram_match("switch_wantag", "vodafone", "selected"); %>>Vodafone</option>
+					<option id="vodafoneOption" value="vodafone" <% nvram_match("switch_wantag", "vodafone", "selected"); %>>Vodafone(Portugal)</option>
 					<option value="hinet" <% nvram_match("switch_wantag", "hinet", "selected"); %>>Hinet MOD</option>
-<!--					
-					<option value="maxis_fiber_iptv" <% nvram_match("switch_wantag", "maxis_fiber_iptv", "selected"); %>>Maxis-Fiber-IPTV</option>
-					<option value="maxis_fiber_sp_iptv" <% nvram_match("switch_wantag", "maxis_fiber_sp_iptv", "selected"); %>>Maxis-Fiber-Special-IPTV</option>
--->
+					<option value="stuff_fibre" <% nvram_match("switch_wantag", "stuff_fibre", "selected"); %>>Stuff-Fibre</option>
+					<option value="spark" <% nvram_match("switch_wantag", "spark", "selected"); %>>Spark</option>
+					<option value="2degrees" <% nvram_match("switch_wantag", "2degrees", "selected"); %>>2degrees</option>
+					<option value="slingshot" <% nvram_match("switch_wantag", "slingshot", "selected"); %>>Slingshot</option>
+					<option value="orcon" <% nvram_match("switch_wantag", "orcon", "selected"); %>>Orcon</option>
+					<option value="voda_nz" <% nvram_match("switch_wantag", "voda_nz", "selected"); %>>Vodafone(New Zealand)</option>
+					<option value="tpg" <% nvram_match("switch_wantag", "tpg", "selected"); %>>TPG</option>
+					<option value="iinet" <% nvram_match("switch_wantag", "iinet", "selected"); %>>iiNET</option>
+					<option value="aapt" <% nvram_match("switch_wantag", "aapt", "selected"); %>>AAPT</option>
+					<option value="intronode" <% nvram_match("switch_wantag", "intronode", "selected"); %>>Intronode</option>
+					<option value="amaysim" <% nvram_match("switch_wantag", "amaysim", "selected"); %>>Amaysim</option>
+					<option value="dodo" <% nvram_match("switch_wantag", "dodo", "selected"); %>>Dodo</option>
+					<option value="iprimus" <% nvram_match("switch_wantag", "iprimus", "selected"); %>>Iprimus</option>
 					<option value="manual" <% nvram_match( "switch_wantag", "manual", "selected"); %>><#Manual_Setting_btn#></option>
 				</select>
 			</td>

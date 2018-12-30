@@ -1572,9 +1572,9 @@ function handle_beamforming(value){
 							</select>
 						</td>
 					</tr>					
-					<!-- RT-AC82U & RT-AC58U & MAP-AC1300 & MAP-AC2200 & VRZ-AC1300 -->
+					<!-- RT-AC82U & RT-AC58U & 4G-AC53U & MAP-AC1300 & MAP-AC2200 & VZW-AC1300 & MAP-AC1750 & MAP-AC3000 -->
 					<tr id="wl_implicitxbf_field"  style="display:none">
-						<th><a class="hintstyle" href="javascript:void(0);" onClick="">Implicit beamforming</a></th>
+						<th><a class="hintstyle" href="javascript:void(0);" onClick=""><#WLANConfig11b_x_uniBeam#></a></th>
 						<td>
 							<select name="wl_implicitxbf" class="input_option">
 								<option value="0" <% nvram_match("wl_implicitxbf", "0","selected"); %>><#WLANConfig11b_WirelessCtrl_buttonname#></option>

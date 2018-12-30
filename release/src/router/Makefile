@@ -1578,7 +1578,8 @@ openssl/Makefile:
 #	no-zlib no-engine no-engines no-sse2 no-perlasm \
 #	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
-	-@$(MAKE) -C openssl clean
+	@$(MAKE) -C openssl depend
+	@$(MAKE) -C openssl clean
 	@touch $@
 
 openssl: openssl/Makefile

@@ -467,8 +467,9 @@ var httpApi ={
 		}
 	},
 
-	"faqURL": function(_Objid, _faqNum, _URL1, _URL2){
+	"faqURL": function(_faqNum, handler){
 		var pLang = httpApi.nvramGet(["preferred_lang"]).preferred_lang;
+
 		var faqLang = {
 			EN : "",
 			TW : "/tw",
@@ -496,15 +497,16 @@ var httpApi ={
 			TR : "/tr",
 			UK : "/ua"
 		}
-		var temp_URL_lang = _URL1+faqLang[pLang]+_URL2+_faqNum;
-		var temp_URL_global = _URL1+_URL2+_faqNum;
-		document.getElementById(_Objid).href = temp_URL_global;
+
+		var temp_URL_lang = "https://www.asus.com" + faqLang[pLang] + "/support/FAQ/" + _faqNum;
+		if(handler) handler(temp_URL_lang.replace(faqLang[pLang], ""));
+
 		$.ajax({
 			url: temp_URL_lang,
 			dataType: "jsonp",
 			statusCode: {
 				200: function(response) {
-					document.getElementById(_Objid).href =  temp_URL_lang;
+					if(handler) handler(temp_URL_lang);
 				}
 			}
 		});

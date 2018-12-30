@@ -2469,7 +2469,10 @@ static int validate_apply(webs_t wp, json_object *root) {
 					free(tmp2);
 				}
 #endif
-
+				if( !strcmp(name, "PM_MY_EMAIL") || !strcmp(name, "PM_SMTP_AUTH_USER")){
+					if (strpbrk(value, "`") != NULL)
+						continue;
+				}
 #if defined(RTCONFIG_JFFS2) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS)
 				if(!strcmp(name, "modem_bytes_data_cycle") || !strcmp(name, "modem_bytes_data_limit") || !strcmp(name, "modem_bytes_data_warning")){
 					notify_rc("restart_set_dataset");
@@ -2801,7 +2804,8 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 		}
 	}
 	else if(!strcmp(apiName, "portforward")){
-		char *name, *rport, *lip, *lport, *proto;
+		char *name, *rport, *srcip, *lip, *lport, *proto;
+		int cnt;
 
 		if(!strcmp(apiAction, "enable")){
 			if(nvram_match("vts_enable_x", "0")){
@@ -2814,7 +2818,7 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 			if(nvram_match("vts_enable_x", "1")){
 				nvram_set("vts_enable_x", "0");
 				nvram_commit();
-				notify_rc("restart_firewall");			
+				notify_rc("restart_firewall");
 			}
 		}
 		else if(!strcmp(apiAction, "add")){
@@ -2823,6 +2827,7 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 			webVar_3 = websGetVar(wp, "lip", "");
 			webVar_4 = websGetVar(wp, "lport", "");
 			webVar_5 = websGetVar(wp, "proto", "");
+			webVar_6 = websGetVar(wp, "src", "");
 
 			if(!strcmp(webVar_1, "") || !strcmp(webVar_2, "") || !strcmp(webVar_3, "") ||
 			   !strcmp(webVar_4, "") || !strcmp(webVar_5, "")){
@@ -2851,11 +2856,14 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 
 					iCurrentListNum++;
 
-					if((vstrsep(p, ">", &name, &rport, &lip, &lport, &proto)) != 5) continue;
+					if ((cnt = vstrsep(p, ">", &name, &rport, &lip, &lport, &proto, &srcip)) < 5)
+						continue;
+					else if (cnt < 6)
+						srcip = "";
 
 					if(!strcmp(webVar_1, name) && !strcmp(webVar_2, rport) &&
 					   !strcmp(webVar_3, lip) && !strcmp(webVar_4, lport) &&
-					   !strcmp(webVar_5, proto)
+					   !strcmp(webVar_5, proto) && !strcmp(webVar_6, srcip)
 					){
 						retStatus = 1;
 						break;
@@ -2878,6 +2886,8 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 					strcat(nvramTmp, webVar_4);
 					strcat(nvramTmp, ">");
 					strcat(nvramTmp, webVar_5);
+					strcat(nvramTmp, ">");
+					strcat(nvramTmp, webVar_6);
 					strcat(nvramTmp, nvram_safe_get("vts_rulelist"));
 
 					nvram_set("vts_rulelist", nvramTmp);
@@ -2892,6 +2902,7 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 			webVar_3 = websGetVar(wp, "lip", "");
 			webVar_4 = websGetVar(wp, "lport", "");
 			webVar_5 = websGetVar(wp, "proto", "");
+			webVar_6 = websGetVar(wp, "src", "");
 
 			if(!strcmp(webVar_1, "") && !strcmp(webVar_2, "") && !strcmp(webVar_3, "") &&
 			   !strcmp(webVar_4, "") && !strcmp(webVar_5, "")){
@@ -2902,11 +2913,14 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 				g = buf = strdup(nvram_safe_get("vts_rulelist"));
 				while (buf) {
 					if ((p = strsep(&g, "<")) == NULL) break;
-					if((vstrsep(p, ">", &name, &rport, &lip, &lport, &proto)) != 5) continue;
+					if ((cnt = vstrsep(p, ">", &name, &rport, &lip, &lport, &proto, &srcip)) < 5)
+						continue;
+					else if (cnt < 6)
+						srcip = "";
 
 					if(!strcmp(webVar_1, name) && !strcmp(webVar_2, rport) &&
 					   !strcmp(webVar_3, lip) && !strcmp(webVar_4, lport) &&
-					   !strcmp(webVar_5, proto)
+					   !strcmp(webVar_5, proto) && !strcmp(webVar_6, srcip)
 					){
 						retStatus = 0;
 						continue;
@@ -2922,6 +2936,8 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 						strcat(nvramTmp, lport);
 						strcat(nvramTmp, ">");
 						strcat(nvramTmp, proto);
+						strcat(nvramTmp, ">");
+						strcat(nvramTmp, srcip);
 					}
 				}
 				free(buf);
@@ -2938,7 +2954,10 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 			strcat(retList, "<list>\n");
 			while (buf) {
 				if ((p = strsep(&g, "<")) == NULL) break;
-				if((vstrsep(p, ">", &name, &rport, &lip, &lport, &proto)) != 5) continue;
+				if ((cnt = vstrsep(p, ">", &name, &rport, &lip, &lport, &proto, &srcip)) < 5)
+					continue;
+				else if (cnt < 6)
+					srcip = "";
 
 				strcat(retList, "<item>\n");
 				sprintf(strTmp, "<name>%s</name>\n", name);
@@ -2950,6 +2969,8 @@ static int ej_set_variables(int eid, webs_t wp, int argc, char_t **argv) {
 				sprintf(strTmp, "<lport>%s</lport>\n", lport);
 				strcat(retList, strTmp);
 				sprintf(strTmp, "<proto>%s</proto>\n", proto);
+				strcat(retList, strTmp);
+				sprintf(strTmp, "<src>%s</src>\n", srcip);
 				strcat(retList, strTmp);
 				strcat(retList, "</item>\n");
 			}
@@ -6369,6 +6390,97 @@ static int get_client_detail_info(struct json_object *clients, struct json_objec
 	return 0;
 }
 
+static int ej_get_clientlist_maclist(int eid, webs_t wp, int argc, char_t **argv)
+{
+        if(!pids("networkmap")){
+                websWrite(wp, "[]");
+                return 0;
+        }
+
+	struct json_object *macArray = json_object_new_array();
+	P_CLIENT_DETAIL_INFO_TABLE p_client_info_tab;
+	void *shared_client_info = (void *) 0;
+	char mac_buf[32];
+	int i, lock, shm_client_info_id;
+
+#ifdef RTCONFIG_AMAS
+	char ipaddr[16];
+	char clientMac[18];
+	struct json_object *allClientList = NULL;
+
+	lock = file_lock(CLIENTLIST_FILE_LOCK);
+	allClientList = json_object_from_file(CLIENT_LIST_JSON_PATH);
+	file_unlock(lock);
+#endif
+
+	lock = file_lock("networkmap");
+	shm_client_info_id = shmget((key_t)SHMKEY_LAN, sizeof(CLIENT_DETAIL_INFO_TABLE), 0666|IPC_CREAT);
+	if (shm_client_info_id == -1){
+		fprintf(stderr,"shmget failed\n");
+		file_unlock(lock);
+		json_object_put(macArray);
+#ifdef RTCONFIG_AMAS
+		json_object_put(allClientList);
+#endif
+		websWrite(wp, "[]");
+		return 0;
+	}
+
+	shared_client_info = shmat(shm_client_info_id,(void *) 0,0);
+	if (shared_client_info == (void *)-1){
+		fprintf(stderr, "shmat failed\n");
+		file_unlock(lock);
+		websWrite(wp, "[]");
+		json_object_put(macArray);
+#ifdef RTCONFIG_AMAS
+		json_object_put(allClientList);
+#endif
+		return 0;
+	}
+
+	p_client_info_tab = (P_CLIENT_DETAIL_INFO_TABLE)shared_client_info;
+	for(i = 0; i < p_client_info_tab->ip_mac_num; i++) {
+		if(p_client_info_tab->device_flag[i]&(1<<FLAG_EXIST)) {
+			memset(mac_buf, 0, sizeof(mac_buf));
+			sprintf(mac_buf, "%02X:%02X:%02X:%02X:%02X:%02X",
+				p_client_info_tab->mac_addr[i][0],p_client_info_tab->mac_addr[i][1],
+				p_client_info_tab->mac_addr[i][2],p_client_info_tab->mac_addr[i][3],
+				p_client_info_tab->mac_addr[i][4],p_client_info_tab->mac_addr[i][5]
+				);
+#ifdef RTCONFIG_AMAS
+			memset(ipaddr, 0, sizeof(ipaddr));
+			sprintf(ipaddr, "%d.%d.%d.%d", p_client_info_tab->ip_addr[i][0],p_client_info_tab->ip_addr[i][1],
+			p_client_info_tab->ip_addr[i][2],p_client_info_tab->ip_addr[i][3]);
+
+			/* replace client mac if needed */
+			memset(clientMac, 0, sizeof(clientMac));
+			snprintf(clientMac, sizeof(clientMac), "%s", mac_buf);
+			if (allClientList && get_amas_client_mac(allClientList, ipaddr, clientMac, sizeof(clientMac))) {
+				memset(mac_buf, 0, sizeof(mac_buf));
+				snprintf(mac_buf, sizeof(mac_buf), "%s", clientMac);
+			}
+			if (is_re_node(mac_buf, 1))
+				continue;
+#endif
+			json_object_array_add(macArray, json_object_new_string(mac_buf));
+		}
+	}
+
+	shmdt(shared_client_info);
+	file_unlock(lock);
+
+	websWrite(wp, "%s", json_object_to_json_string(macArray));
+
+	if(macArray)
+		json_object_put(macArray);
+
+#ifdef RTCONFIG_AMAS
+	json_object_put(allClientList);
+#endif
+
+	return 0;
+}
+
 static int ej_get_clientlist(int eid, webs_t wp, int argc, char_t **argv)
 {
 	if(nvram_match("refresh_networkmap", "1") && clients) {
@@ -7500,7 +7612,6 @@ static int ej_usb_is_exist(int eid, webs_t wp, int argc, char_t **argv){
 #endif
 
 int ej_shown_language_css(int eid, webs_t wp, int argc, char **argv){
-	struct language_table *pLang = NULL;
 	char lang[4];
 	int len;
 #ifdef RTCONFIG_AUTODICT
@@ -7520,7 +7631,8 @@ int ej_shown_language_css(int eid, webs_t wp, int argc, char **argv){
 
 	memset(lang, 0, 4);
 	strcpy(lang, nvram_safe_get("preferred_lang"));
-	if(!strncmp(nvram_safe_get("territory_code"), "JP", 2) && strcmp(nvram_safe_get("ATEMODE"), "1")){
+
+	if(get_lang_num() == 1){
 		websWrite(wp, "<li style=\"visibility:hidden;\"><dl><a href=\"#\"><dt id=\"selected_lang\"></dt></a>\\n");
 	}
 	else{
@@ -7531,7 +7643,7 @@ int ej_shown_language_css(int eid, webs_t wp, int argc, char **argv){
 	#ifdef RTCONFIG_AUTODICT
 				if (memcmp(buffer, header, 3) == 0) offset = 3;
 	#endif
-				if (strncmp(follow_info+offset, "LANG_", 5))    // 5 = strlen("LANG_")
+				if (strncmp(follow_info+offset, "LANG_", 5) || !strncmp(follow_info+offset, "LANG_select", 11))    // 5 = strlen("LANG_")
 					continue;
 
 				follow_info += 5;
@@ -7540,18 +7652,14 @@ int ej_shown_language_css(int eid, webs_t wp, int argc, char **argv){
 				memset(key, 0, sizeof(key));
 				strncpy(key, follow_info, len);
 
-				for (pLang = language_tables; pLang->Lang != NULL; ++pLang){
-					if (strcmp(key, pLang->Target_Lang))
-						continue;
-					follow_info = follow_info_end+1;
-					follow_info_end = strstr(follow_info, "\n");
-					len = follow_info_end-follow_info;
-					memset(target, 0, sizeof(target));
-					strncpy(target, follow_info, len);
-					if (check_lang_support(key) && strcmp(key,lang))
-						websWrite(wp, "<dd><a onclick=\"submit_language(this)\" id=\"%s\">%s</a></dd>\\n", key, target);
-					break;
-				}
+				follow_info = follow_info_end+1;
+				follow_info_end = strstr(follow_info, "\n");
+				len = follow_info_end-follow_info;
+				memset(target, 0, sizeof(target));
+				strncpy(target, follow_info, len);
+
+				if (check_lang_support(key) && strcmp(key,lang))
+					websWrite(wp, "<dd><a onclick=\"submit_language(this)\" id=\"%s\">%s</a></dd>\\n", key, target);
 			}
 			else
 				break;
@@ -11414,7 +11522,8 @@ do_login_cgi(char *url, FILE *stream)
     login_cgi(stream, NULL, NULL, 0, url, NULL, NULL);
 }
 
-
+#define JSON_MARK_DQ 0
+#define JSON_MARK_CB 1
 static void
 app_call(char *func, FILE *stream, int first_row)
 {
@@ -11422,6 +11531,7 @@ app_call(char *func, FILE *stream, int first_row)
 	int argc;
 	char * argv[16]={NULL};
 	struct ej_handler *handler;
+	int json_mark = -1;
 
 	/* Parse out ( args ) */
 	if (!(args = strchr(func, '(')))
@@ -11442,25 +11552,41 @@ app_call(char *func, FILE *stream, int first_row)
 				websWrite(stream, ",\n");
 
 			if(strcmp(func, "nvram_get") == 0 || strcmp(func, "nvram_default_get") == 0){
-				websWrite(stream,"\"%s\":", argv[0]);
-				websWrite(stream,"\"" );
+				if(check_xss_blacklist(argv[0], 0)){
+					websWrite(stream,"\"ERROR_NAME\":\"\"");
+					break;
+				}else{
+					websWrite(stream,"\"%s\":", argv[0]);
+					json_mark = JSON_MARK_DQ;
+				}
 			}else if(strcmp(func, "nvram_char_to_ascii") == 0){
-				websWrite(stream,"\"%s\":", argv[1]);
-				websWrite(stream,"\"" );
+				if(check_xss_blacklist(argv[1], 0)){
+					websWrite(stream,"\"ERROR_NAME\":\"\"");
+					break;
+				}else{
+					websWrite(stream,"\"%s\":", argv[1]);
+					json_mark = JSON_MARK_DQ;
+				}
 			}else if(argv[0] != NULL && strcmp(argv[0], "appobj") == 0 && strncmp(func, "get_clientlist", 14) != 0){
 				websWrite(stream,"\"%s\":", func);
-				websWrite(stream,"{" );
+				json_mark = JSON_MARK_CB;
 			}else if(argv[0] != NULL && strncmp(func, "get_clientlist", 14) != 0)
 				websWrite(stream,"\"%s-%s\":", func, argv[0]);
 			else
 				websWrite(stream,"\"%s\":", func);
 
+			if(json_mark == JSON_MARK_DQ)
+				websWrite(stream,"\"" );
+			else if(json_mark == JSON_MARK_CB)
+				websWrite(stream,"{" );
+
 			handler->output(0, stream, argc, argv);
 
-			if(strcmp(func, "nvram_get") == 0 || strcmp(func, "nvram_default_get") == 0|| strcmp(func, "nvram_char_to_ascii") == 0)
+			if(json_mark == JSON_MARK_DQ)
 				websWrite(stream,"\"" );
-			else if(argv[0] != NULL && strcmp(argv[0], "appobj") == 0 && strncmp(func, "get_clientlist", 14) != 0)
+			else if(json_mark == JSON_MARK_CB)
 				websWrite(stream,"}" );
+			break;
 		}
 	}
 }
@@ -15329,95 +15455,6 @@ int ej_backup_nvram(int eid, webs_t wp, int argc, char_t **argv)
 // end svg support by Viz ^^^^^^^^^^^^^^^^^^^^
 
 static int
-ej_select_list(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *id;
-	int ret = 0;
-	char out[64], idxstr[12], tmpstr[64], tmpstr1[64];
-	int i, curr, hit, noneFlag;
-	char *ref1, *ref2, *refnum;
-
-	if (ejArgs(argc, argv, "%s", &id) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	if (strcmp(id, "Storage_x_SharedPath")==0)
-	{
-		ref1 = "sh_path_x";
-		ref2 = "sh_path";
-		refnum = "sh_num";
-		curr = nvram_get_int(ref1);
-		sprintf(idxstr, "%d", curr);
-		strcpy(tmpstr1, nvram_get(strcat_r(ref2, idxstr, tmpstr)));
-		sprintf(out, "%s", tmpstr1);
-		ret += websWrite(wp, out);
-		return ret;
-	}
-	else if (strncmp(id, "Storage_x_AccUser", 17)==0)
-	{
-		sprintf(tmpstr, "sh_accuser_x%s", id + 17);
-		ref2 = "acc_username";
-		refnum = "acc_num";
-
-		curr = nvram_get_int(tmpstr);
-		noneFlag =1;
-	}
-	else if (strcmp(id, "Storage_x_AccAny")==0)
-	{
-		 ret = websWrite(wp, "<option value=\"Guest\">Guest</option>");
-		 return ret;
-	}
-	else if (strcmp(id, "Storage_AllUser_List")==0)
-	{
-
-		strcpy(out, "<option value=\"Guest\">Guest</option>");
-		ret += websWrite(wp, out);
-
-		for (i=0;i<nvram_get_int("acc_num");i++)
-		{
-			 sprintf(idxstr, "%d", i);
-			 strcpy(tmpstr1, nvram_get(strcat_r("acc_username", idxstr, tmpstr)));
-			 sprintf(out, "<option value=\"%s\">%s</option>", tmpstr1, tmpstr1);
-			 ret += websWrite(wp, out);
-		}
-		return ret;
-	}
-	else
-	{
-		 return ret;
-	}
-
-	hit = 0;
-
-	for (i=0;i<nvram_get_int(refnum);i++)
-	{
-		sprintf(idxstr, "%d", i);
-		strcpy(tmpstr1, nvram_get(strcat_r(ref2, idxstr, tmpstr)));
-		sprintf(out, "<option value=\"%d\"", i);
-
-		if (i==curr)
-		{
-			hit = 1;
-			sprintf(out, "%s selected", out);
-		}
-		sprintf(out,"%s>%s</option>", out, tmpstr1);
-
-		ret += websWrite(wp, out);
-	}
-
-	if (noneFlag)
-	{
-		cprintf("hit : %d\n", hit);
-		if (!hit) sprintf(out, "<option value=\"99\" selected>None</option>");
-		else sprintf(out, "<option value=\"99\">None</option>");
-
-		ret += websWrite(wp, out);
-	}
-	return ret;
-}
-
-static int
 ej_radio_status(int eid, webs_t wp, int argc, char_t **argv)
 {
 	int retval = 0;
@@ -16546,36 +16583,54 @@ struct ipsec_conn_token_table{
 static int
 ej_get_ipsec_conn(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *ipsec_argv[] = {"ipsec", "statusall", NULL};
-	FILE *fp;
-    char line[256];
-    int first_time=1;
-    char *tmp_ip_start, *tmp_name, *tmp_ip_end, *tmp_xauth,*tmp_period_s,*tmp_period_e,*tmp_reauth;
-    char dest_name[32],dest_ip[32],dest_xauth[32],dest_period[32],dest_reauth[32];
-    int profile_count=0;
-    int i=0;
-    int new_profile=0;
-    int ret = 0;
-    int len=0;
-	fpos_t pos;
+	//char *ipsec_argv[] = {"ipsec", "statusall", NULL};
+	//FILE *fp;
+	char line[512];
+	int first_time=1;
+	char *tmp_ip_start, *tmp_name, *tmp_ip_end, *tmp_xauth,*tmp_period_s,*tmp_period_e,*tmp_reauth;
+	char dest_name[32],dest_ip[32],dest_xauth[32],dest_period[32],dest_reauth[32];
+	int profile_count=0;
+	int i=0;
+	int new_profile=0;
+	int ret = 0;
+	int len=0;
+	int change_to_new_profile=0;
 	ipsec_conn_token_t *profile[PROFILE_NUM];
+	char cmd[64];
+    FILE *p_fp;
 	
-	memset(dest_name,0,sizeof(dest_name));
+    memset(cmd, 0, sizeof(cmd));
+    memset(dest_name,0,sizeof(dest_name));
 	memset(dest_ip,0,sizeof(dest_ip));
 	memset(dest_xauth,0,sizeof(dest_xauth));
 	memset(dest_period,0,sizeof(dest_period));
 	memset(dest_reauth,0,sizeof(dest_reauth));
 	
-	_eval(ipsec_argv, ">/tmp/ipsec_conn", 0, NULL);
+	//_eval(ipsec_argv, ">/tmp/ipsec_conn", 0, NULL);
+	//usleep(5000);
+	sprintf(cmd, "%s", "ipsec statusall");
 	
 	ret += websWrite(wp, "[");
-	if ((fp = fopen("/tmp/ipsec_conn", "r")) != NULL) {
-		while (fgets(line, sizeof(line), fp)) {
+	
+	if ((p_fp = popen(cmd, "r")) != NULL) {
+		while (1) 
+		{
+			if(change_to_new_profile != 1)
+			{	
+				if(!fgets(line, sizeof(line), p_fp))
+					break;
+			}
+			else
+			{
+				change_to_new_profile=0;
+			}
 			new_profile = 1;
-			if(strstr(line,"ESTABLISHED") != NULL || strstr(line,"CONNECTING") != NULL){
-				/* profile_name */
+			//_dprintf("line=%s\n", line);
+			if(strstr(line,"ESTABLISHED") != NULL || strstr(line,"CONNECTING") != NULL)
+			{
 				ipsec_conn_token_t *data = (ipsec_conn_token_t *)malloc(sizeof(ipsec_conn_token_t));
 				data->next=NULL;
+
 				tmp_name = index(line,'[');
 				len = strlen(line)-strlen(tmp_name);
 				strncpy(dest_name,line,len);
@@ -16583,23 +16638,20 @@ ej_get_ipsec_conn(int eid, webs_t wp, int argc, char_t **argv)
 				while(strchr(dest_name,' ')!=NULL)
 					strcpy(dest_name,dest_name+1);
 				strcpy(data->profile_name,dest_name);
-				
-				/* ipaddr */
-				tmp_ip_start = index(line,',');
-				tmp_ip_start = index(tmp_ip_start,']');
-				tmp_ip_end = rindex(line,'[');
-				len = strlen(tmp_ip_start) - strlen(tmp_ip_end);
-				strncpy(dest_ip,tmp_ip_start,len);
-				dest_ip[len] = '\0';
-				strcpy(dest_ip,dest_ip+4);
-				strcpy(data->ipaddr,dest_ip);
-					
-				if(strstr(line,"ESTABLISHED") != NULL) 
-					data->conn_status = 3;	
-				if(strstr(line,"CONNECTING") != NULL)
-					data->conn_status = 2;
-				
+
 				if(strstr(line,"ESTABLISHED") != NULL) {
+					data->conn_status = 3;	/* phase 1 established */
+					
+					/* ipaddr */
+					tmp_ip_start = index(line,',');
+					tmp_ip_start = index(tmp_ip_start,']');
+					tmp_ip_end = rindex(line,'[');
+					len = strlen(tmp_ip_start) - strlen(tmp_ip_end);
+					strncpy(dest_ip,tmp_ip_start,len);
+					dest_ip[len] = '\0';
+					strcpy(dest_ip,dest_ip+4);
+					strcpy(data->ipaddr,dest_ip);
+					
 					/* connected period */	
 					tmp_period_s = index(line,'D')+2;
 					tmp_period_e = index(line,',')-4;
@@ -16607,40 +16659,68 @@ ej_get_ipsec_conn(int eid, webs_t wp, int argc, char_t **argv)
 					strncpy(dest_period,tmp_period_s,len);
 					dest_period[len] = '\0';
 					strcpy(data->conn_period,dest_period);
+					
+					/* xauth users */
+					fgets(line, sizeof(line), p_fp);
+					if(strstr(line,"Remote XAuth identity:") != NULL){
+						tmp_xauth = rindex(line,' ') + 1;
+						len = strlen(tmp_xauth);
+						strncpy(dest_xauth,tmp_xauth,len);
+						dest_xauth[len-1] = '\0';
+						strcpy(data->xauth_account,dest_xauth);
+						fgets(line, sizeof(line), p_fp);
+					}
+					else
+						strcpy(data->xauth_account,"");
+
+					/* reauthentication times */
+					if(strstr(line,"reauthentication") != NULL){
+						tmp_reauth = index(line,',')+37;
+						len = strlen(tmp_reauth);
+						strncpy(dest_reauth,tmp_reauth,len);
+						dest_reauth[len-1] = '\0';
+						strcpy(data->psk_reauth_time,dest_reauth);
+					}
+					else
+						strcpy(data->psk_reauth_time,"");
+					
+					while (fgets(line, sizeof(line), p_fp)) {		
+						if(strstr(line,data->profile_name) == NULL){
+							change_to_new_profile=1;
+							break;
+						}					
+						if(strstr(line,"INSTALLED") != NULL || strstr(line,"REKEYING") != NULL){
+							data->conn_status = 1;		/* phase 2 connected */
+							break;
+						}
+					}
 				}
-						
-				/* xauth users */
-				fgets(line, sizeof(line), fp);
-				if(strstr(line,"Remote XAuth identity:") != NULL){
-					tmp_xauth = rindex(line,' ') + 1;
-					len = strlen(tmp_xauth);
-					strncpy(dest_xauth,tmp_xauth,len);
-				dest_xauth[len-1] = '\0';
-				strcpy(data->xauth_account,dest_xauth);
-					fgets(line, sizeof(line), fp);
-				}else
+				else //if(strstr(line,"CONNECTING") != NULL)
+				{
+					data->conn_status = 2;	/* connecting */
+					
+					/* ipaddr */
+					tmp_ip_start = index(line,',');
+					tmp_ip_start = index(tmp_ip_start,']');
+					tmp_ip_end = rindex(line,'[');
+					len = strlen(tmp_ip_start) - strlen(tmp_ip_end);
+					strncpy(dest_ip,tmp_ip_start,len);
+					dest_ip[len] = '\0';
+					strcpy(dest_ip,dest_ip+4);
+					strcpy(data->ipaddr,dest_ip);
+					
+					strcpy(data->conn_period,"");
 					strcpy(data->xauth_account,"");
-				
-				/* reauthentication times */
-				if(strstr(line,"reauthentication") != NULL){
-					tmp_reauth = index(line,',')+37;
-					len = strlen(tmp_reauth);
-					strncpy(dest_reauth,tmp_reauth,len);
-				dest_reauth[len-1] = '\0';
-				strcpy(data->psk_reauth_time,dest_reauth);
-				}else
 					strcpy(data->psk_reauth_time,"");
-
-
-				/* 1: connected, 2: connecting */
-				fgets(line, sizeof(line), fp);
-				fgetpos(fp, &pos);
-				fgets(line, sizeof(line), fp);
-				if(strstr(line,"ESTABLISHED") != NULL || strstr(line,"CONNECTING") != NULL)
-					fsetpos(fp, &pos);
+					
+					while (fgets(line, sizeof(line), p_fp)) {		
+						if(!(strstr(line,data->profile_name) != NULL)){
+							change_to_new_profile=1;
+							break;
+						}					
+					}
+				}				
 				
-				if(strstr(line,"INSTALLED") != NULL || strstr(line,"REKEYING") != NULL)
-					data->conn_status = 1;
 				if(first_time==1)
 				{
 					profile[profile_count] = data;
@@ -16648,21 +16728,21 @@ ej_get_ipsec_conn(int eid, webs_t wp, int argc, char_t **argv)
 				}
 
 				for(i=0;i<profile_count;i++)
-					{	
+				{	
 					if(strncmp(profile[i]->profile_name,data->profile_name,strlen(data->profile_name)) == 0) {
 						new_profile = 0;
 						break;
 					}
 				}
-					
+				
 				if(new_profile == 1) {
 					profile[profile_count] = data;
 					profile_count++;
 				}
 				else {
-					ipsec_conn_token_t *find_p;
-					find_p=profile[i];
-					while(1) {
+					ipsec_conn_token_t *find_p = profile[i];
+					
+					while(find_p) {
 						if(find_p->next != NULL) {
 							find_p=find_p->next;
 						}
@@ -16681,13 +16761,12 @@ ej_get_ipsec_conn(int eid, webs_t wp, int argc, char_t **argv)
 		
 		for(i=0;i<profile_count;i++)
 		{
-			ipsec_conn_token_t *find_p;
-			find_p=profile[i];
-						
+			ipsec_conn_token_t *find_p = profile[i];
+									
 			if(i!=0)	
 				ret += websWrite(wp, ",");
 			ret += websWrite(wp, "[\'%s\',\'", find_p->profile_name);
-			while(1)
+			while(find_p)
 			{
 				ret += websWrite(wp, "<%s>%d>%s>%s>%s",find_p->ipaddr,find_p->conn_status,find_p->conn_period,find_p->xauth_account,find_p->psk_reauth_time);
 				//_dprintf("<%s>%d>%s>%s>%s\n", find_p->ipaddr,find_p->conn_status,find_p->conn_period,find_p->xauth_account,find_p->psk_reauth_time);
@@ -16705,14 +16784,14 @@ ej_get_ipsec_conn(int eid, webs_t wp, int argc, char_t **argv)
 			}
 			ret += websWrite(wp, "\']");
 		}
-		fclose(fp);
+		pclose(p_fp);
 	}
 	
-    unlink("/tmp/ipsec_conn");
+	unlink("/tmp/ipsec_conn");
 	ret += websWrite(wp, "]");
-	
 	return ret;
 }
+
 #endif
 
 #ifdef RTCONFIG_CAPTIVE_PORTAL
@@ -17184,7 +17263,6 @@ struct ej_handler ej_handlers[] = {
 	{ "sysuptime", ej_sysuptime},
 	{ "nvram_dump", ej_dump},
 	//{ "load_script", ej_load},
-	{ "select_list", ej_select_list},
 	{ "dhcpLeaseInfo", ej_dhcpLeaseInfo},
 	{ "dhcpLeaseMacList", ej_dhcpLeaseMacList},
 	{ "IP_dhcpLeaseInfo", ej_IP_dhcpLeaseInfo},
@@ -17416,6 +17494,7 @@ struct ej_handler ej_handlers[] = {
 	{ "check_passwd_strength", ej_check_passwd_strength},
 	{ "check_wireless_encryption", ej_check_wireless_encryption},
 	{ "get_clientlist", ej_get_clientlist},
+	{ "get_clientlist_maclist", ej_get_clientlist_maclist},
 #if defined(RTCONFIG_BWDPI) || defined(RTCONFIG_BWDPI_DEP)
 	{ "bwdpi_status", ej_bwdpi_status},
 	{ "bwdpi_history", ej_bwdpi_history},
