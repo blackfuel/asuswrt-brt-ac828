@@ -371,39 +371,7 @@ void config_switch(void)
 		eval("rtkswitch", "27");	// software reset
 	}
 
-#if defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2) || \
-    defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2)
-	if (is_routing_enabled()) {
-		int wanscap_wanlan = get_wans_dualwan() & (WANSCAP_WAN | WANSCAP_LAN);
-		int wans_lanport = nvram_get_int("wans_lanport");
-		int wan_mask, unit;
-		char cmd[64];
-		char prefix[8], nvram_ports[20];
-
-		if ((wanscap_wanlan & WANSCAP_LAN) && (wans_lanport < 0 || wans_lanport > 8)) {
-			_dprintf("%s: invalid wans_lanport %d!\n", __func__, wans_lanport);
-			wanscap_wanlan &= ~WANSCAP_LAN;
-		}
-
-		wan_mask = 0;
-		if(wanscap_wanlan & WANSCAP_WAN)
-			wan_mask |= 0x1 << 0;
-		if(wanscap_wanlan & WANSCAP_LAN)
-			wan_mask |= 0x1 << wans_lanport;
-		sprintf(cmd, "rtkswitch 44 0x%08x", wan_mask);
-		system(cmd);
-
-		for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit) {
-			sprintf(prefix, "%d", unit);
-			sprintf(nvram_ports, "wan%sports_mask", (unit == WAN_UNIT_FIRST)? "" : prefix);
-			nvram_unset(nvram_ports);
-			if (get_dualwan_by_unit(unit) == WANS_DUALWAN_IF_LAN) {
-				/* BRT-AC828 LAN1 = P0, LAN2 = P1, etc */
-				nvram_set_int(nvram_ports, (1 << (wans_lanport - 1)));
-			}
-		}
-	}
-#endif
+	pre_config_switch();
 
 #ifdef RTCONFIG_DEFAULT_AP_MODE
 	if (nvram_get_int("sw_mode") != SW_MODE_ROUTER)
@@ -723,6 +691,8 @@ void config_switch(void)
 
 	enable_jumbo_frame();
 
+	post_config_switch();
+
 #if defined(RTCONFIG_BLINK_LED)
 	if (is_swports_bled("led_lan_gpio")) {
 		update_swports_bled("led_lan_gpio", nvram_get_int("lanports_mask"));
@@ -969,6 +939,14 @@ static void __load_wifi_driver(int testmode)
 			code = country_to_code("DB", 5);
 		sprintf(code_str, "%d", code);
 		eval("iwpriv", (char*) VPHY_5G, "setCountryID", code_str);
+
+		if (find_word(nvram_safe_get("rc_support"), "pwrctrl")) {
+			eval("iwpriv", (char*) VPHY_2G, "txpwrpc", nvram_safe_get("wl0_txpower"));
+			eval("iwpriv", (char*) VPHY_5G, "txpwrpc", nvram_safe_get("wl1_txpower"));
+#if defined(RTCONFIG_HAS_5G_2)
+			eval("iwpriv", (char*) VPHY_5G2, "txpwrpc", nvram_safe_get("wl2_txpower"));
+#endif
+		}
 
 #if defined(BRTAC828)
 		set_irq_smp_affinity(68, 1);	/* wifi0 = 2G ==> CPU0 */

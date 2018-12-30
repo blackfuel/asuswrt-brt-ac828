@@ -2228,7 +2228,7 @@ void create_custom_passwd(void)
 				memset(char_user, 0, sizeof(char_user));
 				ascii_to_char_safe(char_user, follow_account->name, sizeof(char_user));
 
-				fprintf(fp, "%s:%s:0:0:99999:7:0:0\n", char_user, output);
+				fprintf(fp, "%s:%s:0:0:99999:7:0:0:\n", char_user, output);
 			}
 		}
 		fclose(fp);

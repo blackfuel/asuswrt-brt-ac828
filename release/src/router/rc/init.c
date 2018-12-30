@@ -323,7 +323,7 @@ wl_defaults(void)
 	char pprefix[]="wlXXXXXX_", *pssid;
 	char word[256], *next;
 	int unit, subunit;
-	char wlx_vifnames[64], wl_vifnames[64], lan_ifnames[128];
+	char wlx_vifnames[128], wl_vifnames[128], lan_ifnames[128];
 	int subunit_x = 0;
 #if !defined(RTCONFIG_FBWIFI)
 	int i;
@@ -1263,6 +1263,17 @@ misc_defaults(int restore_defaults)
 	nvram_unset("skip_gen_ath_config");
 #endif
 
+#if defined(RTCONFIG_RALINK) || defined(RTCONFIG_QCA)
+	for (i = WL_2G_BAND; i < MAX_NR_WL_IF; ++i) {
+		char prefix[sizeof("wlXXXXXX_")];
+
+		SKIP_ABSENT_BAND(i);
+		snprintf(prefix, sizeof(prefix), "wl%d_", i);
+		if (nvram_pf_get_int(prefix, "mrate_x") == 17)
+			nvram_pf_set(prefix, "mrate_x", "15");
+	}
+#endif
+
 #ifdef RTCONFIG_USB
 	if (nvram_match("smbd_cpage", ""))
 	{
@@ -1910,7 +1921,7 @@ char *the_wan_phy()
 static int set_basic_ifname_vars(char *wan, char *lan, char *wl2g, char *wl5g, char *usb, char *ap_lan, char *dw_wan, char *dw_lan, char *wan2, int force_dwlan)
 {
 	int sw_mode = nvram_get_int("sw_mode");
-	char buf[128], *wan2_orig = wan2;
+	char buf[128], prefix[sizeof("wanXXXXXX_")], *wan2_orig = wan2;
 #if defined(RTCONFIG_DUALWAN)
 	int unit, type;
 	int enable_dw_wan = 0;
@@ -2037,6 +2048,7 @@ static int set_basic_ifname_vars(char *wan, char *lan, char *wl2g, char *wl5g, c
 		for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit) {
 			char *wphy = NULL;
 
+			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 			type = get_dualwan_by_unit(unit);
 			switch (type) {
 			case WANS_DUALWAN_IF_LAN:
@@ -2071,7 +2083,8 @@ static int set_basic_ifname_vars(char *wan, char *lan, char *wl2g, char *wl5g, c
 					wphy = wl5g;
 				break;
 			case WANS_DUALWAN_IF_WAN:
-#if (defined(RTCONFIG_RALINK) && !defined(RTCONFIG_RALINK_MT7620) && !defined(RTCONFIG_RALINK_MT7621))
+#if (defined(RTCONFIG_RALINK) && !defined(RTCONFIG_RALINK_MT7620) && !defined(RTCONFIG_RALINK_MT7621)) || \
+    (defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2) || defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2))
 #else
 				/* Broadcom, QCA, MTK (use MT7620/MT7621 ESW) platform */
 				if (nvram_get("switch_wantag")
@@ -2104,6 +2117,24 @@ static int set_basic_ifname_vars(char *wan, char *lan, char *wl2g, char *wl5g, c
 			default:
 				_dprintf("%s: Unknown DUALWAN type %d\n", __func__, type);
 			}
+
+#if defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2) || \
+    defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2)
+			/* If IPTV is not enabled, VLAN is enabled on primary/secondary WAN and WAN/WAN2 port is ued.
+			 * vlanX shouldn't be used due to user may need to use same VLAN on two WAN ports.
+			 */
+			if ((type == WANS_DUALWAN_IF_WAN || type == WANS_DUALWAN_IF_WAN2) &&
+			    nvram_pf_match(prefix, "dot1q", "1") &&
+			    !((strlen(nvram_safe_get("switch_wantag")) > 0 && !nvram_match("switch_wantag", "none")) ||
+			      (nvram_match("switch_wantag", "none") && (nvram_get_int("switch_stb_x") > 0 &&
+			       nvram_get_int("switch_stb_x") <= 6)))) {
+				int vid = nvram_pf_get_int(prefix, "vid");
+				if (vid >= 2 && vid <= 4094) {
+					snprintf(buf, sizeof(buf), "%s.%d", wphy, vid);
+					wphy = buf;
+				}
+			}
+#endif
 
 			if (wphy)
 				add_wan_phy(wphy);
@@ -3559,6 +3590,7 @@ int init_nvram(void)
 		add_rc_support("switchctrl");
 		add_rc_support("manual_stb");
 		add_rc_support("11AC");
+		add_rc_support("pwrctrl");
 		add_rc_support("nodm");
 		// the following values is model dep. so move it from default.c to here
 		nvram_set("wl0_HT_TxStream", "4");
@@ -6000,6 +6032,7 @@ int init_nvram(void)
 	add_rc_support("permission_management");
 #endif
 
+	add_rc_support("eula");
 	return 0;
 }
 

@@ -134,12 +134,16 @@ for(i=0;i<bl_version_array.length;i++){
 
 <% wl_get_parameter(); %>
 var mcast_rates = [
-	["HTMIX 6.5/15", "14", 0, 1, 1],
+	["HTMIX 6.5/15", "14", 0, 1, 1],	// MTK HTMIX
 	["HTMIX 13/30",	 "15", 0, 1, 1],
 	["HTMIX 19.5/45","16", 0, 1, 1],
-	["HTMIX 13/30",	 "17", 0, 1, 2],
 	["HTMIX 26/60",	 "18", 0, 1, 2],
 	["HTMIX 130/144","13", 0, 1, 2],
+	["HTMIX 6.5",    "14", 0, 2, 1],	// QCA HTMIX
+	["HTMIX 13",	 "15", 0, 2, 1],
+	["HTMIX 19.5",   "16", 0, 2, 1],
+	["HTMIX 26",	 "18", 0, 2, 2],
+	["HTMIX 130",    "13", 0, 2, 2],
 	["OFDM 6",	 "4",  0, 0, 1],
 	["OFDM 9",	 "5",  0, 0, 1],
 	["OFDM 12",	 "7",  0, 0, 1],
@@ -225,7 +229,6 @@ function initial(){
 		inputCtrl(document.form.wl_ampdu_mpdu, 0);
 		inputCtrl(document.form.wl_ack_ratio, 0);
 	}else if(Qcawifi_support){
-		// FIXME
 		inputCtrl(document.form.wl_ampdu_mpdu, 0);
 		inputCtrl(document.form.wl_ack_ratio, 0);
 	}else{
@@ -247,7 +250,6 @@ function initial(){
 	inputCtrl(document.form.wl_turbo_qam_brcm_intop, 0);
 	inputCtrl(document.form.wl_txbf, 0);
 	inputCtrl(document.form.wl_itxbf, 0);
-	inputCtrl(document.form.usb_usb3, 0);
 	inputCtrl(document.form.traffic_5g, 0);
 
 	if('<% nvram_get("wl_unit"); %>' == '1' || '<% nvram_get("wl_unit"); %>' == '2'){ // 5GHz up
@@ -293,15 +295,6 @@ function initial(){
 			document.getElementById("wl_plcphdr_field").style.display = "none";
 	}
 	else{ // 2.4GHz
-		var usb_usb3_support = (function(){
-			var usb3_flag = '<% nvram_default_get("usb_usb3"); %>';
-			return (usb3_flag != '') ? true : false;
-		})();
-
-		if(usb_usb3_support){
-			inputCtrl(document.form.usb_usb3, 1);
-		}
-
 		if(	based_modelid == "RT-AC3200" ||
 			based_modelid == "RT-N18U" ||
 			based_modelid == "RT-AC87U" ||
@@ -352,6 +345,15 @@ function initial(){
 		if (mcast_unit == '1' && mcast_rates[i][2]) // 5Ghz && CCK
 			continue;
 		if (!Rawifi_support && !Qcawifi_support && mcast_rates[i][3]) // BCM && HTMIX
+			continue;
+		if (Qcawifi_support){
+			if (mcast_rates[i][3] == 1) // QCA, skip MTK's HTMIX
+				continue;
+		}else{
+			if (mcast_rates[i][3] == 2) // another platform, skip QCA's HTMIX
+				continue;
+		}
+		if ((Rawifi_support || Qcawifi_support) && document.form.wl_nmode_x.value == "2" && mcast_rates[i][3])
 			continue;
 		if (Rawifi_support && HtTxStream < mcast_rates[i][4]) // ralink && HtTxStream
 			continue;
@@ -542,10 +544,6 @@ function applyRule(){
 		else if(sdk_7){
 			document.form.action_wait.value = "5";
 		}
-		
-		if(document.form.usb_usb3.disabled == false && document.form.usb_usb3.value != '<% nvram_get("usb_usb3"); %>'){
-			FormActions("start_apply.htm", "apply", "reboot", "<% get_default_reboot_time(); %>");
-		}
 
 		if("<% nvram_get("wl_unit"); %>" == "1" && "<% nvram_get("wl1_country_code"); %>" == "EU" && based_modelid == "RT-AC87U"){	//for EU RT-AC87U 5G Advanced setting
 			if(document.form.wl1_80211h[0].selected && "<% nvram_get("wl1_chanspec"); %>" == "0")	//Interlocking set acs_dfs="0" while disabled 802.11h and wl1_chanspec="0"(Auto)
@@ -646,7 +644,7 @@ function enable_wme_check(obj){
 
 /* AMPDU RTS for AC model, Jieming added at 2013.08.26 */
 function check_ampdu_rts(){
-	if(document.form.wl_nmode_x.value != 2 && band5g_11ac_support){
+	if(document.form.wl_nmode_x.value != 2 && band5g_11ac_support && !Qcawifi_support){
 		document.getElementById('ampdu_rts_tr').style.display = "";
 		if(document.form.wl_ampdu_rts.value == 1){
 			document.form.wl_rts.disabled = false;
@@ -1467,16 +1465,6 @@ function handle_beamforming(value){
 							<select name="wl_noisemitigation" class="input_option" onChange="">
 								<option value="0" <% nvram_match("wl_noisemitigation", "0","selected"); %>><#WLANConfig11b_WirelessCtrl_buttonname#></option>
 								<option value="1" <% nvram_match("wl_noisemitigation", "1","selected"); %>><#WLANConfig11b_WirelessCtrl_button1name#></option>
-							</select>
-						</td>
-					</tr>
-
-					<tr> <!-- MODELDEP: RT-AC3200 / RT-AC68U / DSL-AC68U Only  -->
-						<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(3,29);"><#WLANConfig11b_x_ReduceUSB3#></a></th>
-						<td>
-							<select name="usb_usb3" class="input_option">
-								<option value="1" <% nvram_match("usb_usb3", "1","selected"); %>><#WLANConfig11b_WirelessCtrl_buttonname#></option>
-								<option value="0" <% nvram_match("usb_usb3", "0","selected"); %>><#WLANConfig11b_WirelessCtrl_button1name#></option>
 							</select>
 						</td>
 					</tr>

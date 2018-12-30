@@ -1181,6 +1181,10 @@ struct nvram_tuple router_defaults[] = {
 	{"wan_clientid", ""},
 	{"wan_vendorid", ""},
 
+	/* VLAN, IPTV must be disabled. */
+	{ "wan_dot1q", "0" },		/* 0/1: disable/enable VLAN on WAN port */
+	{ "wan_vid", "" },		/* 3~4094: VLAN ID, 0~2,4095 are reserved. */
+
 	// For miniupnpd, so far default value only
 	{ "upnp_enable", "1" },
 	{ "upnp_secure", "1" },
@@ -2877,7 +2881,7 @@ struct nvram_tuple router_defaults[] = {
 //#endif
 
 #ifdef RTCONFIG_AUTOCOVER_SIP
-	{ "atcover_sip", "0"},
+	{ "atcover_sip", "1"},
 	{ "atcover_sip_ip", "192.168.1.1"},
 	{ "atcover_sip_type", "0"},
 #endif

@@ -22,6 +22,44 @@ APSurvey_msg_connected=您已经连上此基地台。
 APSurvey_msg_non_support_Auth=不支持的验证方法。
 APSurvey_msg_waiting_to_connect=请稍候，ZVMODELVZ 正在联机到
 ASUS_Registration=加入华硕会员，华硕将不定时提供您最新的产品资讯。 <a style='color:#FC0' target='_blank' href='https://account.asus.com'>立即注册！</a>
+ASUS_Notice=华硕提醒您
+ASUS_privacy_desc=Please note that users are required to agree to share information before using DDNS, Remote Connection (ASUS Router APP、Lyra APP、AiCloud、AiDisk), AiProtection, Traffic analyzer, Apps analyzer, Adaptive QoS, Game Boost/Game IPS and Web history. At any time, users can search for the contents of the terms at this page or stop sharing the information with other parties by choosing <a style="font-weight: bolder;">Withdraw</a>.
+ASUS_eula_desc0=欢迎使用 DDNS/远程连接功能（ASUS Router APP/Lyra APP/AiCloud/AiDisk）。敬请您详细阅读以下条款:
+ASUS_eula_desc1=为评估并提升华硕产品的服务与稳定性，华硕将通过本功能收集以下信息:
+ASUS_eula_desc1_1=当您开始启用上述功能时，华硕将会通过该功能收集下述无法识别您个人身份的信息:
+ASUS_eula_desc1_1_1=日志信息：您产品的日志信息，包括您的产品型号、固件版本、互联网状态、产品自动生成的激活码（仅适用于 Alexa™ 与 IFTTT™ 功能）。
+ASUS_eula_desc1_1_12=日志信息：您产品的日志信息，包括您的产品型号、固件版本、互联网状态、产品自动生成的激活码（仅适用于 Alexa™ 与 IFTTT™ 功能）
+ASUS_eula_desc1_1_13=日志信息：您产品的日志信息，包括您的产品型号、固件版本、互联网状态
+ASUS_eula_desc1_2_s1=当您点击下面的“同意”按键，将视为您同意我们通过本功能收集下述信息。
+ASUS_eula_desc1_2_s2=为了保障未成年人的隐私权益，我们不会收集未成年人的以下信息。
+ASUS_eula_desc1_2_1=产品信息: 与您的产品相关连的产品识别信息，包括您的产品序号、产品的网络协议地址（IP Address）、MAC 地址以及动态域名（DDNS）。
+ASUS_eula_desc1_3=此外，当你启用 Alexa™ 功能时，为了使您能够通过 Alexa™ 功能远程控制您的产品，华硕将与 Amazon 分享您产品自动生成的激活码。
+ASUS_eula_desc1_4=当你启用 IFTTT™ 功能时，为了使您能够通过 IFTTT™ 功能远程控制您的产品，华硕将在此目的范围内，与 IFTTT™ 分享您产品自动生成的激活码。
+ASUS_eula_desc2=华硕致力于保护并十分尊重您的个人隐私和权益。您可以通过以下方式随时开启或关闭与华硕共享您的产品信息 : 高级设置 > 系统管理 > 隐私权。若想进一步了解华硕如何保护您的隐私，亦建议您访问<a id="eula_url" style="font-weight: bolder;text-decoration:underline;cursor:pointer;" target="_blank">华硕隐私权保护政策</a>。
+ASUS_eula_age=我已满 16 岁。
+ASUS_eula_age_confirm=请确认您已满 16 岁。
+ASUS_eula_withdraw0_AlexaIFTTT=使用 DDNS、Alexa™、IFTTTTM 与远程连接功能 （ASUS Router APP/Lyra APP/AiCloud/AiDisk）:
+ASUS_eula_withdraw0_Alexa=使用 DDNS、Alexa™ 与远程连接功能（ASUS Router APP/Lyra APP/AiCloud/AiDisk）:
+ASUS_eula_withdraw0=使用 DDNS 与远程连接功能（ASUS Router APP、Lyra APP、AiCloud、AiDisk）:
+ASUS_eula_withdraw_desc1=华硕将通过以上功能搜集下列信息：您的产品型号、固件版本、网络状态、IP 地址、MAC 地址与 DDNS 名称。
+ASUS_eula_withdraw_desc1_2=如果您不想通过以上功能与华硕分享信息，请点击下方<span style="font-weight: bold;">[关闭信息传送]</span> 选项。请注意，一旦您停止与华硕间的信息分享，上述功能将被停用。
+ASUS_eula_withdraw_desc2=当您点选<span style="font-weight: bold;">[关闭信息传送]</span>后，将会有以下影响
+ASUS_eula_withdraw_desc2_1=你所使用的 DDNS 名称将不会被保留。
+ASUS_eula_withdraw_desc2_2=您可以在局域网络内使用 ASUS Router APP、Lyra APP、AiCloud 与 AiDisk，但是无法在远程连接下使用。
+ASUS_eula_withdraw_desc2_Alexa=若要重新使用 Alexa™ 功能，需至 Alexa™ 网页输入新的激活码。
+ASUS_eula_withdraw_desc2_AlexaIFTTT=若要重新使用 Alexa™ 与 IFTTT™ 功能，需至 Alexa™ 与 IFTTT™ 网页输入新的激活码。
+ASUS_eula_withdraw_note=无法连接至互联网并完成设置，请在连接至互联网的状态下点击[关闭信息传送]。
+ASUS_eula_withdraw_unstable=互联网状态不稳定，无法完成设置。请稍后再试。
+TM_eula_desc1=使用 AiProtection 智能安全防护、流量分析、应用程序分析、带宽管理 Adaptive QoS/Game boost/Game IPS 以及网页浏览历史功能前，请先同意<a id="eula_url" style="text-decoration:underline;" target="_blank">Trend Micro 最终用户许可协议</a>。
+TM_eula_desc2=请注意，AiProtection 智能安全防护、流量分析、应用程序分析、带宽管理 Adaptive QoS/Game boost/Game IPS 以及网页浏览历史功能将会收集您的信息。您了解并同意华硕对于您与 Trend Micro 之间的协议或者是 Trend Micro 所提供的服务内容不承担任何责任。如果您对 Trend Micro 收集信息的方法、过程亦或是如何使用您的信息存在疑虑,请参阅 Trend Micro 所发布之隐私权相关声明，或者请联络 Trend Micro 以获得更多细节。
+TM_eula_desc3=如果您不想通过以上功能与 Trend Micro 分享信息，请通过此路径更改设置：路由器网页管理界面 > 高级设置 > 系统管理 > 隐私权。
+TM_privacy_policy=<a id="tm_eula_url" style="text-decoration:underline;" target="_blank">TrendMicro Privacy Policy</a>
+TM_data_collection=<a id="tm_disclosure_url" style="text-decoration:underline;" target="_blank">Privacy and Personal Data Collection Disclosure</a>
+TM_eula_withdraw0=使用 AiProtection 智能安全防护、流量分析、应用程序分析、带宽管理 Adaptive QoS/Game boost/Game IPS 以及网页浏览历史功能:
+TM_eula_withdraw_desc1=请注意，Trend Micro 将通过以上功能收集您的信息。
+TM_eula_withdraw_desc2=如果您不想通过以上功能与 Trend Micro 分享信息，请点击下方<span style="font-weight: bold;">[关闭信息传送]</span>选项。请注意，一旦您停止与 Trend Micro 间的信息分享，上述功能将被停用。
+withdraw_confirm=请确认是否关闭？
+withdraw_str=关闭信息传送
 asusddns_inputhint=请输入名称
 Auto=自动
 Auto_Setting_btn=自动设置
@@ -710,7 +748,7 @@ lyra_welcome_create=创建新的网络
 lyra_welcome_onboard=或者登录现有的 Lyra 网络
 lyra_privacy_policy=ASUS Privacy Policy
 lyra_tos=ASUS Terms of Use
-lyra_TrendMicro_agreement=Trend Micro End User License Agreement
+lyra_TrendMicro_agreement=趋势科技（中国）有限公司最终用户许可协议
 CHAR_set=UTF-8
 selected_language=简体中文
 Access_Control_title=访问控制
@@ -1524,6 +1562,9 @@ feedback_thanks=感谢您抽出宝贵的时间来提交反馈。
 feedback_translation=您所建议的翻译
 feedback_translation_ts=翻译建议
 feedback_usaul_unavailable=经常无法使用
+feedback_eula=我同意提供以上信息、我的华硕路由器型号、固件版本、浏览器版本、MAC 地址、IP 地址、互联网状态、路由器系统信息以及我向华硕提交此反馈的时间，以用于诊断及改善路由器问题，调查及分析用户体验，从而开发并评估华硕的新服务与新功能，并同意华硕“<a style="font-weight: bolder;text-decoration:underline;cursor:pointer;" href="https://www.asus.com/us/Terms_of_Use_Notice_Privacy_Policy/Privacy_Policy" target="_blank">隐私权保护政策</a>”。
+feedback_eula_notice=请先勾选同意以下条款，再点击“发送”。
+feedback_WiFi_log=Wi-Fi 记录
 File_content_alert_desc10=新文件夹名称超过12字，有些操作系统可能无法兼容!\n要继续操作吗?
 File_content_alert_desc6=文件夹名称不能空白!
 File_content_alert_desc7=文件夹名称只能包含英文字母、数字、破折号、底线，名称中能有空白!
@@ -3242,4 +3283,6 @@ qis_summary_description_step2=当新的 SSID 重新连接后，您可以回到 h
 RemoteAccessHint=关闭从互联网设置，您将无法由互联网透过 $Apps$ 来控制您的路由器。是否继续？
 RemoteAccessHint_RouterApp=ASUS ROUTER APP
 RemoteAccessHint_AlexaIFTTT=Alexa 语音或 IFTTT
+menu_privacy=Privacy
+ASUS_Notice_Privacy=ASUS NOTICE( for privacy )
 WanDouJia=豌豆荚

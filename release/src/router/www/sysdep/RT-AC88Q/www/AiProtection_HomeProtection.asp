@@ -101,9 +101,6 @@ window.onresize = function() {
 	if(document.getElementById("alert_preference").style.display == "block") {
 		cal_panel_block("alert_preference", 0.25);
 	}
-	if(document.getElementById("agreement_panel").style.display == "block") {
-		cal_panel_block("agreement_panel", 0.25);
-	}
 } 
 <% get_AiDisk_status(); %>
 var AM_to_cifs = get_share_management_status("cifs");  // Account Management for Network-Neighborhood
@@ -226,15 +223,17 @@ function applyRule(){
 		document.form.wrs_protect_enable.value = "0";
 		$('#radio_protection_enable').find('.iphone_switch').animate({backgroundPosition: -37}, "slow");
 		shadeHandle('0');
-		if($('#agreement_panel').css('display') == "block") {
-			refreshpage();
-		}
+	}
+
+	if($('#agreement_panel').css('display') == "block"){
+		document.getElementById("hiddenMask").style.visibility = "hidden";
+		$('#agreement_panel').fadeOut(100);
 	}
 }
 
 function showWeaknessTable(){
 	cal_panel_block("weakness_div", 0.25);
-	$('#weakness_div').fadeIn();	
+	$('#weakness_div').fadeIn();
 }
 
 function check_weakness(){
@@ -716,20 +715,19 @@ function check_TM_feature(){
 }
 
 function show_tm_eula(){
-	if(document.form.preferred_lang.value == "JP"){
-			$.get("JP_tm_eula.htm", function(data){
-				document.getElementById('agreement_panel').innerHTML= data;
-				adjust_TM_eula_height("agreement_panel");
-			});
-	}
-	else{
-			$.get("tm_eula.htm", function(data){
-				document.getElementById('agreement_panel').innerHTML= data;
-				adjust_TM_eula_height("agreement_panel");
-			});
-	}
+
+	$.get("tm_eula.htm", function(data){
+		document.getElementById('agreement_panel').innerHTML= data;
+		var url = "https://www.asus.com/Microsite/networks/Trend_Micro_EULA/";
+		$("#eula_url").attr("href",url);
+		url = "https://www.trendmicro.com/en_us/about/legal/privacy-policy-product.html"
+		$("#tm_eula_url").attr("href",url);
+		url = "https://success.trendmicro.com/data-collection-disclosure";
+		$("#tm_disclosure_url").attr("href",url);
+		adjust_TM_eula_height("agreement_panel");
+	});
+
 	dr_advise();
-	cal_panel_block("agreement_panel", 0.25);
 	$("#agreement_panel").fadeIn(300);
 }
 

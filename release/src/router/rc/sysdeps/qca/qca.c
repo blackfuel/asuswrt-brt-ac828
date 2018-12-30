@@ -271,7 +271,7 @@ void gen_macmode(int mac_filter[], int band, char *prefix)
 static inline void __choose_mrate(char *prefix, int *mcast_phy, int *mcast_mcs, int *rate)
 {
 	int phy = 3, mcs = 7;	/* HTMIX 65/150Mbps */
-	*rate=150000;
+	*rate = 65000;		/* 11N NSS1 MCS7 */
 	char tmp[128];
 
 #ifdef RTCONFIG_IPV6
@@ -290,7 +290,7 @@ static inline void __choose_mrate(char *prefix, int *mcast_phy, int *mcast_mcs, 
 		} else {
 			phy = 3;
 			mcs = 1;	/* 5G: HTMIX 13/30Mbps */
-			*rate=30000;
+			*rate = 13000;
 		}
 		/* fall through */
 	case IPV6_DISABLED:
@@ -493,7 +493,7 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 	int i, j, bw = 0, puren = 0, only_20m = 0;
 	int max_subnet;
 	char list[2048];
-	char wds_mac[4][30];
+	char wds_mac[4][30], buf[128];
 	int wds_keyidx;
 	char wds_key[50];
 	int flag_8021x = 0;
@@ -505,7 +505,7 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 	int mcast_phy = 0, mcast_mcs = 0;
 	int mac_filter[MAX_NO_MSSID];
 	char t_mode[30],t_bw[10],t_ext[10],mode_cmd[100];
-	int bg_prot,ban;
+	int bg_prot, ban, wmm, legacy = 0;
 	int sw_mode = nvram_get_int("sw_mode");
 	int wpapsk;
 	int val,rate,caps;
@@ -755,9 +755,6 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 
 	//SSID Num. [MSSID Only]
 	fprintf(fp,"ssid=%s\n",nvram_safe_get(strcat_r(prefix, "ssid", tmp)));
-	
-	if(band)
-		fprintf(fp, "wmm_enabled=1\n");
 
 	snprintf(tmpfix, sizeof(tmpfix), "wl%d_", band);
 	//Network Mode
@@ -791,6 +788,7 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 			} else if (atoi(str) == 2)	// A
 			{
 				sprintf(t_mode,"iwpriv %s mode 11A" ,wif);
+				legacy = 1;
 				//ban=1;
 			}
 			else	// A,N[,AC]
@@ -819,6 +817,7 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 				sprintf(t_mode,"iwpriv %s mode 11G",wif);
 				bg_prot=1;
 				ban=1;
+				legacy = 1;
 			}
 			else if (atoi(str) == 1)	// N
 			{
@@ -836,6 +835,20 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 			bg_prot=1;
 		}
 	}
+
+	/* WME, hostapd part. */
+	str = nvram_pf_get(main_prefix, "wme");
+	if (!str || *str == '\0')
+		str = "auto";
+	/* WMM mustn't be disabled if legacy client is not allowed, e.g., N only or N/AC mixed mode.
+	 * If it happened, client can't connect to AP.
+	 * In auto mode, if WMM is disabled, all client becomes legacy client!
+	 */
+	if (!puren && !strcmp(str, "off"))
+		wmm = 0;
+	else
+		wmm = 1;
+	fprintf(fp, "wmm_enabled=%d\n", wmm);
 
 	nmode = nvram_get_int(strcat_r(tmpfix, "nmode_x", tmp));
 #if defined(RTCONFIG_WIFI_QCA9990_QCA9990) || defined(RTCONFIG_WIFI_QCA9994_QCA9994)
@@ -891,96 +904,119 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 	   
 	//fprintf(fp2,"ifconfig %s up\n",wif);
 	fprintf(fp2,"iwpriv %s hide_ssid %d\n",wif,nvram_get_int(strcat_r(prefix, "closed", tmp)));
-	if (!nvram_get_int(strcat_r(prefix, "closed", tmp))) {
-		int n;
-		char nv[33], buf[128];
-
-		snprintf(nv, sizeof(nv), "%s", nvram_safe_get(strcat_r(prefix, "ssid",tmp)));
-		//replace SSID each char to "\char"
-		memset(buf, 0x0, sizeof(buf));
-		for (n = 0; n < strlen(nv); n++)
-			sprintf(buf, "%s\\%c", buf, nv[n]);
-		fprintf(fp2, "iwconfig %s essid -- %s\n", wif, buf);
+	strlcpy(tmp, nvram_pf_safe_get(prefix, "ssid"), sizeof(tmp));
+	//replace SSID each char to "\char"
+	*buf = '\0';
+	for (i = 0; i < strlen(tmp); i++) {
+		sprintf(temp, "\\%c", tmp[i]);
+		strlcat(buf, temp, sizeof(buf));
 	}
+	fprintf(fp2, "iwconfig %s essid -- %s\n", wif, buf);
 	
-	if (subnet==0 && rep_mode==0)
+	if (!rep_mode)
 	{   
-		//BGProtection
-		str = nvram_safe_get(strcat_r(prefix, "gmode_protection", tmp));
-		if (str && strlen(str)) {
+		//BGProtection, all VAPs on same band share same setting.
+		if (!subnet) {
+			str = nvram_safe_get(strcat_r(prefix, "gmode_protection", tmp));
+			if (!str || *str == '\0') {
+				warning = 13;
+				str = "0";
+			}
 			if (!strcmp(str, "auto") && (bg_prot)) //only for 2.4G
 				fprintf(fp2, "iwpriv %s protmode 1\n", wif);
 			else
 				fprintf(fp2, "iwpriv %s protmode 0\n", wif);
-		} else {
-			warning = 13;
-			fprintf(fp2, "iwpriv %s protmode 0\n", wif);
 		}
 
-		//TxPreamble
-		str = nvram_safe_get(strcat_r(prefix, "plcphdr", tmp));
-		if (str && strcmp(str, "long") == 0)
-			fprintf(fp2, "iwpriv %s shpreamble 0\n",wif);
-		else if (str && strcmp(str, "short") == 0)
-			fprintf(fp2, "iwpriv %s shpreamble 1\n",wif);
-		else
-			fprintf(fp2, "iwpriv %s shpreamble 0\n",wif);
+		//TxPreamble, all VAPs on same band share same setting.
+		if (!subnet) {
+			str = nvram_safe_get(strcat_r(prefix, "plcphdr", tmp));
+			if (!str)
+				str = "long";
+			fprintf(fp2, "iwpriv %s shpreamble %d\n", wif, !strcmp(str, "short")? 1 : 0);
+		}
 
-		//RTSThreshold  Default=2347
-		str = nvram_safe_get(strcat_r(prefix, "rts", tmp));
-		if (str && strlen(str))
-			fprintf(fp2, "iwconfig %s rts %d\n",wif,atoi(str));
-		else {
+		//RTSThreshold  Default=2347, each VAPs have it's own setting.
+		str = nvram_pf_safe_get(main_prefix, "rts");
+		if (!str || *str == '\0') {
 			warning = 14;
-			fprintf(fp2, "iwconfig %s rts 2347\n", wif);
+			str = "2347";
+		}
+		fprintf(fp2, "iwconfig %s rts %d\n", wif, safe_atoi(str));
+
+		//Fragmentation Threshold  Default=2346, each VAPs have it's own setting.
+		if (legacy) {
+			str = nvram_pf_safe_get(main_prefix, "frag");
+			if (!str || *str == '\0') {
+				warning = 15;
+				str = "2346";
+			}
+			fprintf(fp2, "iwconfig %s frag %d\n", wif, safe_atoi(str));
 		}
 
-		//DTIM Period
-		str = nvram_safe_get(strcat_r(prefix, "dtim", tmp));
-		if (str && strlen(str))
-			fprintf(fp2, "iwpriv %s dtim_period %d\n", wif,atoi(str));
-		else {
+		//DTIM Period, each VAPs have it's own setting.
+		str = nvram_pf_safe_get(main_prefix, "dtim");
+		if (!str || *str == '\0') {
 			warning = 11;
-			fprintf(fp2, "iwpriv %s dtim_period 1\n", wif);
+			str = "1";
 		}
+		fprintf(fp2, "iwpriv %s dtim_period %d\n", wif, safe_atoi(str));
 
-		//BeaconPeriod
-		str = nvram_safe_get(strcat_r(prefix, "bcn", tmp));
-		if (str && strlen(str)) {
+		//BeaconPeriod, all VAPs on same band share same setting.
+		if (!subnet) {
 			const int min_bintval =
 #if defined(RTCONFIG_WIFI_QCA9994_QCA9994)
 				100;
 #else
 				40;
 #endif
+			str = nvram_safe_get(strcat_r(prefix, "bcn", tmp));
+			if (!str || *str == '\0') {
+				warning = 10;
+				str = "100";
+			}
 			if (atoi(str) > 1000 || atoi(str) < min_bintval) {
 				nvram_set(strcat_r(prefix, "bcn", tmp), "100");
-				fprintf(fp2, "iwpriv %s bintval 100\n",wif);
+				fprintf(fp2, "iwpriv %s bintval 100\n", wif);
 			} else
-				fprintf(fp2, "iwpriv %s bintval %d\n",wif,atoi(str));
-		} else {
-			warning = 10;
-			fprintf(fp2, "iwpriv %s bintval 100\n",wif);
+				fprintf(fp2, "iwpriv %s bintval %d\n", wif, safe_atoi(str));
 		}
 
-		//APSDCapable
-		str = nvram_safe_get(strcat_r(prefix, "wme_apsd", tmp));
-		if (str && strlen(str))
-			fprintf(fp2, "iwpriv %s uapsd %d\n", wif,strcmp(str, "off") ? 1 : 0);
-		else {
-			warning = 18;
-			fprintf(fp2, "iwpriv %s uapsd 1\n",wif);
+		/* WME, iwpriv part, each VAPs have it's own setting. */
+		fprintf(fp2, "iwpriv %s wmm %d\n", wif, wmm);
+
+		/* WME No acknowledge, all VAPs on same band share same setting. */
+		if (!subnet && wmm) {
+			str = nvram_pf_get(main_prefix, "wme_no_ack");
+			if (!str || *str == '\0')
+				str = "off";
+			val = !strcmp(str, "on")? 1 : 0;
+			fprintf(fp2, "iwpriv %s setwmmparams 6 0 0 %d\n", wif, val);	/* ac = BE */
+			fprintf(fp2, "iwpriv %s setwmmparams 6 1 0 %d\n", wif, val);	/* ac = BK */
+			fprintf(fp2, "iwpriv %s setwmmparams 6 2 0 %d\n", wif, val);	/* ac = VI */
+			fprintf(fp2, "iwpriv %s setwmmparams 6 3 0 %d\n", wif, val);	/* ac = VO */
 		}
 
-		//TxBurst
-		str = nvram_safe_get(strcat_r(prefix, "frameburst", tmp));
-		if (str && strlen(str))
+		//APSDCapable, each VAPs have it's own setting.
+		if (wmm) {
+			str = nvram_pf_safe_get(main_prefix, "wme_apsd");
+			if (!str || *str == '\0') {
+				warning = 18;
+				str = "off";
+			}
+			fprintf(fp2, "iwpriv %s uapsd %d\n", wif, strcmp(str, "off")? 1 : 0);
+		}
+
+		//TxBurst, all VAPs on same band share same setting.
+		if (!subnet) {
+			str = nvram_safe_get(strcat_r(prefix, "frameburst", tmp));
+			if (!str || *str == '\0') {
+				warning = 16;
+				str = "off";
+			}
 			fprintf(fp2, "iwpriv %s burst %d\n", vphy, strcmp(str, "off") ? 1 : 0);
-		else {
-			warning = 16;
-			fprintf(fp2, "iwpriv %s burst 1\n", vphy);
 		}
-	}	
+	}
 
 	if(!band) //2.4G
 		fprintf(fp2,"iwpriv %s ap_bridge %d\n",wif,nvram_get_int("wl0_ap_isolate")?0:1);
@@ -1208,7 +1244,8 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 		}
 		else {
 			//warning = 34;
-			sprintf(t_bw,"HT20");
+			if (!legacy)
+				sprintf(t_bw,"HT20");
 		}
 	}
 
@@ -1480,9 +1517,6 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 				if(WdsEnable!=2 || nvram_match(strcat_r(prefix, "wdsapply_x", tmp),"1"))
 					fprintf(fp2,"wlanconfig %s nawds mode %d\n",wif,(WdsEnable==2)?4:3);
 
-				/* To increase WDS compatibility, if WDS VHT is not enabled, fallback to 11A. */
-				if (band && !nvram_match("wl1_wds_vht", "1"))
-					caps = 0;
 				for(i=0;i<4;i++)
 					if(strlen(wds_mac[i]) && nvram_match(strcat_r(prefix, "wdsapply_x", tmp),"1"))
 						fprintf(fp5, "wlanconfig %s nawds add-repeater %s 0x%x\n", wif, wds_mac[i], caps);
@@ -1563,70 +1597,70 @@ next_mrate:
 			 */
 			break;
 		case 1:		/* Legacy CCK 1Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 1000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 1000) &\n",wif);
 			mcast_phy = 1;
 			break;
 		case 2:		/* Legacy CCK 2Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 2000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 2000) &\n",wif);
 			mcast_phy = 1;
 			break;
 		case 3:		/* Legacy CCK 5.5Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 5500\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 5500) &\n",wif);
 			mcast_phy = 1;
 			break;
 		case 4:		/* Legacy OFDM 6Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 6000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 6000) &\n",wif);
 			break;
 		case 5:		/* Legacy OFDM 9Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 9000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 9000) &\n",wif);
 			break;
 		case 6:		/* Legacy CCK 11Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 11000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 11000) &\n",wif);
 			mcast_phy = 1;
 			break;
 		case 7:		/* Legacy OFDM 12Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 12000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 12000) &\n",wif);
 			break;
 		case 8:		/* Legacy OFDM 18Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 18000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 18000) &\n",wif);
 			break;
 		case 9:		/* Legacy OFDM 24Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 24000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 24000) &\n",wif);
 			break;
 		case 10:		/* Legacy OFDM 36Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 36000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 36000) &\n",wif);
 			break;
 		case 11:		/* Legacy OFDM 48Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 48000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 48000) &\n",wif);
 			break;
 		case 12:		/* Legacy OFDM 54Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 54000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 54000) &\n",wif);
 			break;
 		case 13:		/* HTMIX 130/300Mbps 2S */
-			fprintf(fp2, "iwpriv %s mcast_rate 300000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 130000) &\n",wif);
 			break;
 		case 14:		/* HTMIX 6.5/15Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 15000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 6500) &\n",wif);
 			break;
 		case 15:		/* HTMIX 13/30Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 30000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 13000) &\n",wif);
 			break;
 		case 16:		/* HTMIX 19.5/45Mbps */
-			fprintf(fp2, "iwpriv %s mcast_rate 45000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 19500) &\n",wif);
 			break;
 		case 17:		/* HTMIX 13/30Mbps 2S */
-			fprintf(fp2, "iwpriv %s mcast_rate 30000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 13000) &\n",wif);
 			break;
 		case 18:		/* HTMIX 26/60Mbps 2S */
-			fprintf(fp2, "iwpriv %s mcast_rate 60000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 26000) &\n",wif);
 			break;
 		case 19:		/* HTMIX 39/90Mbps 2S */
-			fprintf(fp2, "iwpriv %s mcast_rate 90000\n",wif);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate 39000) &\n",wif);
 			break;
 		case 20:
 			/* Choose multicast rate base on mode, encryption type, and IPv6 is enabled or not. */
 			__choose_mrate(tmpfix, &mcast_phy, &mcast_mcs, &rate);
-			fprintf(fp2, "iwpriv %s mcast_rate %d\n",wif,rate);
+			fprintf(fp2, "(sleep 10 ; iwpriv %s mcast_rate %d) &\n",wif,rate);
 			break;
 		}
 	/* No CCK for 5Ghz band */

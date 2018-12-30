@@ -508,8 +508,13 @@ void rc_ipsec_secrets_init()
 
 void rc_strongswan_conf_set()
 {
-    int rc = 0;
-    FILE *fp = NULL;
+	FILE *fp;
+	char *user;
+	int rc;
+
+	user = nvram_safe_get("http_username");
+	if (*user == '\0')
+		user = "admin";
 
     rc = pre_ipsec_samba_prof_set();
 DBG(("ipsec_samba#\n"));
@@ -517,7 +522,8 @@ DBG(("ipsec_samba#\n"));
     fprintf(fp, "# strongswan.conf - strongSwan configuration file\n#\n"
                 "# Refer to the strongswan.conf(5) manpage for details\n#\n"
                 "# Configuration changes should be made in the included files"
-                "\ncharon {\n\n\n"
+                "\ncharon {\n\n"
+                "  user = %s\n"
                 "  send_vendor_id = yes\n"
                 "  duplicheck.enable = no\n"
                 "  starter { load_warning = no }\n\n"
@@ -527,7 +533,9 @@ DBG(("ipsec_samba#\n"));
                 "  filelog {\n      /var/log/strongswan.charon.log {\n"
                 "        time_format = %%b %%e %%T\n        default = %d\n"
                 "        append = no\n        flush_line = yes\n"
-                "     }\n  }\n", nvram_get_int("ipsec_log_level"));
+                "     }\n  }\n",
+                user,
+                nvram_get_int("ipsec_log_level"));
     if(0 != rc){
         if(('n' != samba_prof.dns1[0]) && ('\0' != samba_prof.dns1[0])){
             fprintf(fp,"\n  dns1=%s\n", samba_prof.dns1);
@@ -1033,7 +1041,7 @@ void rc_ipsec_secrets_set()
 		                 prof[prof_count][i].local_pub_ip ) : prof[prof_count][i].local_id)*/
 		               , ((0 == strcmp(prof[prof_count][i].remote_id, "null") ||
 		                  ('\0' == prof[prof_count][i].remote_id[0])) ?
-		                  ((('\0' == prof[prof_count][i].remote_gateway[0]) ||
+		                  ((('\0' == prof[prof_count][i].remote_gateway[0]) || (0 == strcmp(prof[prof_count][i].remote_gateway_method, "1")) ||
 		                    ('n' == prof[prof_count][i].remote_gateway[0])) ? "\%any" : 
 		                    prof[prof_count][i].remote_gateway) : prof[prof_count][i].remote_id)
 		               , ((0 == prof[prof_count][i].auth_method) ? "RSA" : "PSK")
@@ -1210,6 +1218,10 @@ void ipsec_conf_remote_set(FILE *fp, int prof_idx, ipsec_prof_type_t prof_type)
     if((0 != strcmp(prof[prof_type][prof_idx].remote_id, "null")) &&
        ('\0' != prof[prof_type][prof_idx].remote_id[0])){
         fprintf(fp, "  rightid=%s\n", prof[prof_type][prof_idx].remote_id);
+    }
+	else if((0 == strcmp(prof[prof_type][prof_idx].remote_gateway_method, "1")))
+    {
+		fprintf(fp, "  rightid=%%any\n");
     }
 	
     return;
@@ -1404,7 +1416,7 @@ void rc_ipsec_topology_set()
     }
     return;
 }
-void rc_ipsec_nvram_convert_check()
+void rc_ipsec_nvram_convert_check(void)
 {
 	int i, prof_count = 0;
 	char buf[SZ_MIN], buf_ext[SZ_MIN];
@@ -1431,7 +1443,7 @@ void rc_ipsec_nvram_convert_check()
 		}
 	}
 }
-void rc_ipsec_config_init()
+void rc_ipsec_config_init(void)
 {
     memset((ipsec_samba_t *)&samba_prof, 0, sizeof(ipsec_samba_t));
     memset((ipsec_prof_t *)&prof[0][0], 0, sizeof(ipsec_prof_t) * MAX_PROF_NUM);
@@ -1481,7 +1493,7 @@ void get_bitmap_scan(int *cur_bitmap_en)
 	}
 	return;
 }
-void run_ipsec_firewall_scripts()
+void run_ipsec_firewall_scripts(void)
 {
 	char *argv[3];
 	argv[0] = "/bin/sh";
@@ -1949,22 +1961,36 @@ void rc_ipsec_set(ipsec_conn_status_t conn_status, ipsec_prof_type_t prof_type)
 		DBG(("rc_ipsec_down_stat>>>> 0x%x,prof_count=%d\n", pre_bitmap_en[prof_count],prof_count));
     	for(i = 0; i < MAX_PROF_NUM; i++){
 			if(0 != strlen(prof[prof_count][i].profilename)) {
-				if(strcmp(prof[prof_count][i].local_public_interface,"wan") == 0){
-					strcpy(interface,get_wan_ifname(0));
-				}
-				else if(strcmp(prof[prof_count][i].local_public_interface,"wan2") == 0){
-					strcpy(interface,get_wan_ifname(1));
-				}
-				else if(strcmp(prof[prof_count][i].local_public_interface,"lan") == 0) 
-					strcpy(interface,"br0");
-				else if(strcmp(prof[prof_count][i].local_public_interface,"usb") == 0){ 
-					foreach(word, nvram_safe_get("wan_ifnames"), next) {
-						if (0 == strcmp(word,"usb")){
+				if(strcmp(prof[prof_count][i].local_public_interface, "wan") == 0){
+					//strcpy(interface,get_wan_ifname(0));
+					foreach(word, nvram_safe_get("wans_dualwan"), next) {
+						if (0 == strcmp(word, "wan")){
 							break;
 						}
 						unit ++;
 					}
-					strcpy(interface,get_wan_ifname(unit));
+					strcpy(interface, get_wan_ifname(unit));
+				}
+				else if(strcmp(prof[prof_count][i].local_public_interface, "wan2") == 0){
+					//strcpy(interface,get_wan_ifname(1));
+					foreach(word, nvram_safe_get("wans_dualwan"), next) {
+						if (0 == strcmp(word, "wan2")){
+							break;
+						}
+						unit ++;
+					}
+					strcpy(interface, get_wan_ifname(unit));
+				}
+				else if(strcmp(prof[prof_count][i].local_public_interface, "lan") == 0) 
+					strcpy(interface, "br0");
+				else if(strcmp(prof[prof_count][i].local_public_interface, "usb") == 0){ 
+					foreach(word, nvram_safe_get("wans_dualwan"), next) {
+						if (0 == strcmp(word, "usb")){
+							break;
+						}
+						unit ++;
+					}
+					strcpy(interface, get_wan_ifname(unit));
 				}
 				
 				if(IPSEC_CONN_EN_UP == prof[prof_count][i].ipsec_conn_en){

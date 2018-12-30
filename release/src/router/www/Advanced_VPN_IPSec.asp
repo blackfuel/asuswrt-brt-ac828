@@ -822,7 +822,7 @@ function showIPSecClients(profileName, e) {
 											<tr id="tr_presharedKey">
 												<th>Preshared Key<!--untranslated--></th>
 												<td>
-													<input id="ipsec_preshared_key" name="ipsec_preshared_key" type="text" autocapitalization="off" class="input_25_table" maxlength="32" placeholder="Enter Preshared Key"><!--untranslated-->
+													<input id="ipsec_preshared_key" name="ipsec_preshared_key" type="text" class="input_25_table" maxlength="32" placeholder="<#vpn_preshared_key_hint#>" autocomplete="off" autocorrect="off" autocapitalize="off">
 												</td>
 											</tr>
 											<tr id="tr_ike_isakmp">
@@ -836,7 +836,7 @@ function showIPSecClients(profileName, e) {
 											<tr id="tr_clientIP">
 												<th><#vpn_client_ip#></th>
 												<td>
-													<input type="text" maxlength="11" class="input_12_table" name="ipsec_clients_start" onBlur="setClientsEnd();" value="10.10.10" autocorrect="off" autocapitalize="off"/>
+													<input type="text" maxlength="11" class="input_12_table" name="ipsec_clients_start" onBlur="setClientsEnd();" value="10.10.10" autocomplete="off" autocorrect="off" autocapitalize="off"/>
 													<span style="font-family: Lucida Console;color: #FFF;">.1 ~ </span>
 													<span id="ipsec_clients_end" style="font-family: Lucida Console;color: #FFF;">10.10.10.254</span>
 												</td>
@@ -862,10 +862,10 @@ function showIPSecClients(profileName, e) {
 											</tr>
 											<tr>
 												<td width="45%">
-													<input type="text" class="input_25_table" maxlength="32" name="ipsec_client_list_username" onKeyPress="return validator.isString(this, event)">
+													<input type="text" class="input_25_table" maxlength="32" name="ipsec_client_list_username" onKeyPress="return validator.isString(this, event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 												</td>
 												<td width="45%">
-													<input type="text" class="input_25_table" maxlength="32" name="ipsec_client_list_password" onKeyPress="return validator.isString(this, event)">
+													<input type="text" class="input_25_table" maxlength="32" name="ipsec_client_list_password" onKeyPress="return validator.isString(this, event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 												</td>
 												<td width="10%">
 													<div><input type="button" class="add_btn" onClick="addRow_Group(8);" value=""></div>
@@ -903,7 +903,7 @@ function showIPSecClients(profileName, e) {
 												<tr id="tr_adv_dpd_interval">
 													<th>DPD checking interval<!--untranslated--></th>
 													<td>
-														<input type="text" class="input_3_table" name="ipsec_dpd" maxlength="3" value="10" onKeyPress="return validator.isNumber(this,event)">
+														<input type="text" class="input_3_table" name="ipsec_dpd" maxlength="3" value="10" onKeyPress="return validator.isNumber(this,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 														<span style="color:#FC0">(10~900) <#Second#></span>
 													</td>
 												</tr>

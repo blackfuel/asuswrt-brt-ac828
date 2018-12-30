@@ -101,9 +101,6 @@ window.onresize = function() {
 	if(document.getElementById("alert_preference").style.display == "block") {
 		cal_panel_block("alert_preference", 0.25);
 	}
-	if(document.getElementById("agreement_panel").style.display == "block") {
-		cal_panel_block("agreement_panel", 0.25);
-	}
 } 
 <% get_AiDisk_status(); %>
 var AM_to_cifs = get_share_management_status("cifs");  // Account Management for Network-Neighborhood
@@ -717,7 +714,6 @@ function show_tm_eula(){
 			});
 	}
 	dr_advise();
-	cal_panel_block("agreement_panel", 0.25);
 	$("#agreement_panel").fadeIn(300);
 }
 
@@ -733,7 +729,6 @@ function eula_confirm(){
 }
 
 function show_alert_preference(){
-	cal_panel_block("alert_preference", 0.25);
 	check_smtp_server_type();
 	parse_wrs_mail_bit();
 	$('#alert_preference').fadeIn(300);

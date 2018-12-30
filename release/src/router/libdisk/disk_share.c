@@ -54,7 +54,7 @@ extern void set_file_integrity(const char *const file_name){
 		return;
 	}
 	len = strlen(file_name)-strlen(ptr);
-	memset(target_dir, 0, PATH_MAX);
+	memset(target_dir, 0, sizeof(target_dir));
 	strncpy(target_dir, file_name, len);
 
 	if((file_size = f_size(file_name)) == -1){
@@ -122,7 +122,7 @@ extern int get_folder_list(const char *const mount_path, int *sh_num, char ***fo
 		usb_dbg("Can't malloc \"list_file\".\n");
 		return -1;
 	}
-	sprintf(list_file, "%s/.__folder_list.txt", mount_path);
+	snprintf(list_file, (len+1), "%s/.__folder_list.txt", mount_path);
 	list_file[len] = 0;
 	
 	// 2. check the file integrity.
@@ -266,7 +266,7 @@ extern int get_all_folder(const char *const mount_path, int *sh_num, char ***fol
 			closedir(pool_to_open);
 			return -1;
 		}
-		sprintf(testdir, "%s/%s", mount_path, dp->d_name);
+		snprintf(testdir, (len+1), "%s/%s", mount_path, dp->d_name);
 		testdir[len] = 0;
 		if(!check_if_dir_exist(testdir)){
 			free(testdir);
@@ -338,12 +338,11 @@ int get_var_file_name(const char *const account, const char *const path,
 	var_file = *file_name;
 	if (account != NULL) {
 		if (is_group)
-			sprintf(var_file, "%s/.__G_%s_var.txt", path,
-				ascii_user);
+			snprintf(var_file, (len+1), "%s/.__G_%s_var.txt", path, ascii_user);
 		else
-			sprintf(var_file, "%s/.__%s_var.txt", path, ascii_user);
+			snprintf(var_file, (len+1), "%s/.__%s_var.txt", path, ascii_user);
 	} else
-		sprintf(var_file, "%s/.___var.txt", path);
+		snprintf(var_file, (len+1), "%s/.___var.txt", path);
 	var_file[len] = 0;
 
 	return 0;
@@ -359,8 +358,8 @@ extern int get_var_file_name(const char *const account, const char *const path, 
 
 	len = strlen(path)+strlen("/.___var.txt");
 	if(account != NULL){
-		memset(ascii_user, 0, 64);
-		char_to_ascii_safe(ascii_user, account, 64);
+		memset(ascii_user, 0, sizeof(ascii_user));
+		char_to_ascii_safe(ascii_user, account, sizeof(ascii_user));
 
 		len += strlen(ascii_user);
 	}
@@ -370,9 +369,9 @@ extern int get_var_file_name(const char *const account, const char *const path, 
 
 	var_file = *file_name;
 	if(account != NULL)
-		sprintf(var_file, "%s/.__%s_var.txt", path, ascii_user);
+		snprintf(var_file, (len+1), "%s/.__%s_var.txt", path, ascii_user);
 	else
-		sprintf(var_file, "%s/.___var.txt", path);
+		snprintf(var_file, (len+1), "%s/.___var.txt", path);
 	var_file[len] = 0;
 
 	return 0;
@@ -417,7 +416,7 @@ extern int initial_folder_list(const char *const mount_path){
 		usb_dbg("Can't malloc \"list_file\".\n");
 		return -1;
 	}
-	sprintf(list_file, "%s/.__folder_list.txt", mount_path);
+	snprintf(list_file, (len+1), "%s/.__folder_list.txt", mount_path);
 	list_file[len] = 0;
 	
 	// 2. get the folder number and folder_list
@@ -648,8 +647,7 @@ int initial_all_var_file(const char *const mount_path)
 		if (strncmp(dp->d_name, ".__", 3))
 			continue;
 
-		memset(test_path, 0, sizeof(test_path));
-		sprintf(test_path, "%s/%s", mount_path, dp->d_name);
+		snprintf(test_path, sizeof(test_path), "%s/%s", mount_path, dp->d_name);
 		usb_dbg("delete %s.\n", test_path);
 		delete_file_or_dir(test_path);
 	}
@@ -736,8 +734,7 @@ extern int initial_all_var_file(const char *const mount_path) {
 		if(strncmp(dp->d_name, ".__", 3))
 			continue;
 
-		memset(test_path, 0, PATH_MAX);
-		sprintf(test_path, "%s/%s", mount_path, dp->d_name);
+		snprintf(test_path, sizeof(test_path), "%s/%s", mount_path, dp->d_name);
 		usb_dbg("delete %s.\n", test_path);
 		delete_file_or_dir(test_path);
 	}
@@ -1031,7 +1028,7 @@ int modify_if_exist_new_folder(const char *const account,
 			free(var_file);
 			return -1;
 		}
-		sprintf(target, "*%s=", folder_list[i]);
+		snprintf(target, (len+1), "*%s=", folder_list[i]);
 		target[len] = 0;
 
 		// 5. get the default permission of all protocol.
@@ -1140,7 +1137,7 @@ extern int modify_if_exist_new_folder(const char *const account, const char *con
 			free(var_file);
 			return -1;
 		}
-		sprintf(target, "*%s=", folder_list[i]);
+		snprintf(target, (len+1), "*%s=", folder_list[i]);
 		target[len] = 0;
 		
 		// 5. get the default permission of all protocol.
@@ -1239,10 +1236,7 @@ int get_permission(const char *const account,
 		free(var_info);
 		return -1;
 	}
-	if (f == NULL)
-		strcpy(target, "*=");
-	else
-		sprintf(target, "*%s=", f);
+	snprintf(target, (len+1), "*%s=", (f != NULL)?f:"");
 	target[len] = 0;
 
 	follow_info = upper_strstr(var_info, target);
@@ -1357,10 +1351,7 @@ retry_get_permission:
 		free(var_info);
 		return -1;
 	}
-	if(f == NULL)
-		strcpy(target, "*=");
-	else
-		sprintf(target, "*%s=", f);
+	snprintf(target, (len+1), "*%s=", (f != NULL)?f:"");
 	target[len] = 0;
 	
 	follow_info = upper_strstr(var_info, target);
@@ -1479,10 +1470,7 @@ int set_permission(const char *const account,
 		free(var_info);
 		return -1;
 	}
-	if (folder == NULL)
-		strcpy(target, "*=");
-	else
-		sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", (folder != NULL)?folder:"");
 	target[len] = 0;
 
 	// 5. judge if the target is in the var file.
@@ -1658,10 +1646,7 @@ extern int set_permission(const char *const account,
 		free(var_info);
 		return -1;
 	}
-	if(folder == NULL)
-		strcpy(target, "*=");
-	else
-		sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", (folder != NULL)?folder:"");
 	target[len] = 0;
 	
 	// 5. judge if the target is in the var file.
@@ -1810,7 +1795,9 @@ int add_folder_at_var_file(const char *const account,
 		free(var_file);
 		return -1;
 	}
-	sprintf(target, "*%s=", folder);
+
+	snprintf(target, (len+1), "*%s=", folder);
+
 	target[len] = 0;
 
 	var_info = read_whole_file(var_file);
@@ -1933,7 +1920,7 @@ extern int add_folder(const char *const account, const char *const mount_path, c
 		usb_dbg("add_folder: Can't malloc \"full_path\".\n");
 		return -1;
 	}
-	sprintf(full_path, "%s/%s", mount_path, folder);
+	snprintf(full_path, (len+1), "%s/%s", mount_path, folder);
 	full_path[len] = 0;
 
 	umask(0000);
@@ -2029,7 +2016,7 @@ int del_folder_at_var_file(const char *const account,
 		free(var_file);
 		return -1;
 	}
-	sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", folder);
 	target[len] = 0;
 
 	var_info = read_whole_file(var_file);
@@ -2115,7 +2102,7 @@ extern int del_folder(const char *const mount_path, const char *const folder){
 		usb_dbg("Can't malloc \"full_path\".\n");
 		return -1;
 	}
-	sprintf(full_path, "%s/%s", mount_path, folder);
+	snprintf(full_path, (len+1), "%s/%s", mount_path, folder);
 	full_path[len] = 0;
 
 	result = test_if_exist_share(mount_path, folder);
@@ -2221,7 +2208,7 @@ int mod_folder_at_var_file(const char *const account,
 		usb_dbg("%s: Can't allocate \"target\".\n", __FUNCTION__);
 		return -1;
 	}
-	sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", folder);
 	target[len] = 0;
 
 	len = strlen("*") + strlen(new_folder) + strlen("=");
@@ -2231,7 +2218,7 @@ int mod_folder_at_var_file(const char *const account,
 		free(target);
 		return -1;
 	}
-	sprintf(new_target, "*%s=", new_folder);
+	snprintf(new_target, (len+1), "*%s=", new_folder);
 	new_target[len] = 0;
 
 	var_info = read_whole_file(var_file);
@@ -2328,7 +2315,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 		usb_dbg("Can't malloc \"full_path\".\n");
 		return -1;
 	}
-	sprintf(full_path, "%s/%s", mount_path, folder);
+	snprintf(full_path, (len+1), "%s/%s", mount_path, folder);
 	full_path[len] = 0;
 
 	len = strlen(mount_path)+strlen("/")+strlen(new_folder);
@@ -2338,7 +2325,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 		free(full_path);
 		return -1;
 	}
-	sprintf(new_full_path, "%s/%s", mount_path, new_folder);
+	snprintf(new_full_path, (len+1), "%s/%s", mount_path, new_folder);
 	new_full_path[len] = 0;
 
 	result = test_if_exist_share(mount_path, folder);
@@ -2594,11 +2581,11 @@ extern int add_account(const char *const account, const char *const password){
 		return -1;
 	}
 
-	memset(ascii_user, 0, 64);
-	char_to_ascii_safe(ascii_user, account, 64);
+	memset(ascii_user, 0, sizeof(ascii_user));
+	char_to_ascii_safe(ascii_user, account, sizeof(ascii_user));
 
-	memset(ascii_passwd, 0, 64);
-	char_to_ascii_safe(ascii_passwd, password, 64);
+	memset(ascii_passwd, 0, sizeof(ascii_passwd));
+	char_to_ascii_safe(ascii_passwd, password, sizeof(ascii_passwd));
 
 	acc_num = nvram_get_int("acc_num");
 	if(acc_num < 0)
@@ -2616,11 +2603,11 @@ extern int add_account(const char *const account, const char *const password){
 		sprintf(ptr, "<%s>%s", ascii_user, ascii_passwd);
 		nvram_set("acc_list", nvram_value);
 
-		sprintf(nvram_value, "%d", acc_num+1);
+		snprintf(nvram_value, sizeof(nvram_value), "%d", acc_num+1);
 		nvram_set("acc_num", nvram_value);
 	}
 	else{
-		sprintf(nvram_value, "%s>%s", ascii_user, ascii_passwd);
+		snprintf(nvram_value, sizeof(nvram_value), "%s>%s", ascii_user, ascii_passwd);
 		nvram_set("acc_list", nvram_value);
 
 		nvram_set("acc_num", "1");
@@ -2737,11 +2724,9 @@ int del_account(const char *const account)
 			len = strlen(nvram_value);
 			if (len > 0) {
 				ptr = nvram_value + len;
-				sprintf(ptr, "<%s>%s", tmp_ascii_user,
-					tmp_ascii_passwd);
+				sprintf(ptr, "<%s>%s", tmp_ascii_user, tmp_ascii_passwd);
 			} else
-				sprintf(nvram_value, "%s>%s", tmp_ascii_user,
-					tmp_ascii_passwd);
+				snprintf(nvram_value, sizeof(nvram_value), "%s>%s", tmp_ascii_user, tmp_ascii_passwd);
 
 			if (++i >= acc_num)
 				break;
@@ -2751,8 +2736,7 @@ int del_account(const char *const account)
 		free(nv);
 	nvram_set("acc_list", nvram_value);
 
-	memset(nvram_value, 0, sizeof(nvram_value));
-	sprintf(nvram_value, "%d", i);
+	snprintf(nvram_value, sizeof(nvram_value), "%d", i);
 	nvram_set("acc_num", nvram_value);
 	need_commit = 1;
 #endif
@@ -2824,10 +2808,7 @@ int del_account(const char *const account)
 				if (strncmp(dp->d_name, ptr, len))
 					continue;
 
-				memset(test_path, 0, sizeof(test_path));
-				sprintf(test_path, "%s/%s",
-					follow_partition->mount_point,
-					dp->d_name);
+				snprintf(test_path, sizeof(test_path), "%s/%s", follow_partition->mount_point, dp->d_name);
 				usb_dbg("delete %s.\n", test_path);
 				delete_file_or_dir(test_path);
 			}
@@ -2862,7 +2843,7 @@ extern int del_account(const char *const account){
 	if(acc_num <= 0)
 		return 0;
 
-	memset(nvram_value, 0, PATH_MAX);
+	memset(nvram_value, 0, sizeof(nvram_value));
 	nv = nvp = strdup(nvram_safe_get("acc_list"));
 	i = 0;
 	if(nv && strlen(nv) > 0){
@@ -2870,8 +2851,8 @@ extern int del_account(const char *const account){
 			if(vstrsep(b, ">", &tmp_ascii_user, &tmp_ascii_passwd) != 2)
 				continue;
 
-			memset(char_user, 0, 64);
-			ascii_to_char_safe(char_user, tmp_ascii_user, 64);
+			memset(char_user, 0, sizeof(char_user));
+			ascii_to_char_safe(char_user, tmp_ascii_user, sizeof(char_user));
 
 			if(!strcmp(account, char_user)){
 				if(--acc_num == 0){
@@ -2891,7 +2872,7 @@ extern int del_account(const char *const account){
 				sprintf(ptr, "<%s>%s", tmp_ascii_user, tmp_ascii_passwd);
 			}
 			else
-				sprintf(nvram_value, "%s>%s", tmp_ascii_user, tmp_ascii_passwd);
+				snprintf(nvram_value, sizeof(nvram_value), "%s>%s", tmp_ascii_user, tmp_ascii_passwd);
 
 			if(++i >= acc_num)
 				break;
@@ -2901,8 +2882,7 @@ extern int del_account(const char *const account){
 		free(nv);
 	nvram_set("acc_list", nvram_value);
 
-	memset(nvram_value, 0, PATH_MAX);
-	sprintf(nvram_value, "%d", i);
+	snprintf(nvram_value, sizeof(nvram_value), "%d", i);
 	nvram_set("acc_num", nvram_value);
 
 	if(i <= 0){
@@ -2959,8 +2939,7 @@ extern int del_account(const char *const account){
 				if(strncmp(dp->d_name, ptr, len))
 					continue;
 
-				memset(test_path, 0, PATH_MAX);
-				sprintf(test_path, "%s/%s", follow_partition->mount_point, dp->d_name);
+				snprintf(test_path, sizeof(test_path), "%s/%s", follow_partition->mount_point, dp->d_name);
 				usb_dbg("delete %s.\n", test_path);
 				delete_file_or_dir(test_path);
 			}
@@ -3151,26 +3130,26 @@ extern int mod_account(const char *const account, const char *const new_account,
 			char *set_passwd;
 			char ascii_user[64], ascii_passwd[64];
 
-			memset(ascii_user, 0, 64);
+			memset(ascii_user, 0, sizeof(ascii_user));
 			if(new_account != NULL && strlen(new_account) > 0)
-				char_to_ascii_safe(ascii_user, new_account, 64);
+				char_to_ascii_safe(ascii_user, new_account, sizeof(ascii_user));
 			else
-				char_to_ascii_safe(ascii_user, account, 64);
+				char_to_ascii_safe(ascii_user, account, sizeof(ascii_user));
 
 			if(new_password != NULL && strlen(new_password) > 0){
-				memset(ascii_passwd, 0, 64);
-				char_to_ascii_safe(ascii_passwd, new_password, 64);
+				memset(ascii_passwd, 0, sizeof(ascii_passwd));
+				char_to_ascii_safe(ascii_passwd, new_password, sizeof(ascii_passwd));
 				set_passwd = ascii_passwd;
 			}
 			else
 				set_passwd = tmp_ascii_passwd;
 
 			len = strlen(nvram_value);
-			memset(char_user, 0, 64);
-			ascii_to_char_safe(char_user, tmp_ascii_user, 64);
+			memset(char_user, 0, sizeof(char_user));
+			ascii_to_char_safe(char_user, tmp_ascii_user, sizeof(char_user));
 			if(!strcmp(account, char_user)){
 				if(len == 0)
-					sprintf(nvram_value, "%s>%s", ascii_user, set_passwd);
+					snprintf(nvram_value, sizeof(nvram_value), "%s>%s", ascii_user, set_passwd);
 				else{
 					ptr = nvram_value+len;
 					sprintf(ptr, "<%s>%s", ascii_user, set_passwd);
@@ -3178,7 +3157,7 @@ extern int mod_account(const char *const account, const char *const new_account,
 			}
 			else{
 				if(len == 0)
-					sprintf(nvram_value, "%s>%s", tmp_ascii_user, tmp_ascii_passwd);
+					snprintf(nvram_value, sizeof(nvram_value), "%s>%s", tmp_ascii_user, tmp_ascii_passwd);
 				else{
 					ptr = nvram_value+len;
 					sprintf(ptr, "<%s>%s", tmp_ascii_user, tmp_ascii_passwd);
@@ -3246,10 +3225,8 @@ extern int mod_account(const char *const account, const char *const new_account,
 					return -1;
 				}
 
-				memset(file1, 0, PATH_MAX);
-				sprintf(file1, "%s.%lu", var_file, file_size);
-				memset(file2, 0, PATH_MAX);
-				sprintf(file2, "%s.%lu", new_var_file, file_size);
+				snprintf(file1, sizeof(file1), "%s.%lu", var_file, file_size);
+				snprintf(file2, sizeof(file2), "%s.%lu", new_var_file, file_size);
 
 				delete_file_or_dir(file2);
 				rename(file1, file2);

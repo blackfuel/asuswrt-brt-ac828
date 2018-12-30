@@ -3728,6 +3728,8 @@ int autodet_main(int argc, char *argv[]){
 
 		nvram_set_int(strcat_r(prefix2, "state", tmp2), AUTODET_STATE_CHECKING);
 
+// remove the Auto MAC clone from the decision on 2018/4/11.
+#if 0
 		dumparptable();
 
 		// backup hwaddr_x
@@ -3774,6 +3776,7 @@ int autodet_main(int argc, char *argv[]){
 			nvram_set_int(strcat_r(prefix2, "state", tmp2), AUTODET_STATE_FINISHED_OK);
 		}
 		nvram_commit();
+#endif
 	}
 
 	nvram_set("autodet_proceeding", "0");//Cherry Cho added for httpd checking in 2016/4/22.

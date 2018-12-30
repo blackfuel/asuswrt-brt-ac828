@@ -252,20 +252,26 @@ function initial(){
 		while(document.ipsec_form.ipsec_local_public_interface.options.length > 0){
 			document.ipsec_form.ipsec_local_public_interface.remove(0);
 		}
+		var wans_cap = '<% nvram_get("wans_cap"); %>'.split(" ");
 		var wan_type_list = [];
-		var option = ["wan", "<#dualwan_primary#>"];
-		wan_type_list.push(option);
-		if(dualWAN_support) {
-			option = ["wan2", "<#dualwan_secondary#>"];
-			wan_type_list.push(option);
+		for(var i = 0; i < wans_cap.length; i += 1) {
+			if(wans_cap[i] == "wan" || wans_cap[i] == "wan2" || wans_cap[i] == "usb") {
+				var option_value = "";
+				var option_text = "";
+				option_value = wans_cap[i];
+				option_text = wans_cap[i].toUpperCase();
+				var option = [option_value, option_text];
+				wan_type_list.push(option);
+			}
 		}
-
+		var selectobject = document.ipsec_form.ipsec_local_public_interface;
 		for(var i = 0; i < wan_type_list.length; i += 1) {
 			var option = document.createElement("option");
 			option.value = wan_type_list[i][0];
 			option.text = wan_type_list[i][1];
-			document.ipsec_form.ipsec_local_public_interface.add(option);
+			selectobject.add(option);
 		}
+		$("#ipsec_vpn_type_faq").attr("href", "https://www.asus.com/support/FAQ/1033578");
 	}
 
 	get_vpnc_profile_status();
@@ -1573,6 +1579,8 @@ function gen_subnet_input(_type, _idx, _value) {
 	subnet_input_obj.className = "input_25_table";
 	subnet_input_obj.id = "ipsec_" + _type + "_subnet_" + _idx;
 	subnet_input_obj.value = _value;
+	subnet_input_obj.autocomplete = "off";
+	subnet_input_obj.autocapitalize = "off";
 	subnet_input_obj.placeholder = "(ex.10.10.10.0/24)";
 	if(subnetIP_support_IPv6)
 		subnet_input_obj.maxLength = "39";
@@ -1899,6 +1907,8 @@ function save_ipsec_profile_panel() {
 				alert(document.ipsec_form.ipsec_remote_gateway.value + " is invalid Domain Name");/*untranslated*/
 				return false;
 			}
+			if(!validator.isEmpty(document.ipsec_form.ipsec_remote_id))
+				return false;
 		}
 
 		if(!validator.isEmpty(document.ipsec_form.ipsec_preshared_key))
@@ -2328,23 +2338,11 @@ function changeRemoteGatewayMethod() {
 			return validator.isIPAddr(this,event);
 		});
 		$("#ipsec_remote_gateway").attr("maxlength", "15");
+		$("#ipsec_remote_id_hint").css("display", "");
 	}
 	else if(clickItem == "1") {
 		$("#ipsec_remote_gateway").attr("maxlength", "64");
-	}
-}
-function changeRemoteGatewayMethod() {
-	$("#ipsec_remote_gateway").removeAttr("maxlength");
-	$('#ipsec_remote_gateway').unbind("keypress");
-	var clickItem = getRadioItemCheck(document.ipsec_form.ipsec_remote_gateway_method);
-	if(clickItem == "0") {
-		$("#ipsec_remote_gateway").keypress(function() {
-			return validator.isIPAddr(this,event);
-		});
-		$("#ipsec_remote_gateway").attr("maxlength", "15");
-	}
-	else if(clickItem == "1") {
-		$("#ipsec_remote_gateway").attr("maxlength", "64");
+		$("#ipsec_remote_id_hint").css("display", "none");
 	}
 }
 function add_subnet_item(obj, _type) {
@@ -2357,6 +2355,8 @@ function add_subnet_item(obj, _type) {
 		var divObj = document.createElement("input");
 		divObj.type = "text";
 		divObj.className = "input_25_table";
+		divObj.autocomplete = "off";
+		divObj.autocapitalize = "off";
 		divObj.id = "ipsec_" + _type + "_subnet_" + (existSubnetItem + 1);
 		if(subnetIP_support_IPv6)
 			divObj.maxLength = "39";
@@ -2874,6 +2874,8 @@ function del_exception_list_confirm(_parArray) {
 					<#vpnc_net_client_peer_desc1#>
 					<br>
 					<#vpnc_net_client_peer_desc2#>
+					<br>
+					<a id="ipsec_vpn_type_faq" href="" target="_blank" style="text-decoration:underline;color:#FC0;">IPSec Net-to-Net FAQ</a><!-- untranslated -->
 				</div>
 				<!-- VPN Type table start-->
 				<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
@@ -2903,7 +2905,7 @@ function del_exception_list_confirm(_parArray) {
 					<tr>
 						<th>VPN Profile Name<!--untranslated--></th>
 						<td>
-							<input type="text" class="input_25_table" name="ipsec_profilename">
+							<input type="text" class="input_25_table" name="ipsec_profilename" autocomplete="off" autocorrect="off" autocapitalize="off">
 						</td>
 					</tr>
 					<tr id="tr_remote_gateway_method">
@@ -2918,7 +2920,7 @@ function del_exception_list_confirm(_parArray) {
 					<tr id="tr_remote_gateway">
 						<th>Remote Gateway<!--untranslated--></th>
 						<td>
-							<input type="text" class="input_25_table" name="ipsec_remote_gateway" id="ipsec_remote_gateway" autocorrect="off" autocapitalize="off">
+							<input type="text" class="input_25_table" name="ipsec_remote_gateway" id="ipsec_remote_gateway" autocomplete="off" autocorrect="off" autocapitalize="off">
 						</td>
 					</tr>
 					<tr>
@@ -2930,21 +2932,21 @@ function del_exception_list_confirm(_parArray) {
 					<tr id="tr_presharedKey">
 						<th><#vpn_preshared_key#></th>
 						<td>
-							<input id="ipsec_preshared_key" name="ipsec_preshared_key" type="password" autocapitalization="off" onBlur="switchType(this, false);" onFocus="switchType(this, true);" class="input_25_table" maxlength="32" placeholder="<#vpn_preshared_key_hint#>">
+							<input id="ipsec_preshared_key" name="ipsec_preshared_key" type="password" onBlur="switchType(this, false);" onFocus="switchType(this, true);" class="input_25_table" maxlength="32" placeholder="<#vpn_preshared_key_hint#>" autocomplete="off" autocorrect="off" autocapitalize="off">
 						</td>
 					</tr>
 					<tr id="tr_adv_local_id">
 						<th>Local Identity<!--untranslated--></th>
 						<td>
-							<input type="text" class="input_25_table" name="ipsec_local_id">
+							<input type="text" class="input_25_table" name="ipsec_local_id" placeholder="<#IPConnection_ExternalIPAddress_itemname#>、FQDN、<#AiProtection_WebProtector_EMail#> or DN" autocomplete="off" autocorrect="off" autocapitalize="off">
 							<span style="color:#FC0">(Optional)<!--untranslated--></span>
 						</td>
 					</tr>
 					<tr id="tr_adv_remote_id">
 						<th>Remote Identity<!--untranslated--></th>
 						<td>
-							<input type="text" class="input_25_table" name="ipsec_remote_id">
-							<span style="color:#FC0">(Optional)<!--untranslated--></span>
+							<input type="text" class="input_25_table" name="ipsec_remote_id" placeholder="<#IPConnection_ExternalIPAddress_itemname#>、FQDN、<#AiProtection_WebProtector_EMail#> or DN" autocomplete="off" autocorrect="off" autocapitalize="off">
+							<span id="ipsec_remote_id_hint" style="color:#FC0">(Optional)<!--untranslated--></span>
 						</td>
 					</tr>
 				</table>
@@ -2963,7 +2965,7 @@ function del_exception_list_confirm(_parArray) {
 					<tr id="tr_net_local_port">
 						<th>Local Port number<!--untranslated--></th>
 						<td>
-							<input type="text" class="input_6_table" name="ipsec_local_port" maxlength="5" value="0" onKeyPress="return validator.isNumber(this,event)">
+							<input type="text" class="input_6_table" name="ipsec_local_port" maxlength="5" value="0" onKeyPress="return validator.isNumber(this,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 							<span style="color:#FC0">(0-65535)</span>
 						</td>
 					</tr>
@@ -2974,7 +2976,7 @@ function del_exception_list_confirm(_parArray) {
 					<tr id="tr_net_remote_port">
 						<th>Remote Port number<!--untranslated--></th>
 						<td>
-							<input type="text" class="input_6_table" name="ipsec_remote_port" maxlength="5" value="0" onKeyPress="return validator.isNumber(this,event)">
+							<input type="text" class="input_6_table" name="ipsec_remote_port" maxlength="5" value="0" onKeyPress="return validator.isNumber(this,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 							<span style="color:#FC0">(0-65535)</span>
 						</td>
 					</tr>
@@ -3048,20 +3050,20 @@ function del_exception_list_confirm(_parArray) {
 						<tr id="tr_adv_keylife_time_p1">
 							<th>IKE keylife time<!--untranslated--></th>
 							<td>
-								<input type="text" class="input_6_table" name="ipsec_keylife_p1" maxlength="6" value="86400" onKeyPress="return validator.isNumber(this,event)">
+								<input type="text" class="input_6_table" name="ipsec_keylife_p1" maxlength="6" value="86400" onKeyPress="return validator.isNumber(this,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 								<span style="color:#FC0">(120~172800) <#Second#></span>
 							</td>
 						</tr>
 						<tr id="tr_adv_ike_isakmp" style="display:none;">
 							<th>IKE / ISAKMP Port<!--untranslated--></th>
 							<td>
-								<input type="text" class="input_6_table" name="ipsec_ike_isakmp" maxlength="3" value="500">
+								<input type="text" class="input_6_table" name="ipsec_ike_isakmp" maxlength="3" value="500" autocomplete="off" autocorrect="off" autocapitalize="off">
 							</td>
 						</tr>
 						<tr id="tr_adv_ike_isakmp_nat" style="display:none;"s>
 							<th>IKE / ISAKMP NAT-T Port<!--untranslated--></th>
 							<td>
-								<input type="text" class="input_6_table" name="ipsec_ike_isakmp_nat" maxlength="4" value="4500">
+								<input type="text" class="input_6_table" name="ipsec_ike_isakmp_nat" maxlength="4" value="4500" autocomplete="off" autocorrect="off" autocapitalize="off">
 							</td>
 						</tr>
 						<tr id="tr_adv_dead_peer_detection">
@@ -3080,7 +3082,7 @@ function del_exception_list_confirm(_parArray) {
 						<tr id="tr_adv_dpd_interval">
 							<th>DPD checking interval<!--untranslated--></th>
 							<td>
-								<input type="text" class="input_3_table" name="ipsec_dpd" maxlength="3" value="10" onKeyPress="return validator.isNumber(this,event)">
+								<input type="text" class="input_3_table" name="ipsec_dpd" maxlength="3" value="10" onKeyPress="return validator.isNumber(this,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 								<span style="color:#FC0">(10~900) <#Second#></span>
 							</td>
 						</tr>
@@ -3120,14 +3122,14 @@ function del_exception_list_confirm(_parArray) {
 						<tr id="tr_adv_keylife_time_p2">
 							<th>Keylife time<!--untranslated--></th>
 							<td>
-								<input type="text" class="input_6_table" name="ipsec_keylife_p2" maxlength="6" value="3600" onKeyPress="return validator.isNumber(this,event)">
+								<input type="text" class="input_6_table" name="ipsec_keylife_p2" maxlength="6" value="3600" onKeyPress="return validator.isNumber(this,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 								<span style="color:#FC0">(120~172800) <#Second#></span>
 							</td>
 						</tr>
 						<tr id="tr_adv_keyingtries_p2">
 							<th>Keyingtries<!--untranslated--></th>
 							<td>
-								<input type="text" class="input_6_table" name="ipsec_keyingtries" maxlength="2" value="3" onKeyPress="return validator.isNumber(this,event)">
+								<input type="text" class="input_6_table" name="ipsec_keyingtries" maxlength="2" value="3" onKeyPress="return validator.isNumber(this,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
 							</td>
 						</tr>
 					</table>

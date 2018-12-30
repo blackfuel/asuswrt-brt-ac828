@@ -95,8 +95,10 @@
 <script type="text/javascript" src="/validator.js"></script>
 <script language="JavaScript" type="text/javascript" src="/client_function.js"></script>
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
+<script language="JavaScript" type="text/javascript" src="/js/httpApi.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
 <script language="JavaScript" type="text/javascript" src="/form.js"></script>
+<script language="JavaScript" type="text/javascript" src="/js/asus_eula.js"></script>
 <script>
 if(usb_support) addNewScript("/disk_functions.js");
 
@@ -434,6 +436,20 @@ function initial(){
 			notification.notiClick();
 		}
 	}
+
+	setTimeout(check_eula, 100);
+}
+
+function check_eula(){
+	var asus_status = httpApi.nvramGet(["ASUS_EULA", "ASUS_EULA_time", "ddns_enable_x", "ddns_server_x"], true);
+	var tm_status = httpApi.nvramGet(["TM_EULA", "TM_EULA_time"], true);
+
+	if( (asus_status.ASUS_EULA == "1" && asus_status.ASUS_EULA_time == "") ||
+		(asus_status.ASUS_EULA != "1" && asus_status.ddns_enable_x == "1" && asus_status.ddns_server_x == "WWW.ASUS.COM") )
+		ASUS_EULA.check("asus");
+
+	if(tm_status.TM_EULA == "1" &&  tm_status.TM_EULA_time == "")
+		ASUS_EULA.check("tm");
 }
 
 /*

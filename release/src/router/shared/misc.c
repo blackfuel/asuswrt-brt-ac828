@@ -457,6 +457,24 @@ struct vlan_rules_s *get_vlan_rules(void)
 }
 #endif
 
+/**
+ * Executed at start of config_switch()
+ */
+void pre_config_switch(void)
+{
+	if (__pre_config_switch)
+		__pre_config_switch();
+}
+
+/**
+ * Executed at end of config_switch()
+ */
+void post_config_switch(void)
+{
+	if (__post_config_switch)
+		__post_config_switch();
+}
+
 #if defined(RTCONFIG_COOVACHILLI) || \
     defined(RTCONFIG_PORT_BASED_VLAN) || defined(RTCONFIG_TAGGED_BASED_VLAN)
 /* Don't leave { 0,0 } at end */
@@ -1212,9 +1230,11 @@ int test_and_get_free_char_network(int t_class, char *ip_cidr_str, uint32_t excl
  * Return first/lowest configured and connected WAN unit.
  * @return:	WAN_UNIT_FIRST ~ WAN_UNIT_MAX
  */
-enum wan_unit_e get_first_configured_connected_wan_unit(void)
+enum wan_unit_e get_first_connected_public_wan_unit(void)
 {
 	int i, wan_unit = WAN_UNIT_MAX;
+	int wan_public = 0;
+	char wan_ip[sizeof("wanx_ipaddr")];
 	char prefix[sizeof("wanXXXXXX_")], link[sizeof("link_wanXXXXXX")];
 
 	for (i = WAN_UNIT_FIRST; i < WAN_UNIT_MAX; ++i) {
@@ -1232,12 +1252,17 @@ enum wan_unit_e get_first_configured_connected_wan_unit(void)
 			if (!nvram_get_int(link))
 				continue;
 		}
-
+		snprintf(wan_ip, sizeof(wan_ip), "wan%d_ipaddr", i);
+		wan_public = is_private_subnet(nvram_safe_get(wan_ip));
+		if(wan_public) // wan_public = 0 is public IP, wan_public = 1, 2, 3 is private IP.
+			continue;
 		wan_unit = i;
 		break;
 	}
-
-	return wan_unit;
+	if(WAN_UNIT_MAX == i)
+		return WAN_UNIT_NONE;
+	else
+		return wan_unit;
 }
 
 #ifdef RTCONFIG_IPV6

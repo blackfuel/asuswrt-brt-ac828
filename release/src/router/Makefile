@@ -4322,7 +4322,7 @@ coovachilli-configure:
 	cd coovachilli && autoreconf -fi && \
 	$(CONFIGURE) CC=$(CC) --prefix="" --exec_prefix=/usr --enable-shared=no --with-openssl --enable-multilan --with-ipv6 \
 	CFLAGS="$(EXTRACFLAGS) -g -Os -pipe -funit-at-a-time -Drpl_malloc=malloc -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared -I$(SRCBASE)/router/openssl/include" \
-	LDFLAGS="-lgcc_s -L$(TOP)/nvram${BCMEX} -L$(TOP)/shared -lshared -lpthread -L$(SRCBASE)/router/openssl" \
+	LDFLAGS="-lgcc_s -L$(TOP)/nvram${BCMEX} -L$(TOP)/shared -lshared -lcrypt -lpthread -L$(SRCBASE)/router/openssl" \
 	LIBS="-lnvram -lcrypto -lssl"
 
 coovachilli-install:coovachilli

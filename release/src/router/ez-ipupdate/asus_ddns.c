@@ -250,7 +250,7 @@ int TransferMacAddr(const char* mac, char* transfer_mac)
         return( i==12 && s==5 );
 }
 
-int asus_reg_domain (void)
+int asus_reg_domain (int regType)
 {
 	char buf[BUFFER_SIZE + 1];
 	char *p, *bp = buf;
@@ -274,12 +274,18 @@ int asus_reg_domain (void)
 	char *ddns_transfer;
 	char old_mac[13];
 	memset(old_mac, 0, 13);
-	if(TransferMacAddr(nvram_safe_get("ddns_transfer"), old_mac)) {
-		snprintf(buf, BUFFER_SIZE, "GET /ddns/register.jsp?hostname=%s&myip=%s&oldmac=%s",
-			 host, address, old_mac);
+	if(!regType){
+		snprintf(buf, BUFFER_SIZE, "GET /ddns/register.jsp?hostname=%s&action=unregister",
+			 host);
 	}
-	else {
-		snprintf(buf, BUFFER_SIZE, "GET /ddns/register.jsp?hostname=%s&myip=%s", host, address);
+	else{
+		if(TransferMacAddr(nvram_safe_get("ddns_transfer"), old_mac)) {
+			snprintf(buf, BUFFER_SIZE, "GET /ddns/register.jsp?hostname=%s&myip=%s&oldmac=%s",
+				 host, address, old_mac);
+		}
+		else {
+			snprintf(buf, BUFFER_SIZE, "GET /ddns/register.jsp?hostname=%s&myip=%s", host, address);
+		}
 	}
 	output(buf);
 #ifdef RTCONFIG_LETSENCRYPT
@@ -325,11 +331,16 @@ int asus_reg_domain (void)
 		if (p == NULL)	{
 			p = "";
 		}
-		snprintf (ret_buf, sizeof (ret_buf), "%s,%d", "register", ret);
+		snprintf (ret_buf, sizeof (ret_buf), "%s,%d", (regType == 1)? "register": "unregister", ret);
 	}
 
-	nvram_set ("ddns_return_code", ret_buf);
-	nvram_set ("ddns_return_code_chk", ret_buf);
+	if(regType == 0)
+		nvram_set ("asusddns_reg_result", ret_buf);
+	else{
+		nvram_set ("ddns_return_code", ret_buf);
+		nvram_set ("ddns_return_code_chk", ret_buf);
+	}
+
 	switch (ret) {
 	case -1:
 		PRINT ("strange server response, are you connecting to the right server?\n");

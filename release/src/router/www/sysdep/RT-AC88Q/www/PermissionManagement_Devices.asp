@@ -69,8 +69,28 @@ $(document).ready(function (){
 	collect_info();
 	generate_device_table();
 	showDropdownClientList('setClientIP', 'mac', 'all', 'ClientList_Block_PC', 'pull_arrow', 'all');
+	setFAQ();
 });
 
+function setFAQ(){
+	var current_lang = document.form.preferred_lang.value;
+	var faq_url = "";
+	if(current_lang == "CN"){
+		faq_url = "https://www.asus.com.cn/support/FAQ/1035993";
+	}
+	else if(current_lang == "TW" || current_lang == "CZ" || current_lang == "PL" 
+		 || current_lang == "RU" || current_lang == "DE" || current_lang == "FR" 
+		 || current_lang == "TR" || current_lang == "TH" || current_lang == "ES" 
+		 || current_lang == "IT" || current_lang == "UK" || current_lang == "HU" 
+		 || current_lang == "RO" || current_lang == "KR" || current_lang == "NL"){
+		faq_url = "https://www.asus.com/"+ current_lang +"/support/FAQ/1035993";
+	}
+	else{
+		faq_url = "https://www.asus.com/support/FAQ/1035993";
+	}
+
+	$("#faq").attr("href", faq_url);
+}
 
 function device_object(name, mac, type, type_name, description, group_array){
 	this.name = name;
@@ -497,7 +517,8 @@ function enable_group_all(obj){
 				<td>
 					<input id="device_name" type="text" maxlength="32"class="input_32_table" style="height: 23px;" value="" autocorrect="off" autocapitalize="off">
 					<img id="pull_arrow" height="14px;" src="/images/arrow-down.gif" style="position:absolute;" onclick="pullLANIPList(this);" title="<#select_client#>">
-					<div id="ClientList_Block_PC" style="margin:0 0 0 2px" class="clientlist_dropdown"></div>					
+					<div id="ClientList_Block_PC" style="margin:0 0 0 2px" class="clientlist_dropdown"></div>
+					<div style="color:#FC0;padding: 3px 0 0 2px">Note: You can add the clients which connect in default LAN (VID = 1) for managing on related functions.<a id="faq" target="_blank" style="padding-left:5px;color: #FFF;text-decoration: underline;">Device Management FAQ</a></div>		
 				</td>
 			</tr>
 			<tr>

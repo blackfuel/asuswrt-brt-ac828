@@ -67,8 +67,28 @@ $(document).ready(function (){
 	show_menu();
 	collect_info();
 	generate_group_table();
+	setFAQ();
 });
 
+function setFAQ(){
+	var current_lang = document.form.preferred_lang.value;
+	var faq_url = "";
+	if(current_lang == "CN"){
+		faq_url = "https://www.asus.com.cn/support/FAQ/1035993";
+	}
+	else if(current_lang == "TW" || current_lang == "CZ" || current_lang == "PL" 
+		 || current_lang == "RU" || current_lang == "DE" || current_lang == "FR" 
+		 || current_lang == "TR" || current_lang == "TH" || current_lang == "ES" 
+		 || current_lang == "IT" || current_lang == "UK" || current_lang == "HU" 
+		 || current_lang == "RO" || current_lang == "KR" || current_lang == "NL"){
+		faq_url = "https://www.asus.com/"+ current_lang +"/support/FAQ/1035993";
+	}
+	else{
+		faq_url = "https://www.asus.com/support/FAQ/1035993";
+	}
+
+	$("#faq").attr("href", faq_url);
+}
 
 function device_object(name, mac, type, type_name, description, group_array){
 	this.name = name;
@@ -408,6 +428,9 @@ function enable_device_all(obj){
 				<th width="30%" style="font-family: Calibri;font-weight: bolder;"><#PM_Group_Name#></th>
 				<td>
 					<input id="group_name" type="text" maxlength="32" class="input_32_table" style="height: 23px;" autocorrect="off" autocapitalize="off">
+					<div style="padding: 3px 0 0 2px">
+						<a id="faq" target="_blank" style="text-decoration: underline;">Device Management FAQ</a>
+					</div>
 				</td>
 			</tr>
 			<tr>

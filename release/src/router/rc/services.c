@@ -114,6 +114,8 @@ int mkdir_if_none(const char *path)
 extern char *crypt __P((const char *, const char *)); //should be defined in unistd.h with _XOPEN_SOURCE defined
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
+void chilli_localUser(void);
+
 /* The g_reboot global variable is used to skip several unnecessary delay
  * and redundant steps during reboot / restore to default procedure.
  */
@@ -150,7 +152,6 @@ static void stop_toads(void);
 #endif
 
 #define logs(s) syslog(LOG_NOTICE, s)
-
 #if 0
 static char
 *make_var(char *prefix, int index, char *name)
@@ -651,6 +652,11 @@ void create_passwd(void)
 #ifdef RTCONFIG_OPENVPN
 		fappend(f, "/etc/shadow.openvpn");
 #endif
+#ifdef RTCONFIG_COOVACHILLI
+		fappend(f, "/etc/shadow.chilli");
+		fappend(f, "/etc/shadow.chilli-cp");
+#endif
+
 		fclose(f);
 	}
 	umask(m);
@@ -662,16 +668,10 @@ void create_passwd(void)
 			"%s:x:100:100:nas:/dev/null:/dev/null\n"
 #endif	//!!TB
 			"nobody:x:65534:65534:nobody:/dev/null:/dev/null\n"
-#ifdef RTCONFIG_IPSEC
-			"admin:x:0:0:%s:/root:/dev/null\n"
-#endif
 			, http_user, http_user
 #ifdef RTCONFIG_SAMBASRV	//!!TB
 			, smbd_user
 #endif	//!!TB
-#ifdef RTCONFIG_IPSEC
-			,http_user
-#endif
 			);
 	f_write_string("/etc/passwd", s, 0, 0644);
 	fappend_file("/etc/passwd", "/etc/passwd.custom");
@@ -1639,13 +1639,6 @@ int no_need_to_start_wps(void)
 		return 0;
 #endif
 
-#ifdef RTCONFIG_TCODE
-	if (nvram_match("x_Setting", "0") &&
-		(!strncmp(nvram_safe_get("territory_code"), "CN", 2) ||
-		 !strncmp(nvram_safe_get("territory_code"), "TW", 2)))
-		return 1;
-#endif
-
 	if ((nvram_get_int("sw_mode") != SW_MODE_ROUTER) &&
 		(nvram_get_int("sw_mode") != SW_MODE_AP))
 		return 1;
@@ -2541,10 +2534,12 @@ start_ddns(void)
 		if (ddns_wan_unit >= WAN_UNIT_FIRST && ddns_wan_unit < WAN_UNIT_MAX) {
 			unit = ddns_wan_unit;
 		} else {
-			int u = get_first_configured_connected_wan_unit();
-
+			int u = get_first_connected_public_wan_unit();
 			if (u < WAN_UNIT_FIRST || u >= WAN_UNIT_MAX)
+			{
+				logmessage("DDNS", "[%s] dual WAN load balance DDNS cannot succeed to work, because none of wan is public IP.", __FUNCTION__);
 				return -2;
+			}
 
 			unit = u;
 		}
@@ -2739,9 +2734,12 @@ asusddns_reg_domain(int reg)
 		if (ddns_wan_unit >= WAN_UNIT_FIRST && ddns_wan_unit < WAN_UNIT_MAX) {
 			unit = ddns_wan_unit;
 		} else {
-			int u = get_first_configured_connected_wan_unit();
+			int u = get_first_connected_public_wan_unit();
 			if (u < WAN_UNIT_FIRST || u >= WAN_UNIT_MAX)
+			{
+				logmessage("DDNS", "[%s] dual WAN load balance DDNS cannot succeed to work, because none of wan is public IP.", __FUNCTION__);
 				return -2;
+			}
 
 			unit = u;
 		}
@@ -2800,6 +2798,56 @@ asusddns_reg_domain(int reg)
 	     "-S", "dyndns", "-i", wan_ifname, "-h", nvram_safe_get("ddns_hostname_x"),
 	     "-A", "1", "-s", nserver,
 	     "-e", "/sbin/ddns_updated", "-b", "/tmp/ddns.cache");
+
+	return 0;
+}
+
+int
+asusddns_unregister(void)
+{
+	char wan_ifname[16];
+	char *nserver;
+	int unit;
+
+	unit = wan_primary_ifunit();
+#if defined(RTCONFIG_DUALWAN)
+	if (nvram_match("wans_mode", "lb")) {
+		int ddns_wan_unit = nvram_get_int("ddns_wan_unit");
+
+		if (ddns_wan_unit >= WAN_UNIT_FIRST && ddns_wan_unit < WAN_UNIT_MAX) {
+			unit = ddns_wan_unit;
+		} else {
+			int u = get_first_connected_public_wan_unit();
+			if (u < WAN_UNIT_FIRST || u >= WAN_UNIT_MAX)
+			{
+				logmessage("DDNS", "[%s] dual WAN load balance DDNS cannot succeed to work, because none of wan is public IP.", __FUNCTION__);
+				return -2;
+			}
+
+			unit = u;
+		}
+	}
+#endif
+
+	memset(wan_ifname, 0, sizeof(wan_ifname));
+	snprintf(wan_ifname, sizeof(wan_ifname),  get_wan_ifname(unit));
+	nvram_set("ddns_return_code", "ddns_unregister");
+
+	if (pids("ez-ipupdate"))
+	{
+		killall("ez-ipupdate", SIGINT);
+		sleep(1);
+	}
+
+	nserver = nvram_invmatch("ddns_serverhost_x", "") ?
+		    nvram_safe_get("ddns_serverhost_x") :
+		    "nwsrv-ns1.asus.com";
+_dprintf("%s: do ez-ipupdate to unregister! unit = %d wan_ifname = %s nserver = %s hostname = %s\n", __FUNCTION__, unit, wan_ifname, nserver, nvram_safe_get("ddns_hostname_x"));
+
+	nvram_unset("asusddns_reg_result");
+	eval("ez-ipupdate",
+	     "-S", "dyndns", "-i", wan_ifname, "-h", nvram_safe_get("ddns_hostname_x"),
+	     "-A", "3", "-s", nserver);
 
 	return 0;
 }
@@ -4339,6 +4387,52 @@ void stop_uam_srv()
 #endif
 
 #ifdef RTCONFIG_FREERADIUS
+void radiusd_ascii_to_char(void)
+{
+	sqlite3 *db;
+	char *errMsg=NULL;
+	char **dbResult;
+	int nRow, nColumn;
+	int ret=0;
+	int i=0;
+	char char_user[64], char_passwd[64];
+	char tmp_ascii_user[64], tmp_ascii_passwd[64];
+	char tmpSql[128];
+
+	memset(char_user, 0, sizeof(char_user));
+	memset(char_passwd, 0, sizeof(char_passwd));
+	memset(tmp_ascii_user, 0, sizeof(tmp_ascii_user));
+	memset(tmp_ascii_passwd, 0, sizeof(tmp_ascii_passwd));
+	memset(tmpSql, 0, sizeof(tmpSql));
+
+	if (sqlite3_open_v2("/tmp/freeradius.db", &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL)) {
+		return;
+	}
+
+	ret = sqlite3_exec(db, "attach '/jffs/.sys/Permission/PMS_data.db3' as pms;insert into main.radcheck select NULL, Name, 'Cleartext-Password', ':=', passwd from pms.user;", 0, 0, &errMsg);
+	if(ret != SQLITE_OK )
+		return;
+
+	if(sqlite3_get_table(db, "select * from radcheck", &dbResult, &nRow, &nColumn, &errMsg) == SQLITE_OK) {
+		for(i = 1; i <= nRow ; i++ ) {
+			sprintf(tmp_ascii_user, "%s", dbResult[i*nColumn+1]);
+			sprintf(tmp_ascii_passwd, "%s", dbResult[i*nColumn+4]);
+			ascii_to_char_safe(char_user, tmp_ascii_user, sizeof(char_user));
+			ascii_to_char_safe(char_passwd, tmp_ascii_passwd, sizeof(char_passwd));
+			sprintf(tmpSql, "update radcheck set value='%s' where username='%s';", char_passwd, char_user);
+			//_dprintf("tmpSql=%s\n", tmpSql);
+			ret = sqlite3_exec(db, tmpSql, 0, 0, &errMsg);
+			if( ret != SQLITE_OK )
+				return;
+		}
+	}
+	if(errMsg!=NULL)
+		sqlite3_free(errMsg);
+
+	sqlite3_free_table(dbResult);
+	sqlite3_close(db);
+}
+
 void radiusd_updateDB(void)
 {		
 
@@ -4354,7 +4448,8 @@ void radiusd_updateDB(void)
 		system("sqlite3 /tmp/freeradius.db '.read /usr/freeradius/raddb/mods-config/sql/main/sqlite/schema.sql'");
 		if(!access("/jffs/.sys/Permission/PMS_data.db3", F_OK)){
 		//add user permission data to freeradius database.
-			system("sqlite3 /tmp/freeradius.db 'attach \"/jffs/.sys/Permission/PMS_data.db3\" as pms;insert into main.radcheck select NULL, Name, \"Cleartext-Password\", \":=\", passwd from pms.user;'");  
+			//system("sqlite3 /tmp/freeradius.db 'attach \"/jffs/.sys/Permission/PMS_data.db3\" as pms;insert into main.radcheck select NULL, Name, \"Cleartext-Password\", \":=\", passwd from pms.user;'");
+			radiusd_ascii_to_char();
 		}
 		//add local user (for captive portal) to freeradius database.
 		nv = nvp = strdup(nvram_safe_get("captive_portal_adv_local_clientlist"));
@@ -4451,8 +4546,42 @@ void stop_radiusd()
 }
 
 #endif
+void chilli_localUser_passcode(void)
+{
+	FILE *fp;
+	unsigned char s[512];
+	char *p;
+	char salt[32];
+	char *passwd;
 
-void chilli_localUser()
+	passwd = nvram_safe_get("captive_portal_passcode");
+	if(strlen(passwd) == 0)
+		return;
+
+	strcpy(salt, "$1$");
+	f_read("/dev/urandom", s, 6);
+	base64_encode(s, salt + 3, 6);
+	salt[3 + 8] = 0;
+	p = salt;
+	while (*p) {
+		if (*p == '+') *p = '.';
+		++p;
+	}
+
+	fp=fopen("/etc/shadow.chilli", "w");
+
+    if (fp==NULL){
+	   perror("open local user file failed\n");
+	   return;
+	}
+
+	p = crypt(passwd, salt);
+	fprintf(fp, "noauth:%s:0:0:99999:7:0:0:\n", p);
+
+	if(fp!=NULL) fclose(fp);
+}
+
+void chilli_localUser(void)
 {
 	char *nv=NULL, *nvp=NULL, *b=NULL;
 	char *profile_idx=NULL, *userlist=NULL, *tmp=NULL;
@@ -4464,10 +4593,24 @@ void chilli_localUser()
 #endif
 
 	FILE *fp;	
+	unsigned char s[512];
+	char *p;
+	char salt[32];
+	char *username, *passwd;
 
-	fp=fopen("/tmp/localusers_cp", "w");
+	strcpy(salt, "$1$");
+	f_read("/dev/urandom", s, 6);
+	base64_encode(s, salt + 3, 6);
+	salt[3 + 8] = 0;
+	p = salt;
+	while (*p) {
+		if (*p == '+') *p = '.';
+		++p;
+	}
 
-        if (fp==NULL){
+	fp=fopen("/etc/shadow.chilli-cp", "w");
+
+    if (fp==NULL){
 	   perror("open local user file failed\n");
 	   return;
 	}
@@ -4492,7 +4635,7 @@ void chilli_localUser()
 	}
 	PMS_FreeAccInfo(&account_list, &group_list);	
 #endif
-	fprintf(fp, "noauth:noauth\n");
+	//fprintf(fp, "noauth:noauth\n");
 	nv = nvp = strdup(nvram_safe_get("captive_portal_adv_local_clientlist"));
     if (nv) {
 		while ((b = strsep(&nvp, "<")) != NULL) {
@@ -4500,9 +4643,15 @@ void chilli_localUser()
             	continue;
 			   
 			while((tmp = strsep(&userlist, ",")) != NULL ){
-				if(strlen(tmp) > 0){
+				/*if(strlen(tmp) > 0){
 					fprintf(fp, "%s\n", tmp);
-				}
+				}*/
+				if((vstrsep(tmp, ":", &username, &passwd)!=2)) continue;
+				if(strlen(username)==0||strlen(passwd)==0) continue;
+
+				p = crypt(passwd, salt);
+				fprintf(fp, "%s:%s:0:0:99999:7:0:0:\n", username, p);
+
 			}
 	    }
         free(nv);
@@ -4638,7 +4787,22 @@ void chilli_config(void)
 
 //	}else{
 #ifdef RTCONFIG_COOVACHILLI
-		fprintf(fp, "localusers %s\n", "/tmp/localusers");   
+	passwd = nvram_safe_get("captive_portal_passcode");
+	if(strlen(passwd) > 0){
+		chilli_localUser_passcode();
+		fprintf(fp, "localusers %s\n", "/etc/shadow.chilli");
+	}
+	else
+	{
+		fprintf(fp, "localusers %s\n", "/tmp/localusers");
+		if (!(local_fp = fopen("/tmp/localusers", "w"))) {
+			perror("/tmp/localusers");
+			return;
+		}
+		fprintf(local_fp, "noauth:noauth");
+		fclose(local_fp);
+	}
+		/*fprintf(fp, "localusers %s\n", "/tmp/localusers");
 		if (!(local_fp = fopen("/tmp/localusers", "w"))) {
 			perror("/tmp/localusers");
 			return;
@@ -4646,7 +4810,7 @@ void chilli_config(void)
 		passwd=nvram_safe_get("captive_portal_passcode");
 		if(strlen(passwd) >0 ) fprintf(local_fp, "noauth:%s", passwd);
 	    else fprintf(local_fp, "noauth:noauth");
-		fclose(local_fp);
+		fclose(local_fp);*/
 #endif
 //	}
 	
@@ -4793,7 +4957,7 @@ void chilli_config_CP(void)
 		fprintf(fp, "radiusserver2 %s\n", "127.0.0.1");
 #ifdef RTCONFIG_COOVACHILLI
 		chilli_localUser();
-		fprintf(fp, "localusers %s\n", "/tmp/localusers_cp");   
+		fprintf(fp, "localusers %s\n", "/etc/shadow.chilli-cp");
 #endif
 	}else{
 		fprintf(fp, "radiusserver1 %s\n", nvram_get("cp_radius"));
@@ -5553,6 +5717,7 @@ void stop_chilli(void)
 		unlink("/tmp/chilli/ip-down.sh");
 		system("rm -rf /var/run/chilli");
 		unlink("/tmp/localusers");
+		unlink("/etc/shadow.chilli");
 	}
 
 	iface = nvram_safe_get("chilli_interface");
@@ -5584,7 +5749,8 @@ void stop_CP(void)
 		unlink("/tmp/chilli/ip-up.sh");
 		unlink("/tmp/chilli/ip-down.sh");
 		system("rm -rf /var/run/chilli");
-		unlink("/tmp/localusers_cp");
+		//unlink("/tmp/localusers_cp");
+		unlink("/etc/shadow.chilli-cp");
 	}
 
 	iface = nvram_safe_get("cp_interface");
@@ -6214,6 +6380,7 @@ start_services(void)
 #ifdef RTCONFIG_CAPTIVE_PORTAL
 	start_chilli();
 	start_CP();
+	setup_passwd();
 	start_uam_srv(); //move to init.c	/* start internal uam server */
 #endif
 
@@ -7430,6 +7597,7 @@ again:
 #ifdef RTCONFIG_CAPTIVE_PORTAL
 			start_chilli();
 			start_CP();
+			setup_passwd();
 			start_uam_srv();
 #endif
 #ifdef RTCONFIG_BCMWL6
@@ -7553,6 +7721,7 @@ again:
 #ifdef RTCONFIG_CAPTIVE_PORTAL
 			start_chilli();
 			start_CP();
+			setup_passwd();
 			start_uam_srv();
 #endif
 			start_wl();
@@ -7721,6 +7890,7 @@ again:
 #ifdef RTCONFIG_CAPTIVE_PORTAL
 			start_chilli();
 			start_CP();
+			setup_passwd();
 			start_uam_srv();
 #endif
 #ifdef RTCONFIG_BCMWL6
@@ -8299,11 +8469,13 @@ check_ddr_done:
 	{
 		if(action&RC_SERVICE_STOP) stop_chilli();
 		if(action&RC_SERVICE_START) start_chilli();
+		setup_passwd();
 	}
 	else if (strcmp(script, "CP") == 0)
 	{
 		if(action&RC_SERVICE_STOP) stop_CP();
 		if(action&RC_SERVICE_START) start_CP();
+		setup_passwd();
 	}
 
 	else if (strcmp(script, "uam_srv") == 0)
@@ -8898,6 +9070,10 @@ check_ddr_done:
 	else if (strcmp(script, "adm_asusddns_register") == 0)
 	{
 		asusddns_reg_domain(1);
+	}
+	else if(strcmp(script, "asusddns_unregister") == 0)
+	{
+		asusddns_unregister();
 	}
 	else if (strcmp(script, "httpd") == 0)
 	{

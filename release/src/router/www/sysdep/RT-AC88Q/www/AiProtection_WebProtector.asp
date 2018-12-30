@@ -47,11 +47,6 @@
 }
 </style>
 <script>
-window.onresize = function() {
-	if(document.getElementById("agreement_panel").style.display == "block") {
-		cal_panel_block("agreement_panel", 0.25);
-	}
-} 
 
 var wrs_filter = "<% nvram_get("wrs_rulelist"); %>".replace(/&#62/g, ">").replace(/&#60/g, "<");
 var wrs_id_array = [["1,2,3,4,5,6,8", "9,10,14,15,16,25,26", "11"],
@@ -712,20 +707,19 @@ function translate_category_id(){
 }
 
 function show_tm_eula(){
-	if(document.form.preferred_lang.value == "JP"){
-		$.get("JP_tm_eula.htm", function(data){
-			document.getElementById('agreement_panel').innerHTML= data;
-			adjust_TM_eula_height("agreement_panel");
-		});
-	}
-	else{
-		$.get("tm_eula.htm", function(data){
-			document.getElementById('agreement_panel').innerHTML= data;
-			adjust_TM_eula_height("agreement_panel");
-		});
-	}
+
+	$.get("tm_eula.htm", function(data){
+		document.getElementById('agreement_panel').innerHTML= data;
+		var url = "https://www.asus.com/Microsite/networks/Trend_Micro_EULA/";
+		$("#eula_url").attr("href",url);
+		url = "https://www.trendmicro.com/en_us/about/legal/privacy-policy-product.html"
+		$("#tm_eula_url").attr("href",url);
+		url = "https://success.trendmicro.com/data-collection-disclosure";
+		$("#tm_disclosure_url").attr("href",url);
+		adjust_TM_eula_height("agreement_panel");
+	});
+
 	dr_advise();
-	cal_panel_block("agreement_panel", 0.25);
 	$("#agreement_panel").fadeIn(300);
 }
 

@@ -544,7 +544,7 @@ function gen_vts_ruleTable_Block(_tableID) {
 				break;
 		}
 	}
-	html += '<td colspan="7">' + wan_title + '<#IPConnection_VSList_title#>&nbsp;(<#List_limit#>&nbsp;32)</td>';
+	html += '<td colspan="7">' + wan_title + '<#IPConnection_VSList_title#>&nbsp;(<#List_limit#>&nbsp;64)</td>';
 	html += '</tr>';
 	html += '</thead>';
 
@@ -562,7 +562,7 @@ function gen_vts_ruleTable_Block(_tableID) {
 	html += '<input type="text" maxlength="30" class="input_20_table" name="vts_desc_x_' + wan_idx + '" id="vts_desc_x_' + wan_idx + '" onKeyPress="return validator.isString(this, event)" autocorrect="off" autocapitalize="off"/>';
 	html += '</td>';
 	html += '<td width="15%">';
-	html += '<input type="text" maxlength="" class="input_12_table" name="vts_port_x_' + wan_idx + '" id="vts_port_x_' + wan_idx + '" onkeypress="return validator.isPortRange(this, event)" autocorrect="off" autocapitalize="off"/>';
+	html += '<input type="text" maxlength="60" class="input_12_table" name="vts_port_x_' + wan_idx + '" id="vts_port_x_' + wan_idx + '" onkeypress="return validator.isPortRange(this, event)" autocorrect="off" autocapitalize="off"/>';
 	html += '</td>';
 	html += '<td width="21%">';
 	html += '<input type="text" maxlength="15" class="input_15_table" name="vts_ipaddr_x_' + wan_idx + '" id="vts_ipaddr_x_' + wan_idx + '" align="left" onkeypress="return validator.isIPAddr(this, event)" style="float:left;"/ autocomplete="off" onClick="hideClients_Block(' + wan_idx + ');" autocorrect="off" autocapitalize="off">';
@@ -581,7 +581,7 @@ function gen_vts_ruleTable_Block(_tableID) {
 	html += '</select>';
 	html += '</td>';	
 	html += '<td width="14%">';
-	html += '<input type="button" class="add_btn" onClick="addRow_Group(32, this);" name="vts_rulelist_' + wan_idx + '" id="vts_rulelist_' + wan_idx + '" value="">';
+	html += '<input type="button" class="add_btn" onClick="addRow_Group(64, this);" name="vts_rulelist_' + wan_idx + '" id="vts_rulelist_' + wan_idx + '" value="">';
 	html += '</td>';
 	html += '</tr>';
 	html += '</table>';

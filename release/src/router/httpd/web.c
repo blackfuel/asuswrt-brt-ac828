@@ -28,6 +28,7 @@
  *
  * $Id: web_ex.c,v 1.4 2007/04/09 12:01:50 shinjung Exp $
  */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -778,6 +779,7 @@ ej_nvram_show_chinese_char(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_match(int eid, webs_t wp, int argc, char_t **argv)
 {
+	int i=0;
 	char *name, *match, *output;
 
 	if (ejArgs(argc, argv, "%s %s %s", &name, &match, &output) < 3) {
@@ -787,6 +789,10 @@ ej_nvram_match(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (nvram_match(name, match))
 	{
+		for (i= 0 ; output[i]!= '\0'; i++){
+			if (!isalnum(output[i]))
+				return 0;
+		}
 		return websWrite(wp, output);
 	}
 
@@ -802,6 +808,7 @@ ej_nvram_match(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
 {
+	int i=0;
 	char *sid, *name, *match, *output;
 
 	if (ejArgs(argc, argv, "%s %s %s %s", &sid, &name, &match, &output) < 4) {
@@ -811,6 +818,10 @@ ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (nvram_match_x(sid, name, match))
 	{
+		for (i= 0 ; output[i]!= '\0'; i++){
+			if (!isalnum(output[i]))
+				return 0;
+		}
 		return websWrite(wp, output);
 	}
 
@@ -820,6 +831,7 @@ ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_double_match(int eid, webs_t wp, int argc, char_t **argv)
 {
+	int i=0;
 	char *name, *match, *output;
 	char *name2, *match2;
 
@@ -830,6 +842,10 @@ ej_nvram_double_match(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (nvram_match(name, match) && nvram_match(name2, match2))
 	{
+		for (i= 0 ; output[i]!= '\0'; i++){
+			if (!isalnum(output[i]))
+				return 0;
+		}
 		return websWrite(wp, output);
 	}
 
@@ -839,6 +855,7 @@ ej_nvram_double_match(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
 {
+	int i=0;
 	char *sid, *name, *match, *output;
 	char *sid2, *name2, *match2;
 
@@ -849,6 +866,10 @@ ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (nvram_match_x(sid, name, match) && nvram_match_x(sid2, name2, match2))
 	{
+		for (i= 0 ; output[i]!= '\0'; i++){
+			if (!isalnum(output[i]))
+				return 0;
+		}
 		return websWrite(wp, output);
 	}
 
@@ -864,6 +885,7 @@ ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
 {
+	int i=0;
 	char *sid, *name, *match, *output, *output_not;
 
 	if (ejArgs(argc, argv, "%s %s %s %s %s", &sid, &name, &match, &output, &output_not) < 5)
@@ -874,10 +896,18 @@ ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
 
 	if (nvram_match_x(sid, name, match))
 	{
+		for (i= 0 ; output[i]!= '\0'; i++){
+			if (!isalnum(output[i]))
+				return 0;
+		}
 		return websWrite(wp, output);
 	}
 	else
 	{
+		for (i= 0 ; output_not[i]!= '\0'; i++){
+			if (!isalnum(output_not[i]))
+				return 0;
+		}
 		return websWrite(wp, output_not);
 	}
 }
@@ -935,15 +965,20 @@ static int
 ej_nvram_match_list_x(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *sid, *name, *match, *output;
-	int which;
+	int which, i=0;
 
 	if (ejArgs(argc, argv, "%s %s %s %s %d", &sid, &name, &match, &output, &which) < 5) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	if (nvram_match_list_x(sid, name, match, which))
+	if (nvram_match_list_x(sid, name, match, which)){
+		for (i= 0 ; output[i]!= '\0'; i++){
+			if (!isalnum(output[i]))
+				return 0;
+		}
 		return websWrite(wp, output);
+	}
 	else
 		return 0;
 }
@@ -1404,6 +1439,7 @@ ej_dump(int eid, webs_t wp, int argc, char_t **argv)
 	return ret;
 }
 
+#if 0
 static int
 ej_load(int eid, webs_t wp, int argc, char_t **argv)
 {
@@ -1417,6 +1453,7 @@ ej_load(int eid, webs_t wp, int argc, char_t **argv)
 	sys_script(script);
 	return (websWrite(wp,"%s",""));
 }
+#endif
 
 /*
  * retreive and convert wl values for specified wl_unit
@@ -2033,6 +2070,7 @@ void del_upload_icon(char *value) {
 #define NVRAM_MODIFIED_DUALWAN_ADDUSB		8          /* ex: {wan, none}  =>  {wan, usb} */
 #define NVRAM_MODIFIED_DUALWAN_EXCHANGE		16	       /* ex: {wan, usb}   =>  {usb, wan}   {wan, lan} => {lan, wan}*/
 #define NVRAM_MODIFIED_DUALWAN_REBOOT		32		   /* Other cases */
+#define NVRAM_MODIFIED_DUALWAN_REMOVEUSB	128	/* ex: {wan, usb}  =>  {wan, none} */
 
 int validate_instance(webs_t wp, char *name, json_object *root)
 {
@@ -2421,11 +2459,7 @@ static int validate_apply(webs_t wp, json_object *root) {
 					    strstr(wans_dualwan, "none") && (strstr(wans_dualwan, "usb") == NULL) &&
 					   (strstr(wans_dualwan, orig_primary) || strstr(wans_dualwan, orig_second)) ){ //Remove USB
 						//_dprintf("validate_apply: NVRAM_MODIFIED_DUALWAN_ADDUSB Remove\n");
-						wans_dualwan_usb = NVRAM_MODIFIED_DUALWAN_ADDUSB;
-					}
-					else if(!strcmp(orig_primary, new_second) && !strcmp(orig_second, new_primary)){ // Exchange Value
-						//_dprintf("validate_apply: NVRAM_MODIFIED_DUALWAN_EXCHANGE\n");
-						wans_dualwan_usb = NVRAM_MODIFIED_DUALWAN_EXCHANGE;
+						wans_dualwan_usb = NVRAM_MODIFIED_DUALWAN_REMOVEUSB;
 					}
 					else{
 						//_dprintf("validate_apply: NVRAM_MODIFIED_DUALWAN_REBOOT\n");
@@ -2458,6 +2492,15 @@ static int validate_apply(webs_t wp, json_object *root) {
 				if(!strcmp(name, "le_enable") && !strcmp(value, "0")){
 					unlink(HTTPD_CERT);
 					unlink(HTTPD_KEY);
+				}
+
+				if(!strncmp(name, "TM_EULA", 1) && !strncmp(value, "1", 1)){
+					time_t now;
+					char timebuf[100];
+
+					now = time( (time_t*) 0 );
+					sprintf(timebuf, rfctime(&now));
+					nvram_set("TM_EULA_time", timebuf);
 				}
 			}
 		}
@@ -3217,7 +3260,7 @@ static int ej_update_variables(int eid, webs_t wp, int argc, char_t **argv) {
 			//_dprintf("has_modify = 0X%X\n\n", has_modify);
 			if( (has_modify & 1) == 0){
 				if( ((has_modify & NVRAM_MODIFIED_DUALWAN_ADDUSB) == NVRAM_MODIFIED_DUALWAN_ADDUSB) || 
-					((has_modify & NVRAM_MODIFIED_DUALWAN_EXCHANGE) == NVRAM_MODIFIED_DUALWAN_EXCHANGE)){
+					((has_modify & NVRAM_MODIFIED_DUALWAN_REMOVEUSB) == NVRAM_MODIFIED_DUALWAN_REMOVEUSB)){
 					//_dprintf("ej_update_variables: start_multipath\n");
 					strcpy(new_action_script, "start_multipath");
 					action_script = (char *)new_action_script;
@@ -11138,6 +11181,80 @@ void add_asus_token(char *token){
 	//print_list();
 }
 
+static void
+do_set_ASUS_EULA_cgi(char *url, FILE *stream)
+{
+	char *ASUS_EULA = websGetVar(stream, "ASUS_EULA", "");
+	time_t now;
+	char timebuf[100];
+
+	_dprintf("[%s(%d)]ASUS_EULA = %s\n", __FUNCTION__, __LINE__, ASUS_EULA);
+
+	if(!strcmp(ASUS_EULA, "0") || !strcmp(ASUS_EULA, "1"))
+	{
+		nvram_set("ASUS_EULA", ASUS_EULA);
+		now = time( (time_t*) 0 );
+		sprintf(timebuf, rfctime(&now));
+		nvram_set("ASUS_EULA_time", timebuf);
+		if(!strcmp(ASUS_EULA, "0")){
+			if(nvram_match("ddns_server_x", "WWW.ASUS.COM")){
+				nvram_set("ddns_enable_x", "0");
+				nvram_set("ddns_server_x", "");
+				nvram_set("ddns_hostname_x", "");
+			}
+
+#if defined(RTCONFIG_IFTTT) || defined(RTCONFIG_ALEXA)
+			nvram_set("ifttt_token", "");
+#endif
+		}
+
+		nvram_commit();
+#if defined(RTCONFIG_AIHOME_TUNNEL)
+		kill_pidfile_s(MASTIFF_PID_PATH, SIGUSR2);
+#endif
+	}
+}
+
+static void
+do_unreg_ASUSDDNS_cgi(char *url, FILE *stream)
+{
+	_dprintf("[%s(%d)] notify_rc(start_asusddns_unregister)\n", __FUNCTION__, __LINE__);
+	nvram_unset("asusddns_reg_result");
+	notify_rc("stop_ddns;start_asusddns_unregister");
+}
+
+static void
+do_set_TM_EULA_cgi(char *url, FILE *stream)
+{
+	char *TM_EULA = websGetVar(stream, "TM_EULA", "");
+	time_t now;
+	char timebuf[100];
+
+	_dprintf("[%s(%d)]TM_EULA = %s\n", __FUNCTION__, __LINE__, TM_EULA);
+
+	if(!strcmp(TM_EULA, "0") || !strcmp(TM_EULA, "1"))
+	{
+		nvram_set("TM_EULA", TM_EULA);
+		now = time( (time_t*) 0 );
+		sprintf(timebuf, rfctime(&now));
+		nvram_set("TM_EULA_time", timebuf);
+
+		if(!strncmp(TM_EULA, "0", 1))
+		{
+			nvram_set("wrs_protect_enable", "0");
+			nvram_set("wrs_enable", "0");
+			nvram_set("wrs_app_enable", "0");
+			nvram_set("apps_analysis", "0");
+			nvram_set("bwdpi_wh_enable", "0");
+			nvram_set("bwdpi_db_enable", "0");
+			if(nvram_match("qos_enable", "1") && nvram_match("qos_type", "1"))
+				nvram_set("qos_enable", "0");
+			notify_rc("restart_wrs;restart_qos;restart_firewall");
+		}
+		nvram_commit();
+	}
+}
+
 #define RFC1123FMT "%a, %d %b %Y %H:%M:%S GMT"
 static int
 login_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
@@ -11299,12 +11416,11 @@ do_login_cgi(char *url, FILE *stream)
 
 
 static void
-app_call(char *func, FILE *stream)
+app_call(char *func, FILE *stream, int first_row)
 {
 	char *args, *end, *next;
 	int argc;
 	char * argv[16]={NULL};
-	int app_method_hit = 0;
 	struct ej_handler *handler;
 
 	/* Parse out ( args ) */
@@ -11318,60 +11434,63 @@ app_call(char *func, FILE *stream)
 		if (!(argv[argc] = get_arg_t(args, &next)))
 			break;
 	}
-	if(strcmp(func, "nvram_get") == 0){
-		websWrite(stream,"\"%s\":", argv[0]);
-		websWrite(stream,"\"" );
-	}else if(argv[0] != NULL && strcmp(argv[0], "appobj") == 0 && strncmp(func, "get_clientlist", 14) != 0){
-		websWrite(stream,"\"%s\":", func);
-		websWrite(stream,"{" );
-	}else if(argv[0] != NULL && strncmp(func, "get_clientlist", 14) != 0)
-		websWrite(stream,"\"%s-%s\":", func, argv[0]);
-	else	
-		websWrite(stream,"\"%s\":", func);
 
 	/* Call handler */
 	for (handler = &ej_handlers[0]; handler->pattern; handler++) {
-//		if (strncmp(handler->pattern, func, strlen(handler->pattern)) == 0)
 		if (strcmp(handler->pattern, func) == 0){
+			if(first_row == 0)
+				websWrite(stream, ",\n");
+
+			if(strcmp(func, "nvram_get") == 0 || strcmp(func, "nvram_default_get") == 0){
+				websWrite(stream,"\"%s\":", argv[0]);
+				websWrite(stream,"\"" );
+			}else if(strcmp(func, "nvram_char_to_ascii") == 0){
+				websWrite(stream,"\"%s\":", argv[1]);
+				websWrite(stream,"\"" );
+			}else if(argv[0] != NULL && strcmp(argv[0], "appobj") == 0 && strncmp(func, "get_clientlist", 14) != 0){
+				websWrite(stream,"\"%s\":", func);
+				websWrite(stream,"{" );
+			}else if(argv[0] != NULL && strncmp(func, "get_clientlist", 14) != 0)
+				websWrite(stream,"\"%s-%s\":", func, argv[0]);
+			else
+				websWrite(stream,"\"%s\":", func);
+
 			handler->output(0, stream, argc, argv);
-			app_method_hit = 1;
+
+			if(strcmp(func, "nvram_get") == 0 || strcmp(func, "nvram_default_get") == 0|| strcmp(func, "nvram_char_to_ascii") == 0)
+				websWrite(stream,"\"" );
+			else if(argv[0] != NULL && strcmp(argv[0], "appobj") == 0 && strncmp(func, "get_clientlist", 14) != 0)
+				websWrite(stream,"}" );
 		}
 	}
-	if (app_method_hit == 0 && (argv[0] == NULL || strcmp(argv[0], "appobj") != 0))
-		websWrite(stream,"\"\"");	//Not Support
-	
-	if(strcmp(func, "nvram_get") == 0)
-		websWrite(stream,"\"" );
-	else if(argv[0] != NULL && strcmp(argv[0], "appobj") == 0 && strncmp(func, "get_clientlist", 14) != 0)
-		websWrite(stream,"}" );
 }
 
 static void
 do_appGet_cgi(char *url, FILE *stream)
 {
-	char *pattern;
-	int firstRow=1;
+	int firstRow = 1;
+	char *substr = NULL;
+	char * delim = ";";
 
-	pattern = websGetVar(wp, "hook","");
+	char *pattern = websGetVar(wp, "hook","");
+	char *dup_pattern = strdup(pattern);
+	char *sepstr = dup_pattern;
 
-	char *pattern_t = strtok(pattern, ";");
+	substr = strsep(&sepstr, delim);
 
 	websWrite(stream,"{\n" );
+	while (substr){
 
-	while (pattern_t != NULL){
+		app_call(substr, stream, firstRow);
+
 		if (firstRow == 1)
 			firstRow = 0;
-		else
-			websWrite(stream, ",\n");
 
-		//websWrite(stream,"\"%s\":", pattern_t);
-
-		app_call(pattern_t, stream);
-
-		pattern_t = strtok(NULL, ";");
+		substr = strsep(&sepstr, delim);
 	}
 
 	websWrite(stream,"\n}\n" );
+	free(dup_pattern);
 }
 
 
@@ -11521,6 +11640,9 @@ struct mime_handler mime_handlers[] = {
 #ifdef RTCONFIG_HTTPS
 	{ "upload_cert_key.cgi*", "text/html", no_cache_IE7, do_upload_cert_key, do_upload_cert_key_cgi, do_auth },
 #endif
+	{ "set_ASUS_EULA.cgi*", "text/html", no_cache_IE7, do_html_post_and_get, do_set_ASUS_EULA_cgi, do_auth },
+	{ "set_TM_EULA.cgi*", "text/html", no_cache_IE7, do_html_post_and_get, do_set_TM_EULA_cgi, do_auth },
+	{ "unreg_ASUSDDNS.cgi*", "text/html", no_cache_IE7, do_html_post_and_get, do_unreg_ASUSDDNS_cgi, do_auth },
 #ifdef RTCONFIG_IFTTT
 	{ "get_IFTTTPincode.cgi", "text/html", no_cache_IE7, do_html_post_and_get, do_get_IFTTTPincode_cgi, do_auth },
 #endif
@@ -17061,7 +17183,7 @@ struct ej_handler ej_handlers[] = {
 	{ "uptime", ej_uptime},
 	{ "sysuptime", ej_sysuptime},
 	{ "nvram_dump", ej_dump},
-	{ "load_script", ej_load},
+	//{ "load_script", ej_load},
 	{ "select_list", ej_select_list},
 	{ "dhcpLeaseInfo", ej_dhcpLeaseInfo},
 	{ "dhcpLeaseMacList", ej_dhcpLeaseMacList},

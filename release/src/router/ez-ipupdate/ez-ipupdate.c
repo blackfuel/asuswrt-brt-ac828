@@ -1067,7 +1067,7 @@ int option_handler(int id, char *optarg)
 #ifdef ASUS_DDNS
         case CMD_asus:
                 i = atoi (optarg);
-                if (i >= 0 && i <= 2)   {
+                if (i >= 0 && i <= 3)   {
                         g_asus_ddns_mode = i;
                         dprintf((stderr, "register domain mode %d\n", g_asus_ddns_mode));
                 }
@@ -4878,12 +4878,16 @@ show_message("ez-ipupdate: starting...\n");
 		}
         }
         if (g_asus_ddns_mode == 1)      {
-              retval = asus_reg_domain ();
-show_message("asus_reg_domain retval= %d\n", retval);
+              retval = asus_reg_domain (1);
+              show_message("asus_reg_domain retval= %d\n", retval);
               goto asusddns_update;
         } else if (g_asus_ddns_mode == 2)       {
                 // override update_entry() method
                 service->update_entry = asus_update_entry;
+        } else if(g_asus_ddns_mode == 3){
+            retval = asus_reg_domain (0);
+            show_message("ez-ipupdate: g_asus_ddns_mode == 3 retval = %d\n", retval);
+            goto exit_main;
         }
 #endif  // ASUS_DDNS
 

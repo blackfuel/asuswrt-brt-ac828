@@ -580,8 +580,9 @@ extern void update_vpnc_state(char *prefix, int state, int reason);
 
 /*rc_ipsec.c*/
 #ifdef RTCONFIG_IPSEC
-extern void rc_ipsec_config_init();
-extern void run_ipsec_firewall_scripts();
+extern void rc_ipsec_nvram_convert_check(void);
+extern void rc_ipsec_config_init(void);
+extern void run_ipsec_firewall_scripts(void);
 #endif
 
 // network.c
@@ -1158,6 +1159,9 @@ extern void bridge_ifByA(char *ifs, char *, int);
 extern void DN2tmpfile(char *name);
 extern void start_CP(void);
 extern void start_chilli(void);
+void chilli_localUser_passcode(void);
+void chilli_localUser(void);
+
 #endif
 
 #ifdef RTCONFIG_CAPTIVE_PORTAL

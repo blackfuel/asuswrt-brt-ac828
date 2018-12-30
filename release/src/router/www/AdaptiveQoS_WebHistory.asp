@@ -29,11 +29,6 @@
 }
 </style>
 <script>
-window.onresize = function() {
-	if(document.getElementById("agreement_panel").style.display == "block") {
-		cal_panel_block("agreement_panel", 0.25);
-	}
-}
 function initial(){
 	show_menu();
 	if(document.form.bwdpi_wh_enable.value == 1){
@@ -211,31 +206,6 @@ function cancel(){
 	htmlbodyforIE = parent.document.getElementsByTagName("html");  //this both for IE&FF, use "html" but not "body" because <!DOCTYPE html PUBLIC.......>
 	htmlbodyforIE[0].style.overflow = "scroll";	  //hidden the Y-scrollbar for preventing from user scroll it.
 }
-function cal_panel_block(obj){
-	var blockmarginLeft;
-	if (window.innerWidth)
-		winWidth = window.innerWidth;
-	else if ((document.body) && (document.body.clientWidth))
-		winWidth = document.body.clientWidth;
-		
-	if (document.documentElement  && document.documentElement.clientHeight && document.documentElement.clientWidth){
-		winWidth = document.documentElement.clientWidth;
-	}
-
-	if(winWidth >1050){	
-		winPadding = (winWidth-1050)/2;	
-		winWidth = 1105;
-		blockmarginLeft= (winWidth*0.2)+winPadding;
-	}
-	else if(winWidth <=1050){
-		blockmarginLeft= (winWidth)*0.2 + document.body.scrollLeft;	
-	}
-
-	if(obj == "demo_background")
-		document.getElementById(obj).style.marginLeft = (blockmarginLeft + 25)+"px";
-	else
-		document.getElementById(obj).style.marginLeft = blockmarginLeft+"px";
-}
 </script>
 </head>
 <body onload="initial();" onunload="unload_body();">
@@ -300,20 +270,19 @@ function cal_panel_block(obj){
 																					document.getElementById("tm_eula_content").style.height = (tm_eula_content_height - Math.abs(tm_eula_visiable_height) - 20) + "px"; //content height - overflow height - margin top and margin bottom
 																				}
 																			};
-																			if(document.form.preferred_lang.value == "JP"){
-																				$.get("JP_tm_eula.htm", function(data){
-																					document.getElementById('agreement_panel').innerHTML= data;
-																					adjust_TM_eula_height("agreement_panel");
-																				});
-																			}
-																			else{
-																				$.get("tm_eula.htm", function(data){
-																					document.getElementById('agreement_panel').innerHTML= data;
-																					adjust_TM_eula_height("agreement_panel");
-																				});
-																			}	
+
+																			$.get("tm_eula.htm", function(data){
+																				document.getElementById('agreement_panel').innerHTML= data;
+																				var url = "https://www.asus.com/Microsite/networks/Trend_Micro_EULA/";
+																				$("#eula_url").attr("href",url);
+																				url = "https://www.trendmicro.com/en_us/about/legal/privacy-policy-product.html";
+																				$("#tm_eula_url").attr("href",url);
+																				url = "https://success.trendmicro.com/data-collection-disclosure";
+																				$("#tm_disclosure_url").attr("href",url);
+																				adjust_TM_eula_height("agreement_panel");
+																			});
+
 																			dr_advise();
-																			cal_panel_block("agreement_panel", 0.25);
 																			$("#agreement_panel").fadeIn(300);
 																			return false;
 																		}

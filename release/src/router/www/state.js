@@ -541,6 +541,9 @@ if( based_modelid == "RT-AC5300" || based_modelid == "GT-AC5300" || based_modeli
 	app_support = true;	 
  }
 
+var ifttt_support = isSupport("ifttt");
+var alexa_support = isSupport("alexa");
+
 var tagged_based_vlan = isSupport("tagged_based_vlan");
 var QISWIZARD = "QIS_wizard.htm";
 

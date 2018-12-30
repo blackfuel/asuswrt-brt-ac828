@@ -1423,30 +1423,6 @@ function cal_panel_block(obj){
 		document.getElementById(obj).style.marginLeft = blockmarginLeft+"px";
 }
 
-function cal_agreement_block(){
-	var blockmarginLeft;
-	if (window.innerWidth)
-		winWidth = window.innerWidth;
-	else if ((document.body) && (document.body.clientWidth))
-		winWidth = document.body.clientWidth;
-		
-	if (document.documentElement  && document.documentElement.clientHeight && document.documentElement.clientWidth){
-		winWidth = document.documentElement.clientWidth;
-	}
-
-	if(winWidth >1050){	
-		winPadding = (winWidth-1050)/2;	
-		winWidth = 1105;
-		blockmarginLeft= (winWidth*0.25)+winPadding;
-	}
-	else if(winWidth <=1050){
-		blockmarginLeft= (winWidth)*0.25+document.body.scrollLeft;	
-
-	}
-
-	document.getElementById("agreement_panel").style.marginLeft = blockmarginLeft+"px";
-}
-
 function eula_confirm(){
 	document.form.TM_EULA.value = 1;
 	document.form.bwdpi_db_enable.value = 1;
@@ -1468,6 +1444,7 @@ function applyRule(){
 	document.form.action_script.value = "restart_wrs;restart_firewall";
 	
 	if(reset_wan_and_nat(document.form, document.form.bwdpi_db_enable.value)) {
+		showLoading();
 		document.form.submit();
 	}
 	else {
@@ -1565,10 +1542,7 @@ function getClientCurrentName(_mac) {
 														<table align="right">
 															<tr>
 																<td style="cursor:pointer;" onclick="introduce_demo();" id="introduce_demo"><div id="play_icon" class="icon_play" style="padding:1px;display:table-cell;width:22px;height:22px;"></div><div style="display:table-cell;font-size:16px;text-decoration:underline;padding-left:7px;" ><#Introduce_demo#></div></td>
-																<!--td>														
-																	<div class="formfonttitle" style="margin-bottom:0px;margin-left:20px;" title="<#traffic_analysis_desc#>">Traffic Statistic</div>
-																</td-->
-																<td >
+									<td >
 																	<div align="center" class="left" style="width:94px; float:left; cursor:pointer;" id="traffic_analysis_enable"></div>
 																	<script type="text/javascript">
 																		$('#traffic_analysis_enable').iphoneSwitch('<% nvram_get("bwdpi_db_enable"); %>',
@@ -1586,21 +1560,18 @@ function getClientCurrentName(_mac) {
 																						}
 																					};
 
-																					if(document.form.preferred_lang.value == "JP"){
-																						$.get("JP_tm_eula.htm", function(data){
-																							document.getElementById('agreement_panel').innerHTML= data;
-																							adjust_TM_eula_height("agreement_panel");
-																						});
-																					}
-																					else{
-																						$.get("tm_eula.htm", function(data){
-																							document.getElementById('agreement_panel').innerHTML= data;
-																							adjust_TM_eula_height("agreement_panel");
-																						});
-																					}	
+																					$.get("tm_eula.htm", function(data){
+																						document.getElementById('agreement_panel').innerHTML= data;
+																						var url = "https://www.asus.com/Microsite/networks/Trend_Micro_EULA/";
+																						$("#eula_url").attr("href",url);
+																						url = "https://www.trendmicro.com/en_us/about/legal/privacy-policy-product.html";
+																						$("#tm_eula_url").attr("href",url);
+																						url = "https://success.trendmicro.com/data-collection-disclosure";
+																						$("#tm_disclosure_url").attr("href",url);
+																						adjust_TM_eula_height("agreement_panel");
+																					});
 																					
 																					dr_advise();
-																					cal_agreement_block();
 																					$("#agreement_panel").fadeIn(300);
 																					return false;
 																				}

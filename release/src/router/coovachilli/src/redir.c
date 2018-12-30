@@ -35,6 +35,8 @@
 #include <shared.h>
 
 
+#include <crypt.h>
+#include <shadow.h>
 static int optionsdebug = 0; /* TODO: Should be changed to instance */
 
 static int termstate = REDIR_TERM_INIT;    /* When we were terminated */
@@ -2885,6 +2887,9 @@ int is_local_user(struct redir_t *redir, struct redir_conn_t *conn) {
   MD5_CTX context;
   FILE *f;
 
+  struct spwd *spwd;
+  char *crypt_password;
+
   if (!_options.localusers) return 0;
 
   log_dbg("checking %s for user %s", _options.localusers, conn->s_state.redir.username);
@@ -2981,6 +2986,13 @@ int is_local_user(struct redir_t *redir, struct redir_conn_t *conn) {
 	  if (!strcmp((char*)user_password, p)){
 	    log_dbg("found %s, checking password", u);
 	    match = 1;
+	  }
+	  else if((spwd = getspnam(u)) != NULL){	/* compare passwords */
+		crypt_password = crypt(user_password, spwd->sp_pwdp);
+		if(strcmp(crypt_password, spwd->sp_pwdp) == 0){
+			log_dbg("AUTH Success!!");
+			match = 1;
+		}
 	  }
 	}
 	else if (conn->authdata.type == REDIR_AUTH_CHAP) {
