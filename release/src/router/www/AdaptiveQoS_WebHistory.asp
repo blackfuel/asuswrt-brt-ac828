@@ -282,7 +282,7 @@ function cal_panel_block(obj){
 									</div>
 									<div style="margin:5px">
 										<table style="margin-left:0px;" width="95%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
-											<th>Enable Web History</th>
+											<th><#Adaptive_History#></th>
 											<td>
 												<div align="center" class="left" style="width:94px; float:left; cursor:pointer;" id="bwdpi_wh_enable"></div>
 															<script type="text/javascript">
@@ -290,7 +290,7 @@ function cal_panel_block(obj){
 																	function(){
 																		if(document.form.TM_EULA.value == 0){
 																			var adjust_TM_eula_height = function(_objID) {
-																				var scrollTop = document.body.scrollTop;
+																				var scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
 																				document.getElementById(_objID).style.top = (scrollTop + 10) + "px";
 																				var visiable_height = document.documentElement.clientHeight;
 																				var tm_eula_container_height = parseInt(document.getElementById(_objID).offsetHeight);
@@ -342,7 +342,7 @@ function cal_panel_block(obj){
 									<div id="log_field">
 										<div style="margin:10px 5px">
 											<select id="clientListOption" class="input_option" name="clientList" onchange="getWebHistory(this.value);">
-												<option value="" selected>All client</option>
+												<option value="" selected><#All_Client#></option>
 											</select>
 											<label style="margin: 0 5px 0 20px;visibility:hidden;cursor:pointer" id="previous_button" onclick="change_page('previous');">Previous</label>
 											<input class="input_3_table" value="1" id="current_page"></input>

@@ -359,7 +359,7 @@ function addRow_Group(upper) {
 			valid_password.focus();
 			return false;
 		}
-		else if(!Block_chars(valid_password, ["<", ">", "&"])) {
+		else if(!Block_chars(valid_password, ["<", ">", "&", "\""])) {
 			return false;
 		}
 		else if(valid_password.value.length > 0 && valid_password.value.length < 5) {
@@ -463,7 +463,7 @@ function validForm() {
 	if(ipsec_server_enable == "1") {
 		if(!validator.isEmpty(document.form.ipsec_preshared_key))
 			return false;
-		if(!Block_chars(document.form.ipsec_preshared_key, [">", "<", "#", "null"]))
+		if(!Block_chars(document.form.ipsec_preshared_key, [">", "<", "&", "\"", "null"]))
 			return false;
 		if(is_KR_sku){
 			if(!validator.psk_KR(document.form.ipsec_preshared_key))

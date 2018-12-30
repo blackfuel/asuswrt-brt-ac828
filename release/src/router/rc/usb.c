@@ -3070,6 +3070,7 @@ stop_mt_daapd()
 // !!TB - webdav
 
 //#ifdef RTCONFIG_WEBDAV
+#if 0
 void write_webdav_permissions()
 {
 	FILE *fp;
@@ -3127,6 +3128,7 @@ void write_webdav_server_pem()
 		system("cp -f /etc/server.pem /tmp/lighttpd/");
 	}
 }
+#endif
 
 void start_webdav(void)	// added by Vanic
 {
@@ -3175,7 +3177,7 @@ void start_webdav(void)	// added by Vanic
 	chmod("/tmp/lighttpd/www", 0777);
 
 	/* tmp/lighttpd/permissions */
-	write_webdav_permissions();
+	//write_webdav_permissions();
 
 	/* WebDav SSL support */
 	//write_webdav_server_pem();

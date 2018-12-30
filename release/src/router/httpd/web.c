@@ -1237,7 +1237,7 @@ ej_dump(int eid, webs_t wp, int argc, char_t **argv)
 	//csprintf("Script : %s, File: %s\n", script, file);
 
 	// run scrip first to update some status
-	if (strcmp(script,"")!=0) sys_script(script);
+	if (strcmp(script,"syscmd.sh")==0) sys_script(script);
 
 	if (strcmp(file, "wlan11b.log")==0)
 		return (ej_wl_status(eid, wp, 0, NULL, 0));	/* FIXME */
@@ -1264,14 +1264,6 @@ ej_dump(int eid, webs_t wp, int argc, char_t **argv)
 		return wl_wps_info(eid, wp, argc, argv, nvram_get_int("wps_band_x"));
 #endif
 	}
-#if 0
-	else if (strcmp(file, "apselect.log")==0)
-		return (ej_getSiteSurvey(eid, wp, 0, NULL));
-	else if (strcmp(file, "apscan")==0)
-		return (ej_SiteSurvey(eid, wp, 0, NULL));
-	else if (strcmp(file, "urelease")==0)
-		return (ej_urelease(eid, wp, 0, NULL));
-#endif
 
 	ret = 0;
 
@@ -1383,12 +1375,28 @@ ej_dump(int eid, webs_t wp, int argc, char_t **argv)
 #endif /* RTCONFIG_DSL */
 #endif /* RTCONFIG_PUSH_EMAIL */
 #ifdef RTCONFIG_IPSEC
-	if (strcmp(file, "ipsec.log")==0) {
+	else if (strcmp(file, "ipsec.log")==0) {
 		sprintf(filename, FILE_PATH_IPSEC_LOG);
 		ret += dump_file(wp, filename);
 	}
 #endif
-	else {
+	else if (strcmp(file, "connect.log")==0) {
+		sprintf(filename, "/tmp/%s", file);
+		system("/usr/sbin/netstat-nat -r state -xn > /tmp/connect.log 2>&1");
+		ret += dump_file(wp, filename);
+	}
+	else if ( strcmp(file, "syscmd.log")==0
+		|| strcmp(file, "pptp_connected")==0
+		|| strcmp(file, "release_note0.txt")==0
+		|| strcmp(file, "release_note1.txt")==0
+		|| strcmp(file, "release_note.txt")==0
+#ifdef RTCONFIG_DSL
+		|| strcmp(file, "adsl/tc_fw_ver_short.txt")==0
+		|| strcmp(file, "adsl/tc_ras_ver.txt")==0
+		|| strcmp(file, "adsl/tc_fw_ver.txt")==0
+		|| strcmp(file, "adsl/adsllog.log")==0
+#endif
+	){
 		sprintf(filename, "/tmp/%s", file);
 		ret += dump_file(wp, filename);
 	}
@@ -3226,15 +3234,13 @@ static int ej_update_variables(int eid, webs_t wp, int argc, char_t **argv) {
 #endif			
 
 			if (strlen(action_script) > 0) {
-				char *p1, *p2;
+				char *p1, p2[sizeof(notify_cmd)];
 
-				memset(notify_cmd, 0, sizeof(notify_cmd));
 				if((p1 = strstr(action_script, "_wan_if")))
 				{
-					p1 += 7;
-					strncpy(notify_cmd, action_script, p1 - action_script);
-					p2 = notify_cmd + strlen(notify_cmd);
-					sprintf(p2, " %s%s", wan_unit, p1);
+					p1 += sizeof("_wan_if") - 1;
+					strlcpy(p2, action_script, MIN(p1 - action_script + 1, sizeof(p2)));
+					snprintf(notify_cmd, sizeof(notify_cmd), "%s %s%s", p2, wan_unit, p1);
 				}
 #if defined(RTCONFIG_POWER_SAVE)
 				else if (!strcmp(action_script, "pwrsave")) {
@@ -3242,7 +3248,7 @@ static int ej_update_variables(int eid, webs_t wp, int argc, char_t **argv) {
 				}
 #endif
 				else
-					strncpy(notify_cmd, action_script, 128);
+					strlcpy(notify_cmd, action_script, sizeof(notify_cmd));
 
 				if(strcmp(action_script, "saveNvram"))
 				{
@@ -4638,6 +4644,26 @@ static int login_state_hook(int eid, webs_t wp, int argc, char_t **argv){
 
 	return 0;
 }
+
+static int ej_is_logined_hook(int eid, webs_t wp, int argc, char_t **argv){
+	unsigned int ip, login_ip;
+	char ip_str[16], login_ip_str[16];
+	struct in_addr now_ip_addr, login_ip_addr;
+
+	ip = getpeerip(wp);
+	now_ip_addr.s_addr = ip;
+	strlcpy(ip_str, inet_ntoa(now_ip_addr), sizeof(ip_str));
+
+	login_ip = (unsigned int)atoll(nvram_safe_get("login_ip"));
+	login_ip_addr.s_addr = login_ip;
+	strlcpy(login_ip_str, inet_ntoa(login_ip_addr), sizeof(login_ip_str));
+
+	if(strcmp(login_ip_str, "0.0.0.0") && strcmp(login_ip_str, ip_str))
+		return websWrite(wp, "\"0\"");
+	else
+		return websWrite(wp, "\"1\"");
+}
+
 #ifdef RTCONFIG_FANCTRL
 static int get_fanctrl_info(int eid, webs_t wp, int argc, char_t **argv)
 {
@@ -8311,7 +8337,7 @@ wps_finish:
 	else if(!strcmp(action_mode, "pms_apply"))
 	{
 
-		char para[256];
+		char para[1024];
 		char *ptrArray[16]={0};
 		char *pms_action = get_cgi_json("pms_action",root);
 		char ascii_user[64], ascii_newuser[64];
@@ -10383,14 +10409,14 @@ do_plc_cgi(char *url, FILE *stream)
 
 // 2010.09 James. {
 static char no_cache_IE7[] =
-"Cache-Control: no-cache\r\n"
+"Cache-Control: no-cache, no-store, must-revalidate\r\n"
 "Pragma: no-cache\r\n"
 "Expires: 0"
 ;
 // 2010.09 James. }
 
 static char no_cache[] =
-"Cache-Control: no-cache\r\n"
+"Cache-Control: no-cache, no-store, must-revalidate\r\n"
 "Pragma: no-cache\r\n"
 "Expires: 0"
 ;
@@ -11372,8 +11398,8 @@ do_qis_default(char *url, FILE *stream)
 	char redirect_url[128];
 	flag = websGetVar(wp, "flag","");
 	
-	if(flag != NULL){
-		sprintf(redirect_url, "QIS_wizard.htm?flag=%s", flag);
+	if(flag != NULL && strcmp(flag, "") != 0){
+		snprintf(redirect_url, sizeof(redirect_url), "QIS_wizard.htm?flag=%s", flag);
 		websRedirect(stream, redirect_url);
 	}
 	else
@@ -14788,10 +14814,10 @@ uint32_t traffic_wanlan(char *ifname, uint32_t *rx, uint32_t *tx);
 // traffic monitor
 static int ej_netdev(int eid, webs_t wp, int argc, char_t **argv)
 {
- FILE * fp;
+  FILE * fp;
   char buf[256];
-  unsigned long rx, tx;
-  unsigned long rx2, tx2;
+  unsigned long rx = 0, tx = 0, curr_rx = 0, curr_tx = 0;
+  unsigned long rx2 = 0, tx2 = 0;
 #ifdef RTCONFIG_LACP
   unsigned long rx_lacp1, tx_lacp1;
   unsigned long rx2_lacp1, tx2_lacp1;
@@ -14801,6 +14827,9 @@ static int ej_netdev(int eid, webs_t wp, int argc, char_t **argv)
   unsigned long wl0_all_rx = 0, wl0_all_tx = 0;
   unsigned long wl1_all_rx = 0, wl1_all_tx = 0;
   unsigned long wired_all_rx = 0, wired_all_tx = 0;
+  ino_t inode;
+  struct ifino_s *ifino;
+  static struct ifname_ino_tbl ifstat_tbl = { 0 };
   char *p;
   char *ifname;
   char ifname_desc[12], ifname_desc2[12];
@@ -14873,6 +14902,37 @@ static int ej_netdev(int eid, webs_t wp, int argc, char_t **argv)
 #endif	/* RTCONFIG_BCM5301X_TRAFFIC_MONITOR */
 				if (!netdev_calc(ifname, ifname_desc, &rx, &tx, ifname_desc2, &rx2, &tx2)) continue;
 
+				/* If inode of a interface changed, it means the interface was closed and reopened.
+				 * In this case, we should calculate difference of old TX/RX bytes and new TX/RX
+				 * bytes and shift from new TX/RX bytes to old TX/RX bytes.
+				 */
+				inode = get_iface_inode(ifname);
+				curr_rx = rx;
+				curr_tx = tx;
+				if ((ifino = ifname_ino_ptr(&ifstat_tbl, ifname)) != NULL) {
+					if (ifino->inode && ifino->inode != inode) {
+						ifino->inode = inode;
+						ifino->shift_rx = curr_rx - ifino->last_rx + ifino->shift_rx;
+						ifino->shift_tx = curr_tx - ifino->last_tx + ifino->shift_tx;
+					}
+				} else {
+					if ((ifstat_tbl.nr_items + 1) <= ARRAY_SIZE(ifstat_tbl.items)) {
+						ifino = &ifstat_tbl.items[ifstat_tbl.nr_items];
+						strlcpy(ifino->ifname, ifname, sizeof(ifino->ifname));
+						ifino->inode = inode;
+						ifino->last_rx = curr_rx;
+						ifino->last_tx = curr_tx;
+						ifino->shift_rx = ifino->shift_tx = 0;
+						ifstat_tbl.nr_items++;
+					}
+				}
+
+				if (ifino != NULL) {
+					rx = curr_rx - ifino->shift_rx;
+					tx = curr_tx - ifino->shift_tx;
+					ifino->last_rx = curr_rx;
+					ifino->last_tx = curr_tx;
+				}
 
 loopagain:
 				if (!strncmp(ifname_desc, "WIRELESS0", 9)) {
@@ -16146,17 +16206,49 @@ static int
 ej_get_next_lanip(int eid, webs_t wp, int argc, char **argv)
 {
 #if defined(RTCONFIG_TAGGED_BASED_VLAN)
+#define NEXT_LANIP_INTERVAL	5	/* unit: seconds */
+	static time_t t1 = 0;
+	static char last_result[sizeof("192.168.100.200XXX")] = "";
 	int r;
-	char ip_mask[32], new_ip[sizeof("192.168.100.200XXX")] = "", *p;
+	uint32_t id;
+	char ip_mask[32], new_ip[sizeof("192.168.100.200XXX")] = "", *p, *ip = ip_mask, *mask;
+	struct in_addr net = { 0 }, host = { 0 }, nmask = { 0 }, hmask = { 0 };
 
+	/* Cache last result for NEXT_LANIP_INTERVAL seconds. */
+	if (t1 != 0 && (uptime() - t1) <= NEXT_LANIP_INTERVAL && *last_result != '\0') {
+		return websWrite(wp, "{next_lanip: '%s'}", last_result);
+	}
+
+	snprintf(new_ip, sizeof(new_ip), "%s", nvram_safe_get("lan_ipaddr"));
 	snprintf(ip_mask, sizeof(ip_mask), "%s/%s", nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
 	r = test_and_get_free_char_network(7, ip_mask, EXCLUDE_NET_LAN);
 	if (r == 1) {
-		p = strchr(ip_mask, '/');
-		strlcpy(new_ip, ip_mask, min(p - ip_mask, sizeof(new_ip)));
-		strlcat(new_ip, "1", sizeof(new_ip));
+		/* Got free network segment. */
+		if ((p = strchr(ip_mask, '/')) != NULL) {
+			*p = '\0';
+			mask = p + 1;
+			if (inet_aton(ip, &net) == 1 &&
+			    inet_aton(mask, &nmask) == 1 &&
+			    (net.s_addr & nmask.s_addr) == net.s_addr)
+			{
+				/* ip_mask doesn't include host id, find first one. */
+				hmask.s_addr = ~nmask.s_addr;
+				host.s_addr = net.s_addr & hmask.s_addr;
+				id = be32_to_cpu(host.s_addr) + 1;
+				host.s_addr = cpu_to_be32(id);
+				host.s_addr |= net.s_addr;
+				strlcpy(new_ip, inet_ntoa(host), sizeof(new_ip));
+			} else {
+				strlcpy(new_ip, ip, sizeof(new_ip));
+			}
+		} else {
+			dbg("%s: Invalid ip_mask [%s]!\n", __func__, ip_mask);
+		}
+		_dprintf("ej_get_next_lanip: new_ip = %s\n", new_ip);
 	}
-	_dprintf("ej_get_next_lanip: new_ip = %s\n", new_ip);
+	strlcpy(last_result, new_ip, sizeof(last_result));
+	t1 = uptime();
+
 	return websWrite(wp, "{next_lanip: '%s'}", new_ip);
 
 #else
@@ -17027,6 +17119,7 @@ struct ej_handler ej_handlers[] = {
 	{ "get_parameter", ej_get_parameter},
 	{ "get_ascii_parameter", ej_get_ascii_parameter},
 	{ "login_state_hook", login_state_hook},
+	{ "is_logined_hook", ej_is_logined_hook},
 #ifdef RTCONFIG_FANCTRL
 	{ "get_fanctrl_info", get_fanctrl_info},
 #endif
@@ -17450,67 +17543,37 @@ int is_wlif_up(const char *ifname)
 		return 0;
 }
 
-int check_xss_blacklist(char* para, int check_www)
+int check_xss_blacklist(char *para, int check_www)
 {
-	int i = 0;
-	int file_len;
-	char *query, *para_t;
-	char para_str[256];
-	char filename[128];
-	char url_str[128];
-	memset(filename, 0, sizeof(filename));
-	memset(para_str, 0, sizeof(para_str));
+	char *ptr, filename[256];
 
-
-	if(para == NULL || !strcmp(para, "")){
+	if (para == NULL || *para == '\0') {
 		//_dprintf("check_xss_blacklist: para is NULL\n");
 		return 1;
 	}
 
-	para_t = strdup(para);
-	while(*para) {
-		//if(*para=='<' || *para=='>' || *para=='%' || *para=='/' || *para=='(' || *para==')' || *para=='&') {
-		if(*para=='<' || *para=='>' || *para=='%' || *para=='(' || *para==')' || *para=='&') {
-			//_dprintf("check_xss_blacklist: para is Invalid\n");
-			free(para_t);
-			return 1;
-		}
-		else {
-			para_str[i] = tolower(*para);
-			i++;
-			para++;
-		}
-	}
-
-	if(strstr(para_str, "script") || strstr(para_str, "//") ){
-		//_dprintf("check_xss_blacklist: para include script\n");
-		free(para_t);
+	if (strpbrk(para, "<>%()&") != NULL) {
+		//_dprintf("check_xss_blacklist: para is Invalid\n");
 		return 1;
 	}
 
-	if(check_www == 1){
-		memset(url_str, 0, sizeof(url_str));
-		if ((query = index(para_t, '?')) != NULL) {
-			file_len = strlen(para_t)-strlen(query);
+	if (strcasestr(para, "script") != NULL || strstr(para, "//") != NULL) {
+		//_dprintf("check_xss_blacklist: para include script\n");
+		return 1;
+	}
 
-			if(file_len > sizeof(url_str))
-				file_len = sizeof(url_str);
-
-			strncpy(url_str, para_t, file_len);
-		}
-		else
-		{
-			strncpy(url_str, para_t, sizeof(url_str)-1);
-		}
-
-		snprintf(filename, sizeof(filename), "/www/%s", url_str);
-		if(!check_if_file_exist(filename)){
-			_dprintf("check_xss_blacklist:%s is not in www\n", url_str);
-			free(para_t);
+	if (check_www) {
+		snprintf(filename, sizeof(filename), "/www/%s", para);
+		ptr = strpbrk(filename, "?#");
+		if (ptr)
+			*ptr = '\0';
+		if (!check_if_file_exist(filename) &&
+		    strcmp(para,"send_IFTTTPincode.cgi") != 0 &&
+		    strcmp(para,"cfg_onboarding.cgi") != 0) {
+			_dprintf("check_xss_blacklist: %s is not in www\n", filename);
 			return 1;
 		}
 	}
 
-	free(para_t);
 	return 0;
 }

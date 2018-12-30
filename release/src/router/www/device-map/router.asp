@@ -675,7 +675,7 @@ function change_smart_connect(v){
 			</td>
 			<td>
 				<div id="t3" class="tab_NW" align="center" style="font-weight: bolder; margin-right:2px; width:90px;" onclick="tabclickhandler(3)">
-					<span id="span3" style="cursor:pointer;font-weight: bolder;">Status</span>
+					<span id="span3" style="cursor:pointer;font-weight: bolder;"><#Status_Str#></span>
 				</div>
 			</td>
 		</table>

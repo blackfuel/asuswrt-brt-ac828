@@ -69,6 +69,58 @@ ENTRY(cpu_v7_switch_mm)
 ENDPROC(cpu_v7_switch_mm)
 
 /*
+ * Qualcomm Inc. Krait processors - require bp invalidation
+ */
+ENTRY(cpu_krait_switch_mm)
+/* Sanitize link stack
+ * The below instrucitons will cause lr to be loaded with a value
+ * which will never be used, thus nullyfying branch prediction based
+ * attacks
+ */
+	mov	r2, lr
+	bl	1f
+1:	bl	1f
+1:	bl	1f
+1:	bl	1f
+1:	bl	1f
+1:	bl	1f
+1:	bl	1f
+1:	bl	1f
+1:	mov     lr, #0
+	mcr     p15, 0, lr, c7, c5, 6   @ BPIALL
+	isb
+	mov	lr, r2
+#ifdef CONFIG_MMU
+	mov	r2, #0
+	ldr	r1, [r1, #MM_CONTEXT_ID]	@ get mm->context.id
+	ALT_SMP(orr	r0, r0, #TTB_FLAGS_SMP)
+	ALT_UP(orr	r0, r0, #TTB_FLAGS_UP)
+#ifdef CONFIG_ARM_ERRATA_430973
+	mcr	p15, 0, r2, c7, c5, 6		@ flush BTAC/BTB
+#endif
+#ifdef CONFIG_ARM_ERRATA_754322
+	dsb
+#endif
+#ifdef CONFIG_PID_IN_CONTEXTIDR
+	mrc     p15, 0, r2, c13, c0, 1          @ read current context ID
+	bic     r2, r2, #0xff                   @ extract the PID
+	and     r1, r1, #0xff
+	orr     r1, r1, r2                      @ insert the PID into r1
+#endif
+	mcr	p15, 0, r2, c13, c0, 1		@ set reserved context ID
+	isb
+1:	mcr	p15, 0, r0, c2, c0, 0		@ set TTB 0
+	isb
+#ifdef CONFIG_ARM_ERRATA_754322
+	dsb
+#endif
+	mcr	p15, 0, r1, c13, c0, 1		@ set context ID
+	isb
+#endif
+	mov	pc, lr
+ENDPROC(cpu_krait_switch_mm)
+
+/*
  *	cpu_v7_set_pte_ext(ptep, pte)
  *
  *	Set a level 2 translation table entry.

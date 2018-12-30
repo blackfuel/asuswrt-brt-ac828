@@ -753,11 +753,11 @@ function manualSetup(){
 </tr>
 
 <tr id=dualwan_row_main style="display:none">
-    <td style="padding:5px 10px 5px 15px;">
-    		<p class="formfonttitle_nwm">WAN Port</p>
-    		<p style="padding-left:10px; margin-top:3px; background-color:#444f53; line-height:20px;" id="dualwan_current"></p>
-      	<img style="margin-top:5px;" src="/images/New_ui/networkmap/linetwo2.png">
-    </td>
+	<td style="padding:5px 10px 5px 15px;">
+		<p class="formfonttitle_nwm"><#wan_port#></p>
+		<p style="padding-left:10px; margin-top:3px; background-color:#444f53; line-height:20px;" id="dualwan_current"></p>
+		<img style="margin-top:5px;" src="/images/New_ui/networkmap/linetwo2.png">
+	</td>
 </tr>
 
 <tr id=dualwan_row_primary style="display:none">

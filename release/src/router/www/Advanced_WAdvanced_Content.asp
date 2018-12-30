@@ -267,7 +267,6 @@ function initial(){
 		{
 			inputCtrl(document.form.wl_txbf, 1);
 			document.getElementById("wl_MU_MIMO_field").style.display = "";
-			document.getElementById("mu_mimo_sup").innerHTML = "";
 			document.form.wl_mumimo.disabled = false;
 			$('#mu_mimo_hint').css('display', 'none');
 		}
@@ -391,14 +390,12 @@ function initial(){
 		document.getElementById("wl_ampdu_mpdu_field").style.display = "none";
 		document.getElementById("wl_ack_ratio_field").style.display = "none";
 		document.getElementById("wl_MU_MIMO_field").style.display = "";
-		document.getElementById("mu_mimo_sup").innerHTML = " *BETA";
 		document.form.wl_mumimo.disabled = false;
 		//document.getElementById('wl_80211h_tr').style.display = "";
 	}
 
 	if(bcm_mumimo_support){
 		document.getElementById("wl_MU_MIMO_field").style.display = "";
-		document.getElementById("mu_mimo_sup").innerHTML = " *ALPHA";
 		document.form.wl_mumimo.disabled = false;
 	}
 	
@@ -1558,7 +1555,7 @@ function handle_beamforming(value){
 					
 					<!--MU-MIMO for RT-AC88U, RT-AC3100, RT-AC5300 and RT-AC87U 5 GHz only-->
 					<tr id="wl_MU_MIMO_field" style="display:none">
-						<th><a class="hintstyle" href="javascript:void(0);" onClick="">Multi-User MIMO<sup id="mu_mimo_sup"> *BETA</sup</a></th>
+						<th><a class="hintstyle" href="javascript:void(0);" onClick=""><#WLANConfig11b_MUMIMO_itemdesc#></a></th>
 						<td>
 							<div style="display:table-cell;vertical-align:middle">
 								<select name="wl_mumimo" class="input_option" onchange="handle_mimo(this.value)" disabled>

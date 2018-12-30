@@ -753,9 +753,9 @@ function filter_5g_channel_by_bw(ch_ary, bw){
 	if(bw == 160){
 		var ch=[36,100], cnt=[0,0], d = 28, nr_ch=8;
 	}else if(bw == 80){
-		var ch=[36,52,100,116,149], cnt=[0,0,0,0,0], d=12, nr_ch=4;
+		var ch=[36,52,100,116,132,149], cnt=[0,0,0,0,0,0], d=12, nr_ch=4;
 	}else if(bw == 40){
-		var ch=[36,44,52,60,100,108,116,124,132,149,157], cnt=[0,0,0,0,0,0,0,0,0,0,0], d=2, nr_ch=2;
+		var ch=[36,44,52,60,100,108,116,124,132,140,149,157], cnt=[0,0,0,0,0,0,0,0,0,0,0,0], d=4, nr_ch=2;
 	}else
 		return ch_ary;
 
@@ -794,62 +794,12 @@ function insertExtChannelOption_5g(){
 				wl_channel_list_5g = eval('<% channel_list_5g(); %>');
 				if(document.form.wl_bw.value != "0" && document.form.wl_nmode_x.value != "2")
 				{ //not Legacy mode and BW > 20MHz
-					var i;
-					//cut channels >= 165 when bw != 20MHz
-					for(i=0; i < wl_channel_list_5g.length; i++)
-						if((document.form.wl_bw.value == "2" || document.form.wl_bw.value == "3") && wl_channel_list_5g[i] == "165")
-						{
-							wl_channel_list_5g.splice(i,(wl_channel_list_5g.length - i));
-							break;
-						}
-					for(i=0; i < wl_channel_list_5g.length; i++)
-					{
-						//remove ch56 when bw == 40MHz or remove ch56,60,64 when bw == 80MHz, on NO ch52 is provided.
-						if(wl_channel_list_5g[i] == "56" && (i == 0 || wl_channel_list_5g[i-1] != "52"))
-						{
-							if(!(Rawifi_support || Qcawifi_support))
-								;
-							else if(band5g_11ac_support && (document.form.wl_bw.value == "3") && (document.form.wl_nmode_x.value == "0" || document.form.wl_nmode_x.value == "8"))
-							{
-								for(var j=wl_channel_list_5g.length; j>=i ; j--)
-									if(wl_channel_list_5g[j] >= "56" && wl_channel_list_5g[j] <= "64")
-										wl_channel_list_5g.splice(j,1);
-								i--;
-							} else {
-								wl_channel_list_5g.splice(i,1);
-								i--;
-							}
-						}
-						//remove ch116 when bw != 20MHz when bw == 80MHz, on NO ch120 is provided.
-						if(wl_channel_list_5g[i] == "116" && (i + 1 < wl_channel_list_5g.length && wl_channel_list_5g[i+1] != "120"))
-						{
-							if(!(Rawifi_support || Qcawifi_support))
-								;
-							else if((document.form.wl_bw.value == "3" || document.form.wl_bw.value == "2") && (document.form.wl_nmode_x.value == "0" || document.form.wl_nmode_x.value == "8"))
-							{
-								wl_channel_list_5g.splice(i,1);
-								i--;
-							}
-						}
-						//remove ch132~140 when bw == 80MHz or ch140 when bw != 20MHz, on NO ch120 is provided.
-						if(!(Rawifi_support || Qcawifi_support))
-							;
-						else if((document.form.wl_bw.value == "3") && (document.form.wl_nmode_x.value == "0" || document.form.wl_nmode_x.value == "8"))
-						{
-							if(wl_channel_list_5g[i] == "132" || wl_channel_list_5g[i] == "136" || wl_channel_list_5g[i] == "140")
-							{
-								wl_channel_list_5g.splice(i,1);
-								i--;
-							}
-						}
-						else if((document.form.wl_bw.value == "2") && wl_channel_list_5g[i] == "140")
-						{
-							wl_channel_list_5g.splice(i,1);
-							i--;
-						}
+					// for V40, if not all 2 continuous channels exist, remove them.
+					if(document.form.wl_bw.value == "2" && (Rawifi_support || Qcawifi_support)){
+						wl_channel_list_5g = filter_5g_channel_by_bw(wl_channel_list_5g, 40);
 					}
 					// for V80, V80+80, if not all 4 continuous channels exist, remove them.
-					if(vht80_80_support && document.form.wl_bw.value == "4" && (Rawifi_support || Qcawifi_support)){
+					if(vht80_80_support && (document.form.wl_bw.value == "3" || document.form.wl_bw.value == "4") && (Rawifi_support || Qcawifi_support)){
 						wl_channel_list_5g = filter_5g_channel_by_bw(wl_channel_list_5g, 80);
 					}
 					// For V160, if not all 8 continuous channels exist, remove them.

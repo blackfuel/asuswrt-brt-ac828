@@ -566,7 +566,7 @@ function gen_vts_ruleTable_Block(_tableID) {
 	html += '</td>';
 	html += '<td width="21%">';
 	html += '<input type="text" maxlength="15" class="input_15_table" name="vts_ipaddr_x_' + wan_idx + '" id="vts_ipaddr_x_' + wan_idx + '" align="left" onkeypress="return validator.isIPAddr(this, event)" style="float:left;"/ autocomplete="off" onClick="hideClients_Block(' + wan_idx + ');" autocorrect="off" autocapitalize="off">';
-	html += '<img id="pull_arrow_' + wan_idx + '" class="pull_arrow" height="14px;" src="images/arrow-down.gif" align="right" onclick="pullLANIPList(this);" title="<#select_IP#>">';
+	html += "<img id='pull_arrow_" + wan_idx + "' class='pull_arrow' height='14px;' src='images/arrow-down.gif' align='right' onclick='pullLANIPList(this);' title=\"<#select_IP#>\">";
 	html += '<div id="ClientList_Block_' + wan_idx + '" class="clientlist_dropdown" style="margin-left:2px;margin-top:25px;"></div>';
 	html += '</td>';
 	html += '<td width="10%">';

@@ -78,7 +78,7 @@ function initial(){
 	var usb_ntfs_mod = '<% nvram_get("usb_ntfs_mod"); %>';
 	var usb_hfs_mod = '<% nvram_get("usb_hfs_mod"); %>';
 
-	disk_list_array = { "info" : ["<#diskUtility_information#>", "disk.asp"], "health" : ["<#diskUtility#>", "disk_utility.asp"], "format" : ["Format", "disk_format.asp"]};
+	disk_list_array = { "info" : ["<#diskUtility_information#>", "disk.asp"], "health" : ["<#diskUtility#>", "disk_utility.asp"], "format" : ["<#CTL_format#>", "disk_format.asp"]};
 	if(!parent.diskUtility_support) {
 		delete disk_list_array.health;
 		delete disk_list_array.format;
@@ -256,7 +256,7 @@ function showLoadingUpdate(){
 				else if (progressBar >= 40)	
 					progressBar = 40;
 					
-				document.getElementById('scan_message').innerHTML = "Disk scanning ...";					
+				document.getElementById('scan_message').innerHTML = "<#diskUtility_scan#>";					
 			}	
 			else if(scan_status == 4 && stopScan == 0){
 				if(progressBar <= 40)
@@ -492,7 +492,7 @@ function reset_force_stop(){
 		</div>
 		<div style="margin-top:20px;margin-bottom:10px;"align="center">
 			<input id="btn_scan" type="button" class="button_gen" onclick="go_scan();" value="<#QIS_rescan#>">
-			<input id="btn_abort" type="button" class="button_gen" onclick="abort_scan();" value="Abort" style="display:none">
+			<input id="btn_abort" type="button" class="button_gen" onclick="abort_scan();" value="<#CTL_Cancel#>" style="display:none">
 			<img id="loadingIcon" style="display:none;margin-right:10px;" src="/images/InternetScan.gif">
 		</div>
     </td>
@@ -516,7 +516,7 @@ function reset_force_stop(){
 						</td>							
 						<td >
 							<div id="date_field">
-								<div style="margin-bottom:5px;">Date</div>
+								<div style="margin-bottom:5px;"><#Date#></div>
 								<select name="freq_mon" class="input_option" onchange="freq_change();">
 									<option value="1">1</option>
 									<option value="2">2</option>

@@ -717,7 +717,6 @@ int gen_ath_config(int band, int is_iNIC,int subnet)
 	fprintf(fp, "driver=atheros\n");
 #if defined(RTCONFIG_TAGGED_BASED_VLAN) || defined(RTCONFIG_CAPTIVE_PORTAL)
 	char br_if[16]={0};
-	//rico
 	find_brifname_by_wlifname(wif,br_if,16);
 #ifdef RTCONFIG_CAPTIVE_PORTAL
 	FindBrifByWlif(wif, br_if, 16);
@@ -1655,8 +1654,8 @@ next_mrate:
 	fprintf(fp, "device_name=ASUS Router\n");
 	fprintf(fp, "manufacturer=ASUSTek Computer Inc.\n");
 	fprintf(fp, "model_name=%s\n", nvram_safe_get("productid"));
-	fprintf(fp, "model_number=123\n");	/* FIXME */
-	fprintf(fp, "serial_number=12345\n");	/* FIXME */
+	fprintf(fp, "model_number=%s\n", ((p = nvram_safe_get("odmpid")) && *p != '\0')? p : nvram_safe_get("productid"));
+	fprintf(fp, "serial_number=%s\n", get_lan_hwaddr());
 	fprintf(fp, "device_type=6-0050F204-1\n");
 	fprintf(fp, "config_methods=push_button display virtual_display virtual_push_button physical_push_button label\n");
 	fprintf(fp, "pbc_in_m1=1\n");

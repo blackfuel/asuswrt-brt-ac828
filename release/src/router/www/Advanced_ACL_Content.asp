@@ -398,7 +398,7 @@ function enable_macMode(){
 							</tr>
 						</thead>
 							<tr>
-								<th width="80%"><a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,10);">Client Name (MAC address)<!--untranslated--></th> 
+								<th width="80%"><a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,10);"><#Client_Name#> (<#PPPConnection_x_MacAddressForISP_itemname#>)</th> 
 								<th width="20%"><#list_add_delete#></th>
 							</tr>
 							<tr>

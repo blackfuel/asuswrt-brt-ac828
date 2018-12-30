@@ -74,6 +74,7 @@ static inline int nand_erase(nand_info_t *info, loff_t off, size_t size)
 {
 	struct erase_info instr;
 
+	memset(&instr, 0, sizeof(instr));
 	instr.mtd = info;
 	instr.addr = off;
 	instr.len = size;
@@ -86,6 +87,7 @@ static inline int nand_erase_scrub(nand_info_t *info, loff_t off, size_t size)
 {
 	struct erase_info instr;
 
+	memset(&instr, 0, sizeof(instr));
 	instr.mtd = info;
 	instr.addr = off;
 	instr.len = size;

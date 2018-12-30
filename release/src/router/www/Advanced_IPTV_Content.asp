@@ -79,17 +79,21 @@ function initial(){
 	disable_udpxy();
 	if(!Rawifi_support && !Qcawifi_support)	//rawifi platform without this item, by Viz 2012.01
 		document.getElementById('enable_eff_multicast_forward').style.display="";
-	
-	if(dualWAN_support)
-		document.getElementById("IPTV_desc_DualWAN").style.display = "";
-	else	
-		document.getElementById("IPTV_desc").style.display = "";
+
+	if(dualWAN_support) {
+		if(based_modelid == "BRT-AC828")
+			$("#IPTV_desc_DualWAN_BRTAC828").css("display", "");
+		else
+			$("#IPTV_desc_DualWAN").css("display", "");
+	}
+	else
+		$("#IPTV_desc").css("display", "");
 
 	if(based_modelid == "RT-AC87U"){ //MODELDEP: RT-AC87 : Quantenna port
 		document.form.switch_stb_x.remove(5);	//LAN1 & LAN2
 		document.form.switch_stb_x.remove(1);	//LAN1
 	}
-	else if(based_modelid == "RT-AC5300R"){ //MODELDEP: RT-AC5300R : TRUNK ports
+	else if(based_modelid == "GT-AC5300"){ //MODELDEP: GT-AC5300 : TRUNK ports
 		document.getElementById("switch_stb_x").options[3].text = "LAN4"; 	 //P3
 		document.getElementById("switch_stb_x").options[4].text = "LAN8";	 //P4
 		document.getElementById("switch_stb_x").options[6].text = "LAN4 & LAN8"; //P3+P4
@@ -1297,13 +1301,15 @@ function pass_checked(obj){
   <table width="760px" border="0" cellpadding="5" cellspacing="0" class="FormTitle" id="FormTitle">
 	<tbody>
 	<tr>
-		  <td bgcolor="#4D595D" valign="top"  >
-		  <div>&nbsp;</div>
-		  <div class="formfonttitle"><#menu5_2#> - IPTV</div>
-      <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
-      <div id="IPTV_desc" class="formfontdesc" style="display:none;"><#LANHostConfig_displayIPTV_sectiondesc#></div>
-      <div id="IPTV_desc_DualWAN" class="formfontdesc" style="display:none;"><#LANHostConfig_displayIPTV_sectiondesc2#></div>
-	  
+		<td bgcolor="#4D595D" valign="top"  >
+			<div>&nbsp;</div>
+			<div class="formfonttitle"><#menu5_2#> - IPTV</div>
+			<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+			<div id="IPTV_desc" class="formfontdesc" style="display:none;"><#LANHostConfig_displayIPTV_sectiondesc#></div>
+			<div id="IPTV_desc_DualWAN" class="formfontdesc" style="display:none;"><#LANHostConfig_displayIPTV_sectiondesc2#></div>
+			<div id="IPTV_desc_DualWAN_BRTAC828" class="formfontdesc" style="display:none;">
+				<#LANHostConfig_displayIPTV_sectiondescBRTAC828#>
+			</div>
 	  
 	  <!-- IPTV & VoIP Setting -->
 	  
@@ -1357,11 +1363,9 @@ function pass_checked(obj){
 		<tr id="tr_wans_primary" style="display:none;">
 			<th width="30%"><#dualwan_primary#></th>
 			<td align="left">
-				<span>You must select "Ethernet LAN" as the primary WAN to use the IPTV function.<!--untranslated--></span>
-				<br>
-				<span style="color:#FFFFFF;">Ethernet LAN</span>
+				<span style="color:#FFFFFF;"><#dualwan_ethernet_lan#></span>
 				<select id="wans_lanport1" name="wans_lanport1" class="input_option" style="margin-left:7px;"></select>
-				<div style="margin-top:2px;"><span style="color:#FFFFFF;">( Current Primary WAN: </span><span id="cur_primary" style="color:#FFFFFF;"></span><span style="color:#FFFFFF;"> )</span></div>
+				<div style="margin-top:2px;"><span style="color:#FFFFFF;">( <#dualwan_primary_hint#> : </span><span id="cur_primary" style="color:#FFFFFF;"></span><span style="color:#FFFFFF;"> )</span></div>
 			</td>
 		</tr>		
 		<tr id="wan_iptv_x">
@@ -1482,7 +1486,7 @@ function pass_checked(obj){
             <option value="0" <% nvram_match("mr_enable_x", "0","selected"); %> ><#WLANConfig11b_WirelessCtrl_buttonname#></option>
            	<option value="1" <% nvram_match("mr_enable_x", "1","selected"); %> ><#WLANConfig11b_WirelessCtrl_button1name#></option>
           </select>
-					<span>( This feature only works on Primary WAN )<!--untranslated--></span>
+					<span>( <#RouterConfig_GWMulticastEnable_hint#> )</span>
 				</td>
 			</tr>
 

@@ -890,7 +890,7 @@ function shadeHandle(flag){
 							</td>			
 						</tr>
 						<tr>
-							<th>WPS disabled -</th>
+							<th><#WPS_disabled#> -</th>
 							<td>
 								<div id="wps_status"></div>
 							</td>			
@@ -1026,7 +1026,7 @@ function shadeHandle(flag){
 						</td>
 					</tr>
 					<tr>
-						<th>Notification Item</th>
+						<th><#Notification_Item#></th>
 						<td>
 							<div>							
 								<input type="checkbox" class="" id="mal_website_item" value="">
@@ -1256,7 +1256,7 @@ function shadeHandle(flag){
 														<div id="mals_count_shade" style="position:absolute;width:140px;height:115px;background-color:#505050;opacity:0.6;z-index:5;margin-top:-14px;display:none"></div>
 														<div style="text-align:center;">
 															<div id="mali_count" style="width:45px;height:45px;margin:0 auto;line-height: 45px;font-size:38px;color:#FC0;text-shadow:1px 1px 0px black"></div>
-															<div style="font-size: 16px;">Hits</div>
+															<div style="font-size: 16px;"><#AiProtection_scan_rHits#></div>
 															<div id="mali_time" style="color:#A1A7A8"></div>
 														</div>
 													</div>
@@ -1274,8 +1274,8 @@ function shadeHandle(flag){
 												</td>
 												<td style="padding:10px;cursor:pointer;" onclick="location.href='AiProtection_IntrusionPreventionSystem.asp'">
 													<div>
-														<div style="font-size:18px;text-shadow:1px 1px 0px black;">Two-Way IPS</div>
-														<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;padding-top:5px;">Two-Way IPS (Intrusion Prevention System) prevents Spam or DDoS from attacking Internet device and blocks malicious incoming packets to protect router from network vulnerability attacks like Shellshocked, Heartbleed, Bitcoin mining and Ransomware attack ; And also detects suspicious outgoing packets to find infected device out, and then prevent from being enslaved by Botnets.</div>
+														<div style="font-size:18px;text-shadow:1px 1px 0px black;"><#AiProtection_two-way_IPS#></div>
+														<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;padding-top:5px;"><#AiProtection_two-way_IPS_desc#></div>
 													</div>								
 												</td>
 												 <td width="6px">
@@ -1309,7 +1309,7 @@ function shadeHandle(flag){
 														<div id="vp_count_shade" style="position:absolute;width:140px;height:115px;background-color:#505050;opacity:0.6;z-index:5;margin-top:-14px;display:none"></div>
 														<div style="text-align:center;">
 															<div id="vp_count" style="width:45px;height:45px;margin:0 auto;line-height: 45px;font-size:38px;color:#FC0;text-shadow:1px 1px 0px black"></div>
-															<div style="font-size: 16px;">Hits</div>
+															<div style="font-size: 16px;"><#AiProtection_scan_rHits#></div>
 															<div id="vp_time" style="color:#A1A7A8"></div>
 														</div>
 													</div>
@@ -1326,7 +1326,7 @@ function shadeHandle(flag){
 												</td>
 												<td style="padding:10px;cursor:pointer" onclick="location.href='AiProtection_InfectedDevicePreventBlock.asp'">
 													<div style="font-size:18px;text-shadow:1px 1px 0px black;"><#AiProtection_detection_blocking#></div>
-													<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;;padding-top:5px;">Infected Device Prevention and Blocking prevents infected network device from being enslaved by Botnets or Zombies, and stealing your sensitive information or attacking other computers.</div>
+													<div style="font-style: italic;font-size: 14px;color:#FC0;height:auto;;padding-top:5px;"><#AiProtection_detection_block_desc#></div>
 												</td>
 												 <td>
 													<div><img src="/images/line.png"></div>
@@ -1359,7 +1359,7 @@ function shadeHandle(flag){
 														<div id="infected_count_shade" style="position:absolute;width:140px;height:115px;background-color:#505050;opacity:0.6;z-index:5;margin-top:-14px;display:none"></div>
 														<div style="text-align:center;">
 															<div id="infected_count" style="width:45px;height:45px;margin:0 auto;line-height: 45px;font-size:38px;color:#FC0;text-shadow:1px 1px 0px black"></div>
-															<div style="font-size: 16px;">Hits</div>
+															<div style="font-size: 16px;"><#AiProtection_scan_rHits#></div>
 															<div id="infected_time" style="color:#A1A7A8"></div>
 														</div>
 													</div>

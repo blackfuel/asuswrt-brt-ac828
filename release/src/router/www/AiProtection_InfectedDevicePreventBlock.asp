@@ -132,7 +132,7 @@ function getIPSCount(){
 			var code = ""
 			cc_count = event_count.cc_n;
 			code += cc_count;
-			code += '<span style="font-size: 16px;padding-left: 5px;">Hits</span>';
+			code += '<span style="font-size: 16px;padding-left: 5px;"><#AiProtection_scan_rHits#></span>';
 			$("#cc_count").html(code);
 		}
 	});
@@ -163,7 +163,7 @@ function collectInfo(data){
 		var hit = data[i][1];
 		var name = "";
 		if(clientList[mac]){
-			name = clientList[mac].name;
+			name = (clientList[mac].nickName == "") ? clientList[mac].name : clientList[mac].nickName;
 			ip = clientList[mac].ip;
 		}
 		else{
@@ -208,7 +208,7 @@ function generateBarTable(){
 	}
 
 	if(code == ''){
-		code += '<div style="font-size:16px;text-align:center;margin-top:70px;color:#FC0">No Event Detected</div>';		
+		code += '<div style="font-size:16px;text-align:center;margin-top:70px;color:#FC0"><#AiProtection_eventnodetected#></div>';		
 	}
 
 	$("#vp_bar_table").html(code);
@@ -298,9 +298,9 @@ function generateDetailTable(data_array){
 	var code = '';
 	code += '<div style="font-size:14px;font-weight:bold;border-bottom: 1px solid #797979">';
 	code += '<div style="display:table-cell;width:130px;padding-right:5px;"><#diskUtility_time#></div>';
-	code += '<div style="display:table-cell;width:150px;padding-right:5px;">Threat</div>';
-	code += '<div style="display:table-cell;width:200px;padding-right:5px;">Source</div>';
-	code += '<div style="display:table-cell;width:200px;padding-right:5px;">Destination</div>';
+	code += '<div style="display:table-cell;width:150px;padding-right:5px;"><#AiProtection_event_Threat#></div>';
+	code += '<div style="display:table-cell;width:200px;padding-right:5px;"><#AiProtection_event_Source#></div>';
+	code += '<div style="display:table-cell;width:200px;padding-right:5px;"><#AiProtection_event_Destination#></div>';
 	code += '</div>';
 
 	if(data_array == ""){
@@ -474,7 +474,7 @@ function deleteHover(flag){
 														</div>	
 													</div>
 													<div style="height:240px;margin-top:0px;">
-														<div style="text-align:center;font-size:16px;">Top Client</div>
+														<div style="text-align:center;font-size:16px;"><#AiProtection_TopClient#></div>
 														<div id="vp_bar_table" style="height:235px;margin: 0 10px;border-radius:10px;overflow:auto"></div>
 													</div>
 												</div>
@@ -487,7 +487,7 @@ function deleteHover(flag){
 												<div style="background-color:#444f53;width:350px;height:340px;border-radius: 10px;display:table-cell;padding-left:10px;position:relative">
 													<div id="chart_shade" style="position:absolute;width:350px;height:330px;background-color:#505050;opacity:0.6;margin:5px 0 5px -5px;display:none"></div>
 													<div>
-														<div style="display:inline-block;margin:5px 10px">Hits</div>		
+														<div style="display:inline-block;margin:5px 10px"><#AiProtection_scan_rHits#></div>		
 													</div>			
 													<div style="width:90%">
 														<div>

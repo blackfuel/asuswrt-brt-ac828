@@ -299,7 +299,7 @@ var validator = {
 	},
 
 	hostName: function (obj){
-		var re = new RegExp("^[a-zA-Z0-9][a-zA-Z0-9\-\_]+$","gi");
+		var re = new RegExp(/^[a-z0-9][a-z0-9-_]+$/i);
 		if(re.test(obj.value)){
 			return "";
 		}
@@ -319,6 +319,16 @@ var validator = {
 		if (ch==46) return true;	//.
 		
 		return false;
+	},
+
+	domainName: function (obj) { //support a-z, 0-9, "-", "_" , "."", The first character cannot be dash "-" or under line "_"
+		var re = new RegExp(/^(?:[a-z0-9](?:[a-z0-9-_]{0,61}[a-z0-9])?\.)*[a-z0-9][a-z0-9-_]{0,61}[a-z0-9]$/i);
+		if(re.test(obj.value)){
+			return "";
+		}
+		else{
+			return "<#JS_validhostname#>";
+		}
 	},
 
 	requireWANIP: function(v){
@@ -406,6 +416,10 @@ var validator = {
 		else if(keyPressed == 58 || keyPressed == 13){	//symbol ':' & 'ENTER'
 			return true;
 		}
+		else if(event.metaKey && (keyPressed == 65 || keyPressed == 67 || keyPressed == 86 || keyPressed == 88 
+			                   || keyPressed == 97 || keyPressed == 99 || keyPressed == 118 || keyPressed == 120)){		//for Mac + Safari, let 'Command + A'(C, V, X) can work
+			return true
+		}
 		else{
 			return false;
 		}
@@ -420,6 +434,10 @@ var validator = {
 
 		if ((keyPressed == 46) || (keyPressed>47 && keyPressed<58))
 			return true;
+		else if(event.metaKey && (keyPressed == 65 || keyPressed == 67 || keyPressed == 86 || keyPressed == 88 
+			                   || keyPressed == 97 || keyPressed == 99 || keyPressed == 118 || keyPressed == 120)){		//for Mac + Safari, let 'Command + A'(C, V, X) can work
+			return true
+		}
 		else
 			return false;
 	},
@@ -433,6 +451,10 @@ var validator = {
 
 		if ((keyPressed == 45) || (keyPressed>47 && keyPressed<58))
 			return true;
+		else if(event.metaKey && (keyPressed == 65 || keyPressed == 67 || keyPressed == 86 || keyPressed == 88 
+			                   || keyPressed == 97 || keyPressed == 99 || keyPressed == 118 || keyPressed == 120)){		//for Mac + Safari, let 'Command + A'(C, V, X) can work
+			return true
+		}
 		else
 			return false;
 	},
@@ -450,6 +472,10 @@ var validator = {
 			}*/
 			return true;
 		}
+		else if(event.metaKey && (keyPressed == 65 || keyPressed == 67 || keyPressed == 86 || keyPressed == 88 
+			                   || keyPressed == 97 || keyPressed == 99 || keyPressed == 118 || keyPressed == 120)){		//for Mac + Safari, let 'Command + A'(C, V, X) can work
+			return true
+		}		
 		else{
 			return false;
 		}
@@ -508,6 +534,10 @@ var validator = {
 			return true;
 		}else if(keyPressed == 13){	// 'ENTER'
 			return true;
+		}
+		else if(event.metaKey && (keyPressed == 65 || keyPressed == 67 || keyPressed == 86 || keyPressed == 88 
+			                   || keyPressed == 97 || keyPressed == 99 || keyPressed == 118 || keyPressed == 120)){		//for Mac + Safari, let 'Command + A'(C, V, X) can work
+			return true
 		}
 
 		return false;
@@ -871,6 +901,10 @@ var validator = {
 			else
 				return false;
 		}
+		else if(event.metaKey && (keyPressed == 65 || keyPressed == 67 || keyPressed == 86 || keyPressed == 88 
+			                   || keyPressed == 97 || keyPressed == 99 || keyPressed == 118 || keyPressed == 120)){		//for Mac + Safari, let 'Command + A'(C, V, X) can work
+			return true
+		}		
 
 		return false;
 	},
@@ -885,6 +919,10 @@ var validator = {
 			
 		if ((keyPressed>47 && keyPressed<58) || keyPressed == 32){
 			return true;
+		}
+		else if(event.metaKey && (keyPressed == 65 || keyPressed == 67 || keyPressed == 86 || keyPressed == 88 
+			                   || keyPressed == 97 || keyPressed == 99 || keyPressed == 118 || keyPressed == 120)){		//for Mac + Safari, let 'Command + A'(C, V, X) can work
+			return true
 		}
 		else{
 			return false;
@@ -1640,13 +1678,6 @@ var validator = {
 			return v.substring(i);
 		};
 
-		if(isNaN(o.value)){
-			alert('<#JS_validrange#> ' + _min + ' <#JS_validrange_to#> ' + _max);
-			o.focus();
-			o.select();
-			return false;
-		}
-
 		if(_min > _max){
 			var tmpNum = "";
 		
@@ -1655,7 +1686,7 @@ var validator = {
 			_max = tmpNum;
 		}
 
-		if(o.value < _min || o.value > _max) {
+		if(isNaN(o.value) || o.value < _min || o.value > _max) {
 			alert('<#JS_validrange#> ' + _min + ' <#JS_validrange_to#> ' + _max);
 			o.focus();
 			o.select();
@@ -1673,7 +1704,7 @@ var validator = {
 	rangeNull: function(o, min, max, def) {		//Viz add 2013.03 allow to set null
 		if (o.value=="") return true;
 		
-		if(o.value<min || o.value>max) {
+		if(isNaN(o.value) || o.value < min || o.value > max) {
 			alert('<#JS_validrange#> ' + min + ' <#JS_validrange_to#> ' + max + '.');
 			o.value = def;
 			o.focus();
@@ -1695,16 +1726,7 @@ var validator = {
 
 		if (o.value==0) return true;
 
-		for(var i=0; i<o.value.length; i++){		//is_number
-			if (o.value.charAt(i)<'0' || o.value.charAt(i)>'9'){			
-				alert('<#JS_validrange#> ' + min + ' <#JS_validrange_to#> ' + max);
-				o.focus();
-				o.select();
-				return false;
-			}
-		}
-
-		if(o.value<min || o.value>max) {
+		if(isNaN(o.value) || o.value < min || o.value > max) {
 			alert('<#JS_validrange#> ' + min + ' <#JS_validrange_to#> ' + max + '.');
 			o.value = def;
 			o.focus();
@@ -1717,6 +1739,18 @@ var validator = {
 				o.value="0";
 			return true;
 		}
+	},
+
+	rangeFloat: function(o, _min, _max, def){
+        if(isNaN(o.value) || o.value <= _min || o.value > _max) {
+            alert('<#JS_validrange#> ' + min + ' <#JS_validrange_to#> ' + max + '.');
+			o.value = def;
+			o.focus();
+			o.select();
+			return false;
+		}
+
+        return true;
 	},
 
 	ssidChar: function(ch){
@@ -1759,7 +1793,6 @@ var validator = {
 	},
 	
 	string_KR: function(string_obj, flag){		//Alphabets, numbers, specialcharacters mixed
-
 		var string_length = string_obj.value.length;
 		if(!/[A-Za-z]/.test(string_obj.value) || !/[0-9]/.test(string_obj.value) || string_length < 8
 				|| !/[\!\"\#\$\%\&\'\(\)\*\+\,\-\.\/\:\;\<\=\>\?\@\[\\\]\^\_\`\{\|\}\~]/.test(string_obj.value)){
@@ -1778,8 +1811,10 @@ var validator = {
 		}
 
 		if(invalid_char != ""){
-			if(flag != "noalert")
+			if(flag != "noalert"){
 				alert("<#JS_validstr2#> '"+invalid_char+"' !");
+			}
+
 			string_obj.value = "";
 			string_obj.focus();
 			return false;
@@ -1807,6 +1842,7 @@ var validator = {
 				return false;
 			}
 		}
+
 		return true;
 	},
 
@@ -2033,7 +2069,6 @@ var validator = {
 		
 		if(iscurrect == false){
 			alert(str);
-			
 			key_obj.focus();
 			key_obj.select();
 		}
@@ -2094,7 +2129,7 @@ var validator = {
 		}
 	},
 
-	domainName: function(_value) {
+	domainName_flag: function(_value) {
 		//domin name
 		var domainNameFormat = /^((?:(?:(?:\w[\.\-\+]?)*)\w)+)((?:(?:(?:\w[\.\-\+]?){0,62})\w)+)\.(\w{2,6})$/; 
 		if(domainNameFormat.test(_value))
@@ -2102,5 +2137,4 @@ var validator = {
 		else
 			return false;
 	}
-
 };

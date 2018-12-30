@@ -264,34 +264,37 @@ var header_info = [<% get_header_info(); %>];
 var location_org = get_protocol() + "//" + header_info[0].host;
 
 function initial(){
-	<% login_state_hook(); %>
-	var LoginIP = login_ip_str();
-	var nowIP = login_ip_str_now();
+	var is_logined = [<% is_logined_hook(); %>][0];
 	var html_code = '';
 	var url_flag = "";
 	var html_code_notlogin = "<ul><li>Please check with your network administrator.</li></ul>";	
 	var showtext = function(obj, str){if(obj)obj.innerHTML=str;}
 
 	if(casenum == 1){
-		showtext($("#failReason1")[0], "<#web_redirect_reason1#>");
+		$("#page_title").html("<#web_redirect_reason1#>");
+		//showtext($("#failReason1")[0], "<#web_redirect_reason1#>");
 		html_code += "<ul>";
-		html_code += "<li><#web_redirect_suggestion1#></li>";
+		html_code += "<li><#web_redirect_case1_suggestion1#></li>";
+		html_code += "<li><#web_redirect_case1_suggestion2#></li>";
 		html_code += "</ul>";
 		$("#wanLink").click(function(){
 			detect_general();
 		});
+
+		$("#reason_title").hide();
+		$("#reason_field").hide();
+		$("#suggestion").hide();
 	}
 	else if(casenum == 2){
 		html_code += "<ul>";					
 		html_code += "<li>";
+
 		if(wansbstate == 2 || wanauxstate == 3){	//Authentication Failed
-			showtext($("#failReason1")[0], "<#web_redirect_reason2_1#>");			
-			html_code += "<div>";
-			html_code += "<span><#web_redirect_suggestion2_1#></span>";
-			html_code += "<span><#web_redirect_suggestion2_1_desc#></span>";
-			html_code += "</div>";
+			$("#page_title").html("<#web_redirect_case2_title1#>");
+			//showtext($("#failReason1")[0], "<#web_redirect_reason2_1#>");			
+			html_code += "<div><#web_redirect_case2_suggestion1#></div>";
 			$("#wanLink").click(function(){
-				pppoeLink();
+				//pppoeLink();
 			});
 		}
 		else if(wansbstate == 1){		//No Response
@@ -326,15 +329,27 @@ function initial(){
 		
 		html_code += "</li>";					
 		html_code += "</ul>";	
+		$("#wanLink").hide();
+		$("#reason_title").hide();
+		$("#reason_field").hide();
+		$("#suggestion").hide();
 	}
 	else if(casenum == 3){
-		showtext($("#failReason1")[0], "<#qis_fail_desc5#>");
+		$("#page_title").html("<#qis_fail_desc7#>");
+		//showtext($("#failReason1")[0], "<#qis_fail_desc5#>");
 		html_code += "<ul>";
+		html_code += "<li><#web_redirect_case3_suggestion1#></li>";
 		html_code += "<li><#web_redirect_suggestion3#></li>";
 		html_code += "</ul>";
 		$("#wanLink").click(function(){
 			detect_general();
 		});
+		$("#wanLink").html("<#web_redirect_case3_button#>");
+
+		$("#wanLink").hide();
+		$("#reason_title").hide();
+		$("#reason_field").hide();
+		$("#suggestion").hide();
 	}
 	else if(casenum == 4){
 		showtext($("#failReason1")[0], "<#web_redirect_reason4#>");
@@ -346,16 +361,22 @@ function initial(){
 		});
 	}
 	else if(casenum == 5){
-		if(wanstate == 5)
-			showtext($("#failReason1")[0], "<#web_redirect_reason5_1#>");
-		else
-			showtext($("#failReason1")[0], "<#web_redirect_reason5_2#>");
+		if(wanstate == 5){
+			$("#page_title").html("<#web_redirect_case5_title1#>");
+			
+		}
+		else{
+			$("#page_title").html("<#web_redirect_case5_title2#>");	
+		}
 		
 		html_code += '<ul>';
-		if(wanstate == 5)
-			html_code += '<li><#web_redirect_suggestion5_1#></li>';
-		else
-			html_code += '<li><#web_redirect_suggestion5_2#></li>';
+		if(wanstate == 5){
+			html_code += "<li><#web_redirect_case5_suggestion1#></li>";
+		}
+		else{
+			html_code += "<li><#web_redirect_case5_suggestion2#></li>";
+			html_code += "<li><#web_redirect_case5_suggestion3#></li>";
+		}
 		
 		html_code += '</ul>';
 		if(wanstate == 5){
@@ -367,37 +388,48 @@ function initial(){
 				detect_general();
 			});
 		}
+
+		$("#wanLink").hide();
+		$("#reason_title").hide();
+		$("#reason_field").hide();
+		$("#suggestion").hide();
 	}
 	else if(casenum.search("6") !== -1){
-		if(LoginIP != "0.0.0.0" && LoginIP != nowIP){
-			showtext($("#failReason1")[0], "<#web_redirect_reason6#> Please check again.");
-			html_code = html_code_notlogin;
-		}else{		
-			showtext($("#failReason1")[0], "<#web_redirect_reason6#>");
+		$("#page_title").html("<#web_redirect_reason6#>");	
+	//	if(LoginIP != "0.0.0.0" && LoginIP != nowIP){
+			//showtext($("#failReason1")[0], "<#web_redirect_reason6#> Please check again.");
+		//	html_code = html_code_notlogin;
+	//	}else{		
+			//showtext($("#failReason1")[0], "<#web_redirect_reason6#>");
 			html_code += "<ul>";
 			html_code += "<li><#web_redirect_case6_desc1#>";
 			html_code += "<span style='font-weight:bolder'>"+ new_lan_ip +"</span></li>";
 			html_code += "<li><#web_redirect_case6_desc2#></li>";
-			html_code += "<li><#web_redirect_suggestion0_1#></li>";
+			//html_code += "<li><#web_redirect_suggestion0_1#></li>";
 			html_code += "</ul>";
-		}			
+	//	}			
 
 		$("#wanLink").html("<#CTL_next#>");
 		$("#wanLink").click(function(){
 			change_lan_subnet();
 		});
+
+		$("#reason_title").hide();
+		$("#reason_field").hide();
 		$("#suggestion").hide();
 	}
 	else if(casenum == 8){
-		showtext($("#failReason1")[0], "<#APSurvey_action_ConnectingStatus0#>");	
-		if(LoginIP != "0.0.0.0" && LoginIP != nowIP){
+		$("#page_title").html("<#web_redirect_case8_title#>");	
+		//showtext($("#failReason1")[0], "<#APSurvey_action_ConnectingStatus0#>");	
+		if(!is_logined){
 			html_code = html_code_notlogin;
 			$("#wanLink").hide();
 		}
 		else{		
 			html_code += "<ul>";
-			html_code += "<li><a href='/QIS_wizard.htm?flag=manual'><#QKSet_finish_moveto8#></a></li>";
-			html_code += "<li><#web_redirect_suggestion0_1#></li>";
+			html_code += "<li><#web_redirect_case8_suggestion1#></li>";
+			html_code += "<li><#web_redirect_case8_suggestion2#></li>";
+			//html_code += "<li><#web_redirect_suggestion0_1#></li>";
 			html_code += "</ul>";
 			
 			if(sw_mode == "2"){
@@ -416,6 +448,9 @@ function initial(){
 			});
 		}
 		
+		$("#wanLink").hide();
+		$("#reason_title").hide();
+		$("#reason_field").hide();
 		$("#suggestion").hide();
 	}
 	else{

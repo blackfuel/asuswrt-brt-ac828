@@ -1161,11 +1161,9 @@ handle_request(void)
 			nvram_set_int("httpd_handle_request_fromapp", fromapp);
 			if(login_state==3 && !fromapp) { // few pages can be shown even someone else login
 				if(!(mime_exception&MIME_EXCEPTION_MAINPAGE || (strncmp(file, "Main_Login.asp", 14)==0 && login_error_status == 9) || ((!handler->auth) && strncmp(file, "Main_Login.asp", 14) != 0))) {
-					if(strcasecmp(method, "post") == 0){
-						if (handler->input) {
-							handler->input(file, conn_fp, cl, boundary);
-						}
-					}
+					if(strcasecmp(method, "post") == 0 && handler->input)   //response post request
+						while (cl--) (void)fgetc(conn_fp);
+
 					send_login_page(fromapp, NOLOGIN, NULL, NULL, 0);
 					return;
 				}
@@ -1180,11 +1178,9 @@ handle_request(void)
 					if(do_referer&CHECK_REFERER){
 						referer_result = referer_check(referer, fromapp);
 						if(referer_result != 0){
-							if(strcasecmp(method, "post") == 0){
-								if (handler->input) {
-									handler->input(file, conn_fp, cl, boundary);
-								}
-							}
+							if(strcasecmp(method, "post") == 0 && handler->input)   //response post request
+								while (cl--) (void)fgetc(conn_fp);
+
 							send_login_page(fromapp, referer_result, NULL, NULL, 0);
 							//if(!fromapp) http_logout(login_ip_tmp, cookies);
 							return;
@@ -1194,12 +1190,10 @@ handle_request(void)
 					auth_result = auth_check(auth_realm, authorization, url, file, cookies, fromapp);
 					if (auth_result != 0)
 					{
-						if(strcasecmp(method, "post") == 0){
-							if (handler->input) {
-								handler->input(file, conn_fp, cl, boundary);
-							}
-							send_login_page(fromapp, auth_result, NULL, NULL, 0);
-						}
+						if(strcasecmp(method, "post") == 0 && handler->input)   //response post request
+							while (cl--) (void)fgetc(conn_fp);
+
+						send_login_page(fromapp, auth_result, NULL, NULL, 0);
 						//if(!fromapp) http_logout(login_ip_tmp, cookies);
 						return;
 					}
@@ -1217,11 +1211,9 @@ handle_request(void)
 				if(fromapp == 0 && (do_referer&CHECK_REFERER)){
 					referer_result = check_noauth_referrer(referer, fromapp);
 					if(referer_result != 0){
-						if(strcasecmp(method, "post") == 0){
-							if (handler->input) {
-								handler->input(file, conn_fp, cl, boundary);
-							}
-						}
+						if(strcasecmp(method, "post") == 0 && handler->input)   //response post request
+							while (cl--) (void)fgetc(conn_fp);
+
 						send_login_page(fromapp, referer_result, NULL, NULL, 0);
 						//if(!fromapp) http_logout(login_ip_tmp, cookies);
 						return;

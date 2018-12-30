@@ -297,6 +297,7 @@ else
 ifneq ($(RTCONFIG_ACCEL_PPTPD), y)
 	rm -rf $(INSTALLDIR)/www/images/New_ui/vpnstatus.png
 	rm -rf $(INSTALLDIR)/www/Advanced_VPN_PPTP.asp
+	rm -rf $(INSTALLDIR)/www/ajax_vpnserver_client_status.xml
 endif
 ifneq ($(RTCONFIG_VPNC), y)	
 	rm -rf $(INSTALLDIR)/www/Advanced_VPNClient_Content.asp
@@ -533,6 +534,7 @@ endif
 
 ifneq ($(RTCONFIG_TAGGED_BASED_VLAN), y)
 	rm -rf $(INSTALLDIR)/www/Advanced_TagBasedVLAN_Content.asp
+	rm -rf $(INSTALLDIR)/www/js/subnet_rule.js
 endif
 
 ifneq ($(RTCONFIG_FBWIFI), y)

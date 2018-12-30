@@ -725,10 +725,12 @@ tagged_vlan_defaults(void)
 {
 	char *buf, *g, *p;
 	char *mac, *ip, *gateway, *lan_ipaddr;
-	char subnet_rulelist[1024], dhcp_staticlist[512];
+	char dhcp_staticlist[sizeof(DHCP_STATICLIST_EXAMPLE) * STATIC_MAC_IP_BINDING_PER_LAN + 8];			/* 2240 + 8 */
+	char subnet_rulelist[(sizeof(SUBNET_RULE_EXAMPLE) + sizeof(SUBNET_STATICLIST_EXAMPLE) * STATIC_MAC_IP_BINDING_PER_VLAN) * (VLAN_MAX_NUM - 1) + sizeof(dhcp_staticlist)];	/* 2954 + 2240 + 8 */
+	char subnet_rulelist_ext_default[24]={0};
 
-	memset(subnet_rulelist, 0, 1024);
-	memset(dhcp_staticlist, 0, 512);
+	memset(subnet_rulelist, 0, sizeof(subnet_rulelist));
+	memset(dhcp_staticlist, 0, sizeof(dhcp_staticlist));
 	nvram_set("vlan_enable", "0");
 	nvram_set("vlan_rulelist", "<1>1>0>0000>00FF00FF>007F>007F>default>1>0");
 	nvram_set("vlan_if_list","00>00FF>007F>007F");
@@ -756,6 +758,10 @@ tagged_vlan_defaults(void)
 		nvram_default_get("dhcp_dns1_x"), nvram_default_get("dhcp_wins_x"), nvram_default_get("dhcp_static_x"), dhcp_staticlist);
 
 	nvram_set("subnet_rulelist", subnet_rulelist);
+
+	sprintf(subnet_rulelist_ext_default,"<%s>",gateway);
+	nvram_set("subnet_rulelist_ext", subnet_rulelist_ext_default);
+
 }
 #endif
 /* assign none-exist value */
@@ -3432,7 +3438,7 @@ int init_nvram(void)
 		lan_2 = "eth2";
 #endif
 
-		if(get_wans_dualwan() & WANSCAP_LAN) {
+		if (nvram_get_int("sw_mode") == SW_MODE_ROUTER && get_wans_dualwan() & WANSCAP_LAN) {
 			int wans = get_wans_dualwan();
 
 			strcpy(lan_ifs, lan_2);

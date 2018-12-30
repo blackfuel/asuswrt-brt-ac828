@@ -605,7 +605,7 @@ function change_smart_con(v){
 			<td>			
 				<table style="margin-left:30px; margin-top:20px;">
 						<td style="font-style:normal;font-size:13px;font-weight:bold;" >
-							<input type="radio" value="1" id="smart_connect_t" name="smart_connect_t" class="input" onclick="return change_smart_con(this.value)" <% nvram_match("smart_connect_x", "1", "checked"); %>>Tri-band Smart Connect
+							<input type="radio" value="1" id="smart_connect_t" name="smart_connect_t" class="input" onclick="return change_smart_con(this.value)" <% nvram_match("smart_connect_x", "1", "checked"); %>><#triband_smart_connect#>
 						</td>
 					</tr>
 					<tr>

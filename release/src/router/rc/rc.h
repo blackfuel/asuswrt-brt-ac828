@@ -1237,6 +1237,8 @@ extern int captive_protal_info_get(unsigned int *wl_allow_list);
 extern int init_tagged_based_vlan(void);
 extern int find_brifname_by_wlifname(char *wl_ifname, char *brif_name, int size);
 extern void vlan_subnet_dnsmasq_conf(FILE *fp);
+#else
+static inline int find_brifname_by_wlifname(char __attribute__((__unused__)) *wl_ifname, char __attribute__((__unused__)) *brif_name, int __attribute__((__unused__)) size) { return 0; }
 #endif
 
 // traffic_limiter.c

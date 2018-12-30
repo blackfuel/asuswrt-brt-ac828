@@ -347,8 +347,8 @@ function applyRule(){
 									  	</thead>
 						
 									  	<tr>
-								  		<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,10);">Client Name (MAC address)<!--untranslated--></a></th>
-						        		<th><#list_add_delete#></th>
+											<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,10);"><#Client_Name#> (<#PPPConnection_x_MacAddressForISP_itemname#>)</a></th>
+											<th><#list_add_delete#></th>
 									  	</tr>			  
 									  	<tr>
 									  			<!-- client info -->

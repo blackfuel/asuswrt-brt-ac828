@@ -1014,7 +1014,7 @@ static int remove_software_marked_bad_block(void)
 			printf("skip unknown bad-block indication byte at %08lx. (mark %02x,%02x)\n", off, buf[0], buf1[0]);
 			continue;
 		}
-		if ((ret = nand_erase(nand, off, nand->erasesize)) != 0) {
+		if ((ret = nand_erase_scrub(nand, off, nand->erasesize)) != 0) {
 			printf("erase offset %lx fail. (ret %d)\n", off, ret);
 			fail++;
 			continue;

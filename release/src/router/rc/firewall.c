@@ -4475,6 +4475,8 @@ write_porttrigger(FILE *fp, char *wan_if, int is_nat)
 
 	nvp = nv = strdup(nvram_safe_get("autofw_rulelist"));
 	while (nv && (b = strsep(&nvp, "<")) != NULL) {
+		char *p;
+
 		if ((vstrsep(b, ">", &desc, &out_port, &out_proto, &in_port, &in_proto) != 5))
 			continue;
 
@@ -4487,6 +4489,9 @@ write_porttrigger(FILE *fp, char *wan_if, int is_nat)
 		(void)proto_conv(in_proto, in_protoptr);
 		(void)proto_conv(out_proto, out_protoptr);
 
+		/* parse_ports() of libipt_TRIGGER.c only accepts '-', not ':'. */
+		if ((p = strchr(in_port, ':')) != NULL)
+			*p = '-';
 		fprintf(fp, "-A FORWARD -p %s -m %s --dport %s "
 			"-j TRIGGER --trigger-type out --trigger-proto %s --trigger-match %s --trigger-relate %s\n",
 			out_protoptr, out_protoptr, out_port,

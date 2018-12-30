@@ -6116,7 +6116,8 @@ start_services(void)
 #endif
 
 #if defined(RTCONFIG_IPSEC)
-        rc_ipsec_config_init();
+	rc_ipsec_nvram_convert_check();
+    rc_ipsec_config_init();
 #endif
 
 #ifdef RTCONFIG_JFFS2USERICON

@@ -125,7 +125,7 @@ function generate_group_table(){
 	var code = "";	
 	code += '<tr>';
 	//code += '<th style="width:50px;"><input id="" type="checkbox" onclick="" value=""></th>';
-	code += '<th style="width:450px;">Group Name</th>';	
+	code += '<th style="width:450px;"><#PM_Group_Name#></th>';
 	code += '<th style="width:450px;"><#Description#></th>';	
 	code += '<th style="width:60px;"><#CTL_modify#></th>';	
 	code += '<th style="width:60px;"><#CTL_del#></th>';	
@@ -204,11 +204,24 @@ function add_group(flag, target){
 	var group_description = $("#group_desc").val();
 
 	// validate form
+	if(info.group.length >= 5){
+		alert("The number of groups reaches the limitiation.");
+		return false;
+	}
+
 	if(!Block_chars(document.getElementById("group_name"), ["<", ">"])){
 		return false;
 	}
 	else if(document.getElementById("group_name").value == ''){
 		alert("<#File_Pop_content_alert_desc1#>");
+		document.getElementById("group_name").focus();
+		return false;
+	}
+
+	var alert_str = validator.hostName(document.getElementById("group_name"));
+
+	if(alert_str != ""){
+		alert(alert_str);
 		document.getElementById("group_name").focus();
 		return false;
 	}
@@ -237,11 +250,11 @@ function add_group(flag, target){
 
 	// to generate pms_owned_device format
 	var device_array = new Array();
+
 	for(i=0;i<info.device.length;i++){
 		var device_index = info.device[i];
 		var device_obj = info.device[device_index];
 		var device_mac = device_obj.mac;
-		console.log(device_index);
 		var checked_state = document.getElementById(device_index).checked;
 		if(checked_state){
 			device_array.push(device_mac);
@@ -342,7 +355,6 @@ function update_list(){
 
 function enable_device_all(obj){
 	var check_state = obj.checked;
-	console.log(obj);
 	for(i=0;i<info.device.length;i++){
 		var index = info.device[i];
 		document.getElementById(index).checked = check_state;
@@ -380,7 +392,7 @@ function enable_device_all(obj){
 		<table width="97%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable" style="margin: 20px 10px;">
 			<thead>
 				<tr>
-					<td colspan="6">Create a new group</td>
+					<td colspan="6"><#PM_UsersGroups_Create#></td>
 				</tr>
 			</thead>		  
 			<tr>
@@ -393,7 +405,7 @@ function enable_device_all(obj){
 				</td>
 			</tr>		
 			<tr>
-				<th width="30%" style="font-family: Calibri;font-weight: bolder;">Group Name</th>			
+				<th width="30%" style="font-family: Calibri;font-weight: bolder;"><#PM_Group_Name#></th>
 				<td>
 					<input id="group_name" type="text" maxlength="32" class="input_32_table" style="height: 23px;" autocorrect="off" autocapitalize="off">
 				</td>
@@ -447,10 +459,11 @@ function enable_device_all(obj){
 									<div class="formfontdesc"><#PM_DGroups_desc#></div>
 									<div>
 										<div style="display:flex">
-											<div style="font-weight:900;padding-left:10px;line-height:34px;">Group Table</div>
+											<div style="font-weight:900;padding-left:10px;line-height:34px;"><#PM_Group_Table#></div>
 											<div style="margin-left:10px;">
 												<div class="createAccountBtn_add" onclick="show_addTable('new');"></div>
-											</div>										
+											</div>
+											<div style="font-weight:900;padding-left:10px;line-height:34px;">(<#List_limit#> 5 units, max 32 devices for each device group)</div>
 										</div>									
 										<table id="group_table" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable"></table>
 									</div>								

@@ -460,9 +460,9 @@ function show_ddns_status(){
 	if( ddns_enable == '0')
         document.getElementById("ddnsHostName").innerHTML = '<a style="color:#FFF;text-decoration:underline;" href="/Advanced_ASUSDDNS_Content.asp?af=ddns_enable_x"><#btn_go#></a>';
     else if(ddnsName == '')
-        document.getElementById("ddnsHostName").innerHTML = '<a style="color:#FFF;text-decoration:underline;" href="/Advanced_ASUSDDNS_Content.asp?af=DDNSName">Sign up</a>';
+        document.getElementById("ddnsHostName").innerHTML = '<a style="color:#FFF;text-decoration:underline;" href="/Advanced_ASUSDDNS_Content.asp?af=DDNSName"><#sign_up#></a>';
     else if(ddnsName == isMD5DDNSName())
-        document.getElementById("ddnsHostName").innerHTML = '<a style="color:#FFF;text-decoration:underline;" href="/Advanced_ASUSDDNS_Content.asp?af=DDNSName">Sign up</a>';
+        document.getElementById("ddnsHostName").innerHTML = '<a style="color:#FFF;text-decoration:underline;" href="/Advanced_ASUSDDNS_Content.asp?af=DDNSName"><#sign_up#></a>';
     else{
         document.getElementById("ddnsHostName").innerHTML = '<span>'+ ddnsName +'</span>';
         if(ddns_enable == '1'){
@@ -765,7 +765,7 @@ function clickEvent(obj){
 							stitle = "<#menu5_4_4#> Status";
 					}
 					else	
-						stitle = "Primary WAN status";
+						stitle = "<#statusTitle_Primary_WAN#>";
 				}
 				else{
 					if(dualwan_second_if == "wan")
@@ -779,14 +779,14 @@ function clickEvent(obj){
 							stitle = "<#menu5_4_4#> Status";
 					}
 					else
-						stitle = "Secondary WAN status";
+						stitle = "<#statusTitle_Secondary_WAN#>";
 				}
 			}
 			else {
 				if(obj.id.indexOf("primary") != -1)
-					stitle = "Primary WAN status";
+					stitle = "<#statusTitle_Primary_WAN#>";
 				else
-					stitle = "Secondary WAN status";
+					stitle = "<#statusTitle_Secondary_WAN#>";
 			}
 		}
 
@@ -1368,7 +1368,7 @@ function show_custom_image() {
 	}
 	else {
 		$("#custom_image").slideUp("slow");
-		document.getElementById("changeIconTitle").innerHTML = "Change";/*untranslated*/
+		document.getElementById("changeIconTitle").innerHTML = "<#CTL_Change#>";
 	}
 }
 
@@ -1483,7 +1483,7 @@ function popupEditBlock(clientObj){
 			document.getElementById('tr_adv_setting').style.display = "none";
 		}
 		document.getElementById("custom_image").style.display = "none";
-		document.getElementById("changeIconTitle").innerHTML = "Change";/*untranslated*/
+		document.getElementById("changeIconTitle").innerHTML = "<#CTL_Change#>";
 		
 		var convRSSI = function(val) {
 			if(val == "") return "wired";
@@ -1552,11 +1552,11 @@ function popupEditBlock(clientObj){
 		}
 		if(clientObj.isLogin) {
 			document.getElementById('client_login').style.display = "";
-			document.getElementById('client_login').innerHTML = "logged-in-user";
+			document.getElementById('client_login').innerHTML = "<#Clientlist_Logged_In_User#>";
 		}
 		if(clientObj.isPrinter) {
 			document.getElementById('client_printer').style.display = "";
-			document.getElementById('client_printer').innerHTML = "Printer";
+			document.getElementById('client_printer').innerHTML = "<#Clientlist_Printer#>";
 		}
 		if(clientObj.isITunes) {
 			document.getElementById('client_iTunes').style.display = "";
@@ -2168,8 +2168,8 @@ function closeClientDetailView() {
 		</thead>
 		<tr>
 			<th width="45%"><#Client_Name#></th>
-			<th width="30%">MAC</th>
-			<th width="15%">Upload icon</th>
+			<th width="30%"><#MAC_Address#></th>
+			<th width="15%"><#Client_Icon#></th>
 			<th width="10%"><#CTL_del#></th>
 		</tr>
 	</table>
@@ -2206,13 +2206,13 @@ function closeClientDetailView() {
 					<canvas id="canvasUserIcon" class="client_canvasUserIcon" width="85px" height="85px"></canvas>
 				</div>
 				<div id="changeClientIconControl" class="changeClientIcon">
-					<span title="Change to default client icon" class="IE8HACK" onclick="setDefaultIcon();">Default</span><!--untranslated-->
-					<span id="changeIconTitle" class="IE8HACK" title="Change client icon" style="margin-left:10px;" onclick="show_custom_image();">Change</span><!--untranslated-->
+					<span title="Change to default client icon" class="IE8HACK" onclick="setDefaultIcon();"><#CTL_Default#></span>
+					<span id="changeIconTitle" class="IE8HACK" title="Change client icon" style="margin-left:10px;" onclick="show_custom_image();"><#CTL_Change#></span>
 				</div>
 			</td>
 			<td style="vertical-align:top;text-align:center;">
 				<div class="clientTitle">
-					Name
+					<#Clientlist_name#>
 				</div>
 				<div  class="clientTitle" style="margin-top:10px;">
 					IP
@@ -2221,7 +2221,7 @@ function closeClientDetailView() {
 					MAC
 				</div>
 				<div  class="clientTitle" style="margin-top:10px;">
-					Device
+					<#Clientlist_device#>
 				</div>
 			</td>
 			<td style="vertical-align:top;width:280px;">
@@ -2286,7 +2286,7 @@ function closeClientDetailView() {
 								<div class="type15" onclick="select_image(this.className);" title="ROG"></div><!--untranslated-->
 							</td>
 							<td>
-								<div class="type18" onclick="select_image(this.className);" title="Printer"></div><!--untranslated-->
+								<div class="type18" onclick="select_image(this.className);" title="<#Clientlist_Printer#>"></div>
 							</td>
 							<td>
 								<div class="type19" onclick="select_image(this.className);" title="Windows Phone"></div><!--untranslated-->
@@ -2350,7 +2350,7 @@ function closeClientDetailView() {
 					<div class="clientList_line"></div>
 					<div style="width:100%;margin:5px 0;">
 						<div style="width:65%;float:left;line-height:32px;">
-							<span onmouseover="return overlib('Enable this button to block this device to access internet.');" onmouseout="return nd();">Block Internet Access<!--untranslated--></span>
+							<span onmouseover="return overlib('Enable this button to block this device to access internet.');" onmouseout="return nd();"><#Clientlist_block_internet#></span>
 						</div>
 						<div class="left" style="cursor:pointer;float:right;" id="radio_BlockInternet_enable"></div>
 						<div style="clear:both;"></div>
@@ -2360,7 +2360,7 @@ function closeClientDetailView() {
 					<div class="clientList_line"></div>
 					<div style="width:100%;margin:5px 0;">
 						<div style="width:65%;float:left;line-height:32px;">
-							<span id="time_scheduling_title" onmouseover="return overlib('Time Scheduling allows you to set the time limit for a client\'s network usage.');" onmouseout="return nd();"><#Parental_Control#></span><!--untranslated-->
+							<span id="time_scheduling_title" onmouseover="return overlib('Time Scheduling allows you to set the time limit for a client\'s network usage.');" onmouseout="return nd();"><#Parental_Control#></span>
 						</div>
 						<div align="center" class="left" style="cursor:pointer;float:right;" id="radio_TimeScheduling_enable"></div>
 						<div id="internetTimeScheduling" class="internetTimeEdit" style="float:right;margin-right:10px;" title="<#Time_Scheduling#>" onclick="redirectTimeScheduling();" ></div>
@@ -2371,7 +2371,7 @@ function closeClientDetailView() {
 					<div class="clientList_line"></div>
 					<div style="width:100%;margin:5px 0;">
 						<div style="width:65%;float:left;line-height:32px;">
-							<span onmouseover="return overlib('Enable this button to bind specific IP with MAC Address of this device.');" onmouseout="return nd();">MAC and IP address Binding<!--untranslated--></span>
+							<span onmouseover="return overlib('Enable this button to bind specific IP with MAC Address of this device.');" onmouseout="return nd();"><#Clientlist_IPMAC_Binding#></span>
 						</div>
 						<div align="center" class="left" style="cursor:pointer;float:right;" id="radio_IPBinding_enable" ></div>
 						<div style="clear:both;"></div>

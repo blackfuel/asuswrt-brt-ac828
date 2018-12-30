@@ -1138,7 +1138,7 @@ function paste_password(){
 			<div>&nbsp;</div>
 			<div class="formfonttitle"><#menu5_6#> - <#menu5_6_2#></div>
 			<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
-			<div class="formfontdesc"><#Syste_title#></div>
+			<div class="formfontdesc"><#System_title#></div>
 
 			<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 			<thead>
@@ -1248,24 +1248,24 @@ function paste_password(){
 					</td>
 				</tr>
 				<tr id="pwrsave_tr">
-					<th align="right">Power Save Mode<!--untranslated--></th>
+					<th align="right"><#usb_Power_Save_Mode#></th>
 					<td>
 						<select name="pwrsave_mode" class="input_option">
-							<option value="0" <% nvram_match("pwrsave_mode", "0","selected"); %> >Performance<!--untranslated--></option>
-							<option value="1" <% nvram_match("pwrsave_mode", "1","selected"); %> >Auto<!--untranslated--></option>
-							<option value="2" <% nvram_match("pwrsave_mode", "2","selected"); %> >Power Save<!--untranslated--></option>
+							<option value="0" <% nvram_match("pwrsave_mode", "0","selected"); %> ><#usb_Performance#></option>
+							<option value="1" <% nvram_match("pwrsave_mode", "1","selected"); %> ><#Auto#></option>
+							<option value="2" <% nvram_match("pwrsave_mode", "2","selected"); %> ><#usb_Power_Save#></option>
 						</select>
 					</td>
 				</tr>
 				<tr id="reboot_schedule_enable_tr">
-					<th>Enable Reboot Scheduler</th>	<!-- untranslated -->
+					<th><#Enable_reboot_scheduler#></th>
 					<td>
 						<input type="radio" value="1" name="reboot_schedule_enable_x" onClick="hide_reboot_option(1);" <% nvram_match_x("LANHostConfig","reboot_schedule_enable", "1", "checked"); %>><#checkbox_Yes#>
 						<input type="radio" value="0" name="reboot_schedule_enable_x" onClick="hide_reboot_option(0);" <% nvram_match_x("LANHostConfig","reboot_schedule_enable", "0", "checked"); %>><#checkbox_No#>
 					</td>
 				</tr>
 				<tr id="reboot_schedule_date_tr">
-					<th>Date to Reboot</th>	<!-- untranslated -->
+					<th><#Reboot_Date#></th>
 					<td>
 						<input type="checkbox" name="reboot_date_x_Sun" class="input" onclick="check_Timefield_checkbox();"><#date_Sun_itemdesc#>
 						<input type="checkbox" name="reboot_date_x_Mon" class="input" onclick="check_Timefield_checkbox();"><#date_Mon_itemdesc#>
@@ -1277,7 +1277,7 @@ function paste_password(){
 					</td>
 				</tr>
 				<tr id="reboot_schedule_time_tr">
-					<th>Time of Day to Reboot</th>	<!-- untranslated -->
+					<th><#Reboot_Time#></th>
 					<td>
 						<input type="text" maxlength="2" class="input_3_table" name="reboot_time_x_hour" onKeyPress="return validator.isNumber(this,event);" onblur="validator.timeRange(this, 0);" autocorrect="off" autocapitalize="off"> :
 						<input type="text" maxlength="2" class="input_3_table" name="reboot_time_x_min" onKeyPress="return validator.isNumber(this,event);" onblur="validator.timeRange(this, 1);" autocorrect="off" autocapitalize="off">
@@ -1298,7 +1298,7 @@ function paste_password(){
 					</td>
 				</tr>
 				<tr>
-					<th width="40%">Enable SSH</th>
+					<th width="40%"><#Enable_SSH#></th>
 					<td>
 						<select name="sshd_enable" class="input_option" onchange="check_sshd_enable(this.value);">
 							<option value="0" <% nvram_match("sshd_enable", "0", "selected"); %>><#checkbox_No#></option>
@@ -1308,7 +1308,7 @@ function paste_password(){
 					</td>
 				</tr>
 				<tr id="sshd_port_tr">
-					<th width="40%">SSH Port</th>
+					<th width="40%"><#Port_SSH#></th>
 					<td>
 						<input type="text" class="input_6_table" maxlength="5" name="sshd_port" onKeyPress="return validator.isNumber(this,event);" value='<% nvram_get("sshd_port"); %>' autocorrect="off" autocapitalize="off">
 					</td>
@@ -1340,14 +1340,14 @@ function paste_password(){
 					</td>
 				</tr-->
 				<tr id="sshd_password_tr">
-					<th>Allow Password Login</th>
+					<th><#Allow_PWLogin#></th>
 					<td>
 						<input type="radio" name="sshd_pass" class="input" value="1" <% nvram_match("sshd_pass", "1", "checked"); %>><#checkbox_Yes#>
 						<input type="radio" name="sshd_pass" class="input" value="0" <% nvram_match("sshd_pass", "0", "checked"); %>><#checkbox_No#>
 					</td>
 				</tr>
 				<tr id="auth_keys_tr">
-					<th>Authorized Keys</th>
+					<th><#Authorized_Keys#></th>
 					<td>
 						<textarea rows="5" cols="55" class="textarea_ssh_table"  name="sshd_authkeys" maxlength="2999"><% nvram_get("sshd_authkeys"); %></textarea>
 					</td>
@@ -1357,7 +1357,7 @@ function paste_password(){
 			<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable" style="margin-top:8px;">
 				<thead>
 					<tr>
-					  <td colspan="2">Local Access Config</td><!--untranslated-->
+					  <td colspan="2"><#Local_access_config#></td>
 					</tr>
 				</thead>
 				<tr id="https_tr">
@@ -1372,7 +1372,7 @@ function paste_password(){
 				</tr>
 		
 				<tr id="https_lanport">
-					<th>HTTPS LAN port</th>
+					<th><#System_HTTPS_LAN_Port#></th>
 					<td>
 						<input type="text" maxlength="5" class="input_6_table" name="https_lanport" value="<% nvram_get("https_lanport"); %>" onKeyPress="return validator.isNumber(this,event);" onBlur="change_url(this.value, 'https_lan');" autocorrect="off" autocapitalize="off">
 						<span id="https_access_page"></span>
@@ -1383,7 +1383,7 @@ function paste_password(){
 			<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable" style="margin-top:8px;">
 				<thead>
 					<tr>
-					  <td colspan="2">Remote Access Config</td><!--untranslated-->
+					  <td colspan="2"><#Remote_access_config#></td>
 					</tr>
 				</thead>
 				<tr id="misc_http_x_tr">
@@ -1391,7 +1391,7 @@ function paste_password(){
 					<td>
 						<input type="radio" value="1" name="misc_http_x" class="input" onClick="hideport(1);enable_wan_access(1);return change_common_radio(this, 'FirewallConfig', 'misc_http_x', '1')" <% nvram_match("misc_http_x", "1", "checked"); %>><#checkbox_Yes#>
 						<input type="radio" value="0" name="misc_http_x" class="input" onClick="hideport(0);enable_wan_access(0);return change_common_radio(this, 'FirewallConfig', 'misc_http_x', '0')" <% nvram_match("misc_http_x", "0", "checked"); %>><#checkbox_No#><br>
-						<span class="formfontdesc" id="WAN_access_hint" style="color:#FFCC00;">Only HTTPS is supported when accessing web from wan.</span><!--untranslated-->
+						<span class="formfontdesc" id="WAN_access_hint" style="color:#FFCC00;"><#FirewallConfig_x_WanWebEnable_HTTPS_only#></span>
 					</td>
 				</tr>
 				<tr id="accessfromwan_port">

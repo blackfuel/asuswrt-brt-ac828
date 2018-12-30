@@ -491,15 +491,15 @@ function popClientListEditTable(mac, obj, name, ip, callBack) {
 	code += '</div>';
 	if(!downsize_4m_support) {
 		code += '<div class="changeClientIcon">';
-		code += '<span title="Change to default client icon" onclick="card_setDefaultIcon();">Default</span>';//untranslated
-		code += '<span id="card_changeIconTitle" title="Change client icon" style="margin-left:10px;" onclick="card_show_custom_image();">Change</span>';//untranslated
+		code += '<span title="Change to default client icon" onclick="card_setDefaultIcon();"><#CTL_Default#></span>';
+		code += '<span id="card_changeIconTitle" title="Change client icon" style="margin-left:10px;" onclick="card_show_custom_image();"><#CTL_Change#></span>';
 		code += '</div>';
 	}
 	code += '</td>';
 
 	code += '<td style="vertical-align:top;text-align:center;">';
 	code += '<div class="clientTitle">';
-	code += 'Name';
+	code += '<#Clientlist_name#>';
 	code += '</div>';
 	code += '<div  class="clientTitle" style="margin-top:10px;">';
 	code += 'IP';
@@ -508,7 +508,7 @@ function popClientListEditTable(mac, obj, name, ip, callBack) {
 	code += 'MAC';
 	code += '</div>';
 	code += '<div  class="clientTitle" style="margin-top:10px;">';
-	code += 'Device';
+	code += '<#Clientlist_device#>';
 	code += '</div>';
 	code += '</td>';
 
@@ -684,18 +684,18 @@ function popClientListEditTable(mac, obj, name, ip, callBack) {
 	}
 	else {
 		document.getElementById("card_client_ipMethod").style.display = "";
-		document.getElementById("card_client_ipMethod").innerHTML = "Off Line"; /*untranslated*/
+		document.getElementById("card_client_ipMethod").innerHTML = "<#Clientlist_OffLine#>";
 		document.getElementById("card_client_ipMethod").onmouseover = function() {return overlib(ipState["OffLine"]);};
 		document.getElementById("card_client_ipMethod").onmouseout = function() {nd();};
 		document.getElementById("card_client_interface").style.display = "none";
 	}
 	if(clientInfo.isLogin) {
 		document.getElementById("card_client_login").style.display = "";
-		document.getElementById("card_client_login").innerHTML = "logged-in-user"; /*untranslated*/
+		document.getElementById("card_client_login").innerHTML = "<#Clientlist_Logged_In_User#>";
 	}
 	if(clientInfo.isPrinter) {
 		document.getElementById("card_client_printer").style.display = "";
-		document.getElementById("card_client_printer").innerHTML = "Printer"; /*untranslated*/
+		document.getElementById("card_client_printer").innerHTML = "<#Clientlist_Printer#>";
 	}
 	if(clientInfo.isITunes) {
 		document.getElementById("card_client_iTunes").style.display = "";
@@ -866,7 +866,7 @@ function card_show_custom_image(flag) {
 		else {
 			slideFlag = true;
 			slideUp("card_custom_image", 500);
-			document.getElementById("card_changeIconTitle").innerHTML = "Change";/*untranslated*/
+			document.getElementById("card_changeIconTitle").innerHTML = "<#CTL_Change#>";
 		}
 	}
 }
@@ -1085,7 +1085,7 @@ function showUploadIconList() {
 		code += '<tr>';
 		code += '<th width="45%"><#ParentalCtrl_username#></th>';
 		code += '<th width="30%"><#ParentalCtrl_hwaddr#></th>';
-		code += '<th width="15%">Upload icon</th>'; /*untranslated*/
+		code += '<th width="15%"><#Client_Icon#></th>';
 		code += '<th width="10%"><#CTL_del#></th>';
 		code += '</tr>';
 		code += '</table>';
@@ -1368,7 +1368,7 @@ function slideUp(objnmae, speed) {
 }
 
 function registerIframeClick(iframeName, action) {
-	var iframe = document.getElementById(iframeName);
+	var iframe = document.getElementById(iframeName) || top.document.getElementById(iframeName);
 	if(iframe != null) {
 		var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
 
@@ -1382,7 +1382,7 @@ function registerIframeClick(iframeName, action) {
 }
 
 function removeIframeClick(iframeName, action) {
-	var iframe = document.getElementById(iframeName);
+	var iframe = document.getElementById(iframeName) || top.document.getElementById(iframeName);
 	if(iframe != null) {
 		var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
 
@@ -1658,7 +1658,7 @@ function pop_clientlist_listview() {
 }
 
 function exportClientListLog() {
-	var data = [["Internet access state", "Device Type", "<#Client_Name#>", "<#vpn_client_ip#>", "IP Method", "<#ParentalCtrl_hwaddr#>", "<#wan_interface#>", "Tx Rate", "Rx Rate", "Access time"]];
+	var data = [["Internet access state", "Device Type", "Client Name", "Client IP address", "IP Method", "Clients MAC Address", "Interface", "Tx Rate", "Rx Rate", "Access time"]];
 	var tempArray = new Array();
 	var ipStateExport = new Array();
 	ipStateExport["Static"] =  "Static IP";
@@ -1810,14 +1810,14 @@ function create_clientlist_listview() {
 	switch (clienlistViewMode) {
 		case "All" :
 			code += "<table width='100%' border='1' align='center' cellpadding='0' cellspacing='0' class='FormTable_table' style='margin-top:15px;'>";
-			code += "<thead><tr height='28px'><td id='td_all_list_title' colspan='" + wl_colspan + "'>All list";/*untranslated*/
-			code += "<a id='all_expander'class='clientlist_expander' onclick='showHideContent(\"clientlist_all_list_Block\", this);'>[ Hide ]</a>";/*untranslated*/
+			code += "<thead><tr height='28px'><td id='td_all_list_title' colspan='" + wl_colspan + "'><#Clientlist_All_List#>";
+			code += "<a id='all_expander'class='clientlist_expander' onclick='showHideContent(\"clientlist_all_list_Block\", this);'>[ <#Clientlist_Hide#> ]</a>";
 			code += "</td></tr></thead>";
 			code += "<tr id='tr_all_title' height='40px'>";
 			code += "<th class='IE8HACK' width=" + obj_width[0] + "><#Internet#></th>";
 			code += "<th class='IE8HACK' width=" + obj_width[1] + "><#Client_Icon#></th>";
 			code += "<th width=" + obj_width[2] + " onclick='sorter.addBorder(this);sorter.doSorter(2, \"str\", \"all_list\");' style='cursor:pointer;'><#ParentalCtrl_username#></th>";
-			code += "<th width=" + obj_width[3] + " onclick='sorter.addBorder(this);sorter.doSorter(3, \"num\", \"all_list\");' style='cursor:pointer;'><#vpn_client_ip#></th>";/*untranslated*/
+			code += "<th width=" + obj_width[3] + " onclick='sorter.addBorder(this);sorter.doSorter(3, \"num\", \"all_list\");' style='cursor:pointer;'><#vpn_client_ip#></th>";
 			code += "<th width=" + obj_width[4] + " onclick='sorter.addBorder(this);sorter.doSorter(4, \"str\", \"all_list\");' style='cursor:pointer;'><#ParentalCtrl_hwaddr#></th>";
 			if(!(isSwMode('mb') || isSwMode('ew')))
 				code += "<th width=" + obj_width[5] + " onclick='sorter.addBorder(this);sorter.doSorter(5, \"num\", \"all_list\");' style='cursor:pointer;'><#wan_interface#></th>";
@@ -1833,13 +1833,13 @@ function create_clientlist_listview() {
 		case "ByInterface" :
 			code += "<table width='100%' border='1' align='center' cellpadding='0' cellspacing='0' class='FormTable_table' style='margin-top:15px;'>";
 			code += "<thead><tr height='28px'><td colspan='" + wl_colspan + "'><#tm_wired#>";
-			code += "<a id='wired_expander' class='clientlist_expander' onclick='showHideContent(\"clientlist_wired_list_Block\", this);'>[ Hide ]</a>";/*untranslated*/
+			code += "<a id='wired_expander' class='clientlist_expander' onclick='showHideContent(\"clientlist_wired_list_Block\", this);'>[ <#Clientlist_Hide#> ]</a>";
 			code += "</td></tr></thead>";
 			code += "<tr id='tr_wired_title' height='40px'>";
 			code += "<th class='IE8HACK' width=" + obj_width[0] + "><#Internet#></th>";
 			code += "<th class='IE8HACK' width=" + obj_width[1] + "><#Client_Icon#></th>";
 			code += "<th width=" + obj_width[2] + " onclick='sorter.addBorder(this);sorter.doSorter(2, \"str\", \"wired_list\");' style='cursor:pointer;'><#ParentalCtrl_username#></th>";
-			code += "<th width=" + obj_width[3] + " onclick='sorter.addBorder(this);sorter.doSorter(3, \"num\", \"wired_list\");' style='cursor:pointer;'><#vpn_client_ip#></th>";/*untranslated*/
+			code += "<th width=" + obj_width[3] + " onclick='sorter.addBorder(this);sorter.doSorter(3, \"num\", \"wired_list\");' style='cursor:pointer;'><#vpn_client_ip#></th>";
 			code += "<th width=" + obj_width[4] + " onclick='sorter.addBorder(this);sorter.doSorter(4, \"str\", \"wired_list\");' style='cursor:pointer;'><#ParentalCtrl_hwaddr#></th>";
 			if(!(isSwMode('mb') || isSwMode('ew')))
 				code += "<th width=" + obj_width[5] + " ><#wan_interface#></th>";
@@ -1857,7 +1857,7 @@ function create_clientlist_listview() {
 			for(var i = 0; i < wl_nband_title.length; i += 1) {
 				code += "<table width='100%' border='1' align='center' cellpadding='0' cellspacing='0' class='FormTable_table' style='margin-top:15px;'>";
 				code += "<thead><tr height='23px'><td colspan='" + wl_colspan + "'>" + wl_nband_title[i];
-				code += "<a id='wl" + wl_map[wl_nband_title[i]] + "_expander' class='clientlist_expander' onclick='showHideContent(\"clientlist_wl" + wl_map[wl_nband_title[i]] + "_list_Block\", this);'>[ Hide ]</a>";/*untranslated*/
+				code += "<a id='wl" + wl_map[wl_nband_title[i]] + "_expander' class='clientlist_expander' onclick='showHideContent(\"clientlist_wl" + wl_map[wl_nband_title[i]] + "_list_Block\", this);'>[ <#Clientlist_Hide#> ]</a>";
 				code += "</td></tr></thead>";
 				code += "<tr id='tr_wl" + wl_map[wl_nband_title[i]] + "_title' height='40px'>";
 				code += "<th class='IE8HACK' width=" + obj_width[0] + "><#Internet#></th>";
@@ -1943,25 +1943,25 @@ function create_clientlist_listview() {
 	if(clienlistViewMode == "All") {
 		if(!sorter.all_display) {
 			document.getElementById("clientlist_all_list_Block").style.display = "none";
-			document.getElementById("all_expander").innerHTML = "[ Show ]";/*untranslated*/
+			document.getElementById("all_expander").innerHTML = "[ <#Clientlist_Show#> ]";
 		}
 	}
 	else {
 		if(!sorter.wired_display) {
 			document.getElementById("clientlist_wired_list_Block").style.display = "none";
-			document.getElementById("wired_expander").innerHTML = "[ Show ]";/*untranslated*/
+			document.getElementById("wired_expander").innerHTML = "[ <#Clientlist_Show#> ]";
 		}
 		if(!sorter.wl1_display) {
 			document.getElementById("clientlist_wl1_list_Block").style.display = "none";
-			document.getElementById("wl1_expander").innerHTML = "[ Show ]";/*untranslated*/
+			document.getElementById("wl1_expander").innerHTML = "[ <#Clientlist_Show#> ]";
 		}
 		if(!sorter.wl2_display) {
 			document.getElementById("clientlist_wl2_list_Block").style.display = "none";
-			document.getElementById("wl2_expander").innerHTML = "[ Show ]";/*untranslated*/
+			document.getElementById("wl2_expander").innerHTML = "[ <#Clientlist_Show#> ]";
 		}
 		if(!sorter.wl3_display) {
 			document.getElementById("clientlist_wl3_list_Block").style.display = "none";
-			document.getElementById("wl3_expander").innerHTML = "[ Show ]";/*untranslated*/
+			document.getElementById("wl3_expander").innerHTML = "[ <#Clientlist_Show#> ]";
 		}
 	}
 }
@@ -2106,8 +2106,9 @@ function drawClientListBlock(objID) {
 				clientListCode += "</td>";
 
 				clientListCode += "<td style='word-wrap:break-word; word-break:break-all;' width='" + obj_width[2] + "'>";
-				clientListCode += "<div id='div_clientName_"+objID+"_"+j+"' class='viewclientlist_clientName_edit' onclick='editClientName(\""+objID+"_"+j+"\");'>"+clientlist_sort[j].name+"</div>";
-				clientListCode += "<input id='client_name_"+objID+"_"+j+"' type='text' value='"+clientlist_sort[j].name+"' class='input_25_table' maxlength='32' style='width:95%;margin-left:0px;display:none;' onblur='saveClientName(\""+objID+"_"+j+"\", "+clientlist_sort[j].type+", this);'>";
+				var clientNameEnCode = htmlEnDeCode.htmlEncode(decodeURIComponent(clientlist_sort[j].name));
+				clientListCode += "<div id='div_clientName_"+objID+"_"+j+"' class='viewclientlist_clientName_edit' onclick='editClientName(\""+objID+"_"+j+"\");'>"+clientNameEnCode+"</div>";
+				clientListCode += "<input id='client_name_"+objID+"_"+j+"' type='text' value='"+clientNameEnCode+"' class='input_25_table' maxlength='32' style='width:95%;margin-left:0px;display:none;' onblur='saveClientName(\""+objID+"_"+j+"\", "+clientlist_sort[j].type+", this);'>";
 				clientListCode += "</td>";
 				var ipStyle = ('<% nvram_get("sw_mode"); %>' == "1") ? "line-height:16px;text-align:left;padding-left:10px;" : "line-height:16px;text-align:center;";
 				clientListCode += "<td width='" + obj_width[3] + "' style='" + ipStyle + "'>";
@@ -2179,7 +2180,7 @@ function showHideContent(objnmae, thisObj) {
 			}
 			slideFlag = true;
 			slideDown(objnmae, 200);
-			thisObj.innerHTML = "[ Hide ]";
+			thisObj.innerHTML = "[ <#Clientlist_Hide#> ]";
 		}
 		else {
 			if(clienlistViewMode == "All")
@@ -2202,7 +2203,7 @@ function showHideContent(objnmae, thisObj) {
 			}
 			slideFlag = true;
 			slideUp(objnmae, 200);
-			thisObj.innerHTML = "[ Show ]";
+			thisObj.innerHTML = "[ <#Clientlist_Show#> ]";
 		}
 	}
 }

@@ -20,6 +20,7 @@
 <script language="JavaScript" type="text/javascript" src="validator.js"></script>
 <script type="text/javaScript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="switcherplugin/jquery.iphone-switch.js"></script>
+<script type="text/javaScript" src="js/subnet_rule.js"></script>
 <style>
 .contentM_connection{
 	position:absolute;
@@ -38,8 +39,6 @@
 
 <script>
 <% wanlink(); %>
-var subnet_rulelist = decodeURIComponent("<% nvram_char_to_ascii("","subnet_rulelist"); %>");
-var subnet_rulelist_row = subnet_rulelist.split('<');
 var subnet_rulelist_array = new Array();
 var default_lanip = '<% nvram_get("lan_ipaddr"); %>';
 var default_dhcp_gateway_x = '<% nvram_get("dhcp_gateway_x"); %>';
@@ -81,6 +80,7 @@ var restart_net_and_phy = 0; //0: just save nvram  1: restart service
 function initial(){
 	show_menu();
 	show_subnet_list();
+	parse_LanToLanRoute_to_object();
 }
 
 function show_subnet_list(){
@@ -138,6 +138,7 @@ function add_subnet(){
 	document.form.dhcp_static[1].checked = true;
 	manually_dhcp_list_array = [];
 	show_subnet_edit(1);
+	get_LanToLanRoute();
 }
 
 function get_vlan_rule_index(gatewayIP){
@@ -153,6 +154,8 @@ function get_vlan_rule_index(gatewayIP){
 
 function edit_subnet(r){
 	var subnet_list_table = document.getElementById('subnet_list_table');
+	var subnet_netmask = "";
+
 	selected_row = r.parentNode.parentNode.rowIndex;
 
 	if(subnet_rulelist_array[selected_row][2] == "1")
@@ -182,22 +185,28 @@ function edit_subnet(r){
 		}
 	}
 
+	subnet_netmask = subnet_rulelist_array[selected_row][0] + '/' + netmask_to_bits(subnet_rulelist_array[selected_row][1]);
+	get_LanToLanRoute(subnet_netmask);
+
 	show_subnet_edit(1, 1);
 }
 
 function del_subnet(r){
 	var subnet_list_table = document.getElementById('subnet_list_table');
 	var index = r.parentNode.parentNode.rowIndex;
+	var subnet_netmask = subnet_list_table.rows[index].cells[0].innerHTML + '/' + netmask_to_bits(subnet_list_table.rows[index].cells[1 ].innerHTML);
 
 	var vlan_rule_index = get_vlan_rule_index(subnet_list_table.rows[index].cells[0].innerHTML);
 	if(vlan_rule_index != -1){
-		alert("The subnet is used by VLAN and can't be deleted!"); //untranslated
+		alert("<#MSubnet_Warning#>");
 		return;
 	}
 
 	subnet_rulelist_array.splice(index, 1);
 	subnet_list_table.deleteRow(index);
+	rm_LanToLanRoute_rule(subnet_netmask);
 	update_subnet_rulelist();
+
 	if(subnet_rulelist_array.length < MAX_SUBNET_NUM){
 		document.getElementById("add_subnet_btn").className = "add_btn";
 		document.getElementById("add_subnet_btn").disabled = false;
@@ -233,6 +242,8 @@ function applyRule(){
 		update_vlan_rulelist();
 		document.form.subnet_rulelist.value = subnet_rulelist;
 		document.form.vlan_rulelist.value = vlan_rulelist;
+		save_LanToLanRoute();
+		document.form.subnet_rulelist_ext.value = subnet_rulelist_ext;
 		showLoading();
 		document.form.submit();
 }
@@ -274,14 +285,18 @@ function show_subnet_edit(show, edit){
 
 function add_new_subnet(){
 	if(validSubnetForm()){
+		var subnet_netmask = document.form.tGatewayIP.value + '/'+ netmask_to_bits(document.form.tSubnetMask.value);
 
 		update_dhcp_staticlist();
 		var new_subnet = [document.form.tGatewayIP.value, document.form.tSubnetMask.value, (document.form.radioDHCPEnable[0].checked)? "1":"0",
 							document.form.tDHCPStart.value, document.form.tDHCPEnd.value, document.form.tLeaseTime.value, document.form.tLan_domain.value,
 							document.form.dhcp_dns.value, document.form.dhcp_wins.value, (document.form.dhcp_static[0].checked)? "1":"0", dhcp_staticlist];
 		subnet_rulelist_array.push(new_subnet);
+
+		update_LanToLanRoute_array(subnet_netmask);
 		show_subnet_list();
 		show_subnet_edit(0);
+
 		if(subnet_rulelist_array.length < MAX_SUBNET_NUM){
 			document.getElementById("add_subnet_btn").className = "add_btn";
 			document.getElementById("add_subnet_btn").disabled = false;
@@ -323,24 +338,10 @@ function update_default_subnet(){
 	}
 }
 
-function netmask_to_bits(netmask){
-	var netmaskArray = netmask.split(".");
-	var val = 0;
-	var bit_number = 0;
-
-	for(var i = 0; i < netmaskArray.length; i++){
-		val = parseInt(netmaskArray[i], 10);
-		for( var j = 0; j < 8; j++){
-			if( (val >> j) & 1 )
-				bit_number++;
-		}
-	}
-
-	return bit_number;
-}
-
 function change_subnet_rule(){
 	if(validSubnetForm()){
+		var subnet_netmask = document.form.tGatewayIP.value + '/'+ netmask_to_bits(document.form.tSubnetMask.value);
+
 		subnet_rulelist_array[selected_row][0] = document.form.tGatewayIP.value;
 		subnet_rulelist_array[selected_row][1] = document.form.tSubnetMask.value;
 		subnet_rulelist_array[selected_row][2] = (document.form.radioDHCPEnable[0].checked)? "1":"0";
@@ -366,6 +367,7 @@ function change_subnet_rule(){
 			}
 		}
 
+		update_LanToLanRoute_array(subnet_netmask);
 		show_subnet_list();
 		show_subnet_edit(0);
 	}
@@ -804,6 +806,7 @@ function pullLANIPList(obj){
 <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="subnet_rulelist" value="">
+<input type="hidden" name="subnet_rulelist_ext" value='<% nvram_get("subnet_rulelist_ext"); %>'>
 <input type="hidden" name="vlan_rulelist" value="">
 <input type="hidden" name="dhcp_enable_x" value='<% nvram_get("dhcp_enable_x"); %>'>
 <input type="hidden" name="lan_domain" value='<% nvram_get("lan_domain"); %>'>
@@ -821,7 +824,7 @@ function pullLANIPList(obj){
 	<table border="0" align="center" cellpadding="5" cellspacing="5">
 		<tr>
 			<td align="left">
-			<span class="formfonttitle">Subnet Profile Edit</span>
+			<span class="formfonttitle"><#TBVLAN_EditSubnetProfile#></span>
 			<div style="width:630px; height:15px;overflow:hidden;position:relative;top:5px;"><img src="images/New_ui/export/line_export.png"></div>
 			</td>
 		</tr>
@@ -830,7 +833,7 @@ function pullLANIPList(obj){
 				<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" class="FormTable">
 					<thead>
 						<tr>
-							<td colspan="2">Configuration</td>
+							<td colspan="2"><#t2BC#></td>
 						</tr>
 					</thead>
 					<tr>
@@ -901,7 +904,7 @@ function pullLANIPList(obj){
 				<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" class="FormTable" style="margin-top:8px;" >
 			  	<thead>
 			  		<tr>
-						<td colspan="3"><#LANHostConfig_ManualDHCPEnable_itemname#></td>
+						<td colspan="3"><#LANHostConfig_ManualDHCPEnable_title#></td>
 			  		</tr>
 			  	</thead>
 
@@ -921,7 +924,7 @@ function pullLANIPList(obj){
 				  	</thead>
 
 				  	<tr>
-			  			<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,10);">Client Name (MAC address)<!--untranslated--></a></th>
+			  			<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,10);"><#Client_Name#> (<#PPPConnection_x_MacAddressForISP_itemname#>)</a></th>
 		        		<th><#IPConnection_ExternalIPAddress_itemname#></th>
 		        		<th><#list_add_delete#></th>
 				  	</tr>			  
@@ -975,11 +978,11 @@ function pullLANIPList(obj){
 							<div>&nbsp;</div>
 							<div class="formfonttitle"><#menu5_2#> - <#Subnet#></div>
 							<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="images/New_ui/export/line_export.png"></div>
-							<div class="formfontdesc">Configure the subnets.</div>
-							<div style="margin-left:8px; margin-bottom:7px;"> <div style="font-size:12px; font-weight:800;display:table-cell;vertical-align:bottom;">Subnet Configuration (Max Limit : 8)</div><div style="display:table-cell;padding-left:6px;"><input id="add_subnet_btn" type="button" class="add_btn" onClick="add_subnet();" value=""></div></div>
+							<div class="formfontdesc"><#MSubnet_desc#></div>
+							<div style="margin-left:8px; margin-bottom:7px;"> <div style="font-size:12px; font-weight:800;display:table-cell;vertical-align:bottom;"><#MSubnet_ConfigTable_Title#>&nbsp;(<#List_limit#>&nbsp;8)</div><div style="display:table-cell;padding-left:6px;"><input id="add_subnet_btn" type="button" class="add_btn" onClick="add_subnet();" value=""></div></div>
 							<table width="98%" border="1" align="center" cellpadding="4" cellspacing="0" class="FormTable_table" id="subnet_table" style="margin-top:5px;">
 				    			<tr>
-				    				<th style="width:19%">Gateway IP Address</th>
+									<th style="width:19%"><#RouterConfig_GWStaticGW_itemname#></th>
 				      				<th style="width:19%"><#IPConnection_x_ExternalSubnetMask_itemname#></th>
 				      				<th style="width:19%"><#LANHostConfig_MinAddress_itemname#></th>
 				      				<th style="width:19%"><#LANHostConfig_MaxAddress_itemname#></th>

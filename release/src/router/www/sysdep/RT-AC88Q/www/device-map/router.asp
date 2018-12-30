@@ -1067,7 +1067,7 @@ function limit_auth_method(){
   				<table>
   					<tr>
   						<td style="padding:8px 5px 0px 2px;">
-  							<p class="formfonttitle_nwm" >Guest Status: </p>
+  							<p class="formfonttitle_nwm" ><#Guest_Network#> :</p>
   						</td>
   						<td>
   							<div class="left" style="width:94px;" id="radio_gn_enable"></div>
@@ -1150,8 +1150,7 @@ function limit_auth_method(){
   		</tr>
   		<tr id='wl_wpa_psk_tr' style='display:none'>
     			<td style="padding:5px 10px 0px 10px;">
-      			<p class="formfonttitle_nwm" ><#WPA-PSKKey#>
-						</p>	
+					<p id="wl_wpa_psk_title" class="formfonttitle_nwm" ><#WPA-PSKKey#></p>
 							<input id="wl_wpa_psk" name="wl_wpa_psk" style="width:260px;*margin-top:-7px;" type="password" onBlur="switchType(this, false);" onFocus="switchType(this, true);" value="" maxlength="64" class="input_25_table" autocomplete="off" autocorrect="off" autocapitalize="off"/>
       						<!-- fake fields are a workaround for chrome autofill getting the wrong fields -->
       						<input style="display:none" type="password" name="fakepasswordremembered"/>

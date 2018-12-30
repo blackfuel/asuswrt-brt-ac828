@@ -463,7 +463,7 @@ function addRule(){
 	}
 
 	if(cur_rule_enable == "1" && enable_num == wtfast_status.Max_Computers){
-		alert("The number of enabled rules reaches the limitiation of the account. The added rule will be default disabled.");
+		alert("<#GB_rulelist_addmax#>");
 		rule_enable = "0";
 	}
 
@@ -694,7 +694,7 @@ function enable_wtfast_rule(index, enable){
 
 	if(enable == "1"){
 		if(enable_num == wtfast_status.Max_Computers){
-			alert("The number of enabled rules reaches the limitiation of the account. You can't enable rule unless you disable one existed enabled rule first.");
+			alert("<#GB_rulelist_enablemax#>");
 			return;
 		}
 	}
@@ -1036,7 +1036,7 @@ function clean_macerr(){
 			</td>
 			<td style="height:75px; vertical-align: top;">
 				<div style="margin-left:15px; margin-right:10px; color:#EAE9E9; font-size:13px; font-weight:bolder;">
-					<#Game_Boost_desc1#>
+					<#Game_Boost_desc#>
 				</div>
 			</td>
 		</tr>
@@ -1058,7 +1058,7 @@ function clean_macerr(){
 		<table style="margin-top:10px;  width:760px;">
 			<tr><td colspan="2" style="color:#EBE8E8; font-size:20px; font-weight:bold; text-align:center;"><div id="Game_Boost_login_div"></div></td></tr>
 			<tr>
-				<th style="width:254px; height:35px; color:#949393; font-size:14px; text-align:right; padding-right:15px;">E-Mail</th><!--untranslated-->
+				<th style="width:254px; height:35px; color:#949393; font-size:14px; text-align:right; padding-right:15px;"><#AiProtection_WebProtector_EMail#></th>
 				<td style="color:#949393; font-size:14px; text-align:left;">
 				<input type="text" maxlength="32" class="login_input" id="wtf_username" name="wtf_username" value="" onkeypress="return validator.isString(this, event)" autocorrect="off" autocapitalize="off" >
 				<span ><a id="link" href="javascript:open_link('newAccount')" style="margin-left:5px;text-decoration:underline;color:#949393;"><#create_free_acc#></a></span>
@@ -1080,7 +1080,7 @@ function clean_macerr(){
 				</td>
 			</tr>
 		</table>
-		<div style="color:#949393; font-size:12px; text-align:center;">* <#note_up_to_date#></div>
+		<div style="color:#ffffff; font-size:12px; text-align:center;"><#Manual_Setting_notice#> <#GB_management_note1#></div>
 		<div>
 			<canvas id="fire" style="width:760px;height:430px; display:block;position:absolute; top:491px; z-index:-1;"></canvas>
 			<img id="fire_pic" style="position: absolute; top: 499px; z-index: -1; margin-left: 3px;display:none;" src="images/fire.jpg">

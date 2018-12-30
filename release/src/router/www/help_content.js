@@ -72,7 +72,7 @@ helpcontent[3] = new Array("",
 							"<#WLANConfig11b_x_ReduceUSB3_desc#>",
 							"<#RTS_for_AMPDU#>",
 							"<#WLANConfig11b_x_roamingassit_desc#>",	//31
-							"Provide Airtime Fairness between multiple links",	/* untranslated */
+							"<#WLANConfig11b_x_Airtime_Fairness_itemdesc#>",
 							"<#WLANConfig11b_x_Auto#>",
 							"Enable/Disable Bluetooth Coexisistence. Data rate 1Mbps and 2 Mbps are not allowed in Pre-emptive mode. TX Bursting is also not allowed in Pre-emptive mode."
 							 );
@@ -162,13 +162,12 @@ helpcontent[11] = new Array("",
 							"<#LANHostConfig_x_NTPServer_itemdesc#>",
 							"<#QIS_pass_desc2#> <#LANHostConfig_x_Password_itemdesc#>",
 							"<#QIS_pass_desc2#> <#File_Pop_content_alert_desc3#>",
-							"This feature allows browser to redirect to failed connection warning page when Internet is down, if disabled warning page would not appear.",	/* untranslated */
-							"To set your clock forward one hour in the spring when DST (Daylight Saving Time) starts",	/* untranslated */
-							"To set your clock back one hour in the fall when DST (Daylight Saving Time) ends",	/* untranslated */
+							"<#Enable_redirect_notice_desc#>",
+							"<#LANHostConfig_x_TimeZone_DSTStart_desc#>",
+							"<#LANHostConfig_x_TimeZone_DSTEnd_desc#>",
 							"For destination IP address, you can:<br/>(a) enter a specific IP address, such as \"192.168.1.2\"<br/>(b) enter IP addresses within one subnet or within the same IP pool, such as \"192.168.1.0/24\"",	/* untranslated */
-							"This feature allows you to restrict only specified IP address could access the wireless router via \"SSH\" / \"Telnet\" / \"Web Access from WAN\" (if Enabled) from WAN or LAN side.",		/* untranslated */
-							"USB hard disks will hibernate after being inactive for the configured time period."		/* untranslated */
-		);
+							"<#System_Allow_Specified_IP#>",
+							"<#usb_HDD_Hibernation_Desc#>");
 //Log
 helpcontent[12] = new Array("",
 							"<#General_x_SystemUpTime_itemdesc#>",
@@ -317,9 +316,8 @@ helpcontent[28] = new Array("",
 						
 //Switch Control
 helpcontent[29] = new Array("",
-							"This item had various names: Port Trunking/ Bonding/ Teaming/ Link Aggregation/ 802.3ad.",	/*untranslated*/
-							"When NAT Acceleration enabled, switch can handle the network packets by itself and bypass CPU. It can increases NAT throughput but some features may not work precisely, such as time scheduling, traditional QoS and bandwidth limiter on guest network, etc. If you set NAT acceleration as auto, it will be disable automatically once these features are enabled."	/*untranslated*/
-							);
+							"<#NAT_lacpDesc#>",
+							"<#NAT_AccelerationDesc#>");
 
 helpcontent[30] = new Array("",
 							"Send alert before monthly alert is reached",/*untranslated*/
@@ -360,6 +358,16 @@ helpcontent[32] = new Array("",
 							"The Username / Common Name(CN) of client certificate.<br> If setting authenticated by username / password only, this field should be the username in the \"Username and Password\" table.",/*untranslated*/
 							"The Network Address of a subnet to generate an internal route to a specific client. This specific client should own this subnet.",/*untranslated*/
 							"The Network Mask of a subnet to generate an internal route to a specific client. This specific client should own this subnet.",/*untranslated*/
-							" If you would like other clients to be able to this specific client's subnet, choose Yes and Enable \"Allow Client <-> Client\"."/*untranslated*/
+							" If you would like other clients to be able to this specific client's subnet, choose Yes and Enable \"Allow Client <-> Client\".",/*untranslated*/
+							"The message digest algorithm which is used to authenticate packets with HMAC. HMAC usually adds 16 or 20 bytes per packet."/*untranslated*/
 							);
 
+//IPSec
+helpcontent[33] = new Array("",
+							"<#vpn_ipsec_Key_Retries_Hint#>"
+							);
+
+//Feedback
+helpcontent[34] = new Array("",
+							"This feature allows system to capture diagnostic System debug log in the background, duration depends on the “Diagnostic debug log capture duration” option, depends on the option selected, system might transmit single debug log automatically to ASUS Support Team for analysis after capture completed or transmit multiple debug logs over a period of time. Click on the yellow System icon could cancel the debug log capture."/*untranslated*/
+							);

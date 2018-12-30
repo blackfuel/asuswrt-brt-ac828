@@ -295,6 +295,12 @@ struct ip_mask_s {
 #define VLAN_MAX_NUM			8	/* FIXME */
 #endif
 
+#define DHCP_STATICLIST_EXAMPLE		"<00:03:7f:00:00:02>192.168.100.200"
+#define SUBNET_RULE_EXAMPLE		"<192.168.100.254>255.255.255.128>1>192.168.100.102>192.168.100.253>864000>12345678901234567890123456789012>192.168.100.100>192.168.100.099>1>"
+#define SUBNET_STATICLIST_EXAMPLE	"00:03:7f:20:00:01 192.168.120.101;"
+#define STATIC_MAC_IP_BINDING_PER_LAN	64
+#define STATIC_MAC_IP_BINDING_PER_VLAN	8
+
 #define EXCLUDE_NET_USB_MODEM		(1U << 0)
 #define EXCLUDE_NET_LAN			(1U << 1)
 #define EXCLUDE_NET_WAN			(1U << 2)
@@ -1173,6 +1179,21 @@ extern int psta_exist(void);
 extern int psta_exist_except(int unit);
 extern int psr_exist(void);
 extern int psr_exist_except(int unit);
+
+struct ifino_s {
+	char ifname[IFNAMSIZ];
+	ino_t inode;
+	unsigned long long last_rx, last_tx;
+	unsigned long long shift_rx, shift_tx;
+};
+
+struct ifname_ino_tbl {
+	unsigned nr_items;
+	struct ifino_s items[50];
+};
+
+extern struct ifino_s *ifname_ino_ptr(struct ifname_ino_tbl *ifinotbl, const char *ifname);
+extern ino_t get_iface_inode(const char *ifname);
 extern unsigned int netdev_calc(char *ifname, char *ifname_desc, unsigned long *rx, unsigned long *tx, char *ifname_desc2, unsigned long *rx2, unsigned long *tx2);
 extern int get_iface_hwaddr(char *name, unsigned char *hwaddr);
 #if defined(RTCONFIG_SOC_IPQ8064)

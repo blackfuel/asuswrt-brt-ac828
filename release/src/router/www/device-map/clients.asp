@@ -483,7 +483,7 @@ function updateClientList(e){
 				<td>
 					<div id="tabOnline" class="tabclick_NW" align="center">
 						<span>
-							Online
+							<#Clientlist_Online#>
 						</span>
 					</div>
 					<script>
@@ -500,7 +500,7 @@ function updateClientList(e){
 				<td>
 					<div id="tabWired" class="tab_NW" align="center" style="display:none">
 						<span>
-							Wired (<b style="font-size:10px;" id="tabWiredNum">0</b>)
+							<#tm_wired#> (<b style="font-size:10px;" id="tabWiredNum">0</b>)
 						</span>
 					</div>
 					<script>
@@ -515,11 +515,11 @@ function updateClientList(e){
 					</script>
 				</td>
 				<td>
-					<div id="tabWireless" class="tab_NW" align="center" style="display:none">											
+					<div id="tabWireless" class="tab_NW" align="center" style="display:none;position:relative;min-width:85px;">
     					<span id="tabWirelessSpan">
-							Wireless (<b style="font-size:10px;" id="tabWirelessNum">0</b>)
+							<#tm_wireless#> (<b style="font-size:10px;" id="tabWirelessNum">0</b>)
 						</span>
-						<nav class="nav" id="select_wlclient_band"></nav>    
+						<nav class="nav" style="position:absolute;" id="select_wlclient_band"></nav>
 					</div>
 					<script>
 						function switchTab_drawClientList(wband){

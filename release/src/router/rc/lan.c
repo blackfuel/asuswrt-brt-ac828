@@ -1657,6 +1657,12 @@ int set_bonding(const char *bond_if, const char *mode, const char *policy)
 			cprintf("%s: FAIL ! (%s)(%s)\n", __func__, path, value);
 	}
 
+	if (!strcmp(mode, "802.3ad") || !strcmp(mode, "4")) {
+		snprintf(path, sizeof(path), bonding_entry, bond_if, "all_slaves_active");
+		if (f_write_string(path, "1", 0, 0) <= 0)
+			cprintf("%s: FAIL !(%s)(%s)\n", __func__, path, "1");
+	}
+
 	set_iface_ps(bond_if, 3);
 
 	return 0;
@@ -1735,7 +1741,7 @@ void update_subnet_rulelist(void){
 	char *ema;
 	char *macipbinding;
 	char *gateway, *lan_ipaddr;
-	char subnet_rulelist[1024];
+	char subnet_rulelist[(sizeof(SUBNET_RULE_EXAMPLE) + sizeof(SUBNET_STATICLIST_EXAMPLE) * STATIC_MAC_IP_BINDING_PER_VLAN) * (VLAN_MAX_NUM - 1) + sizeof(DHCP_STATICLIST_EXAMPLE) * STATIC_MAC_IP_BINDING_PER_LAN + 8];	/* 2954 +2240 + 8 */
 	char *tmpbuf;
 	int index = 0;
 

@@ -181,12 +181,13 @@ static void init_switch_qca(void)
 		"qca-nss-gmac", "qca-nss-drv",
 		"qca-nss-qdisc",
 #if defined(RTCONFIG_STRONGSWAN) ||  defined(RTCONFIG_QUICKSEC)
-		"tunnel4",
+/*		"tunnel4",
 		"qca-nss-capwapmgr", "qca-nss-cfi-cryptoapi",
 		"qca-nss-crypto-tool", "qca-nss-crypto",
 		"qca-nss-profile-drv", "qca-nss-tun6rd",
 		"qca-nss-tunipip6", "qca-nss-ipsec",
-		"qca-nss-ipsecmgr", "qca-nss-cfi-ocf", 
+		"qca-nss-ipsecmgr", "qca-nss-cfi-ocf", */
+		"qca-nss-cfi-cryptoapi", 
 #endif
 		NULL
 	}, **qmod;
@@ -194,7 +195,10 @@ static void init_switch_qca(void)
 	for (qmod = &qca_nss_list[0]; *qmod != NULL; ++qmod) {
 		if (module_loaded(*qmod))
 			continue;
-
+		if (!strcmp(*qmod, "qca-nss-cfi-cryptoapi")) {
+			if (nvram_get_int("ipsec_hw_crypto_enable") == 0)
+			continue;
+		}
 		modprobe(*qmod);
 	}
 #endif
