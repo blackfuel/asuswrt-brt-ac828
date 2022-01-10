@@ -61,22 +61,22 @@ function applyRule(){
 
 function isPortConflict_webdav(obj){
 	if(obj.value == '<% nvram_get("login_port"); %>'){
-		alert("<#portConflictHint#> HTTP LAN port.");
+		alert("<#portConflictHint#>: HTTP LAN port.");
 		obj.focus();
 		return false;
 	}	
 	else if(obj.value == '<% nvram_get("dm_http_port"); %>'){
-		alert("<#portConflictHint#> Download Master.");
+		alert("<#portConflictHint#>: <#DM_title#>.");
 		obj.focus();
 		return false;
 	}	
 	else if(obj.value == '<% nvram_get("misc_httpsport_x"); %>'){
-		alert("<#portConflictHint#> [<#FirewallConfig_x_WanWebPort_itemname#>(HTTPS)].");
+		alert("<#portConflictHint#>: [<#FirewallConfig_x_WanWebPort_itemname#>(HTTPS)].");
 		obj.focus();
 		return false;
 	}	
 	else if(obj.value == '<% nvram_get("misc_httpport_x"); %>'){
-		alert("<#portConflictHint#> [<#FirewallConfig_x_WanWebPort_itemname#>(HTTP)].");
+		alert("<#portConflictHint#>: [<#FirewallConfig_x_WanWebPort_itemname#>(HTTP)].");
 		obj.focus();
 		return false;
 	}
@@ -91,7 +91,7 @@ function unlockAcc(){
 }
 </script>
 </head>
-<body onload="initial();" onunload="return unload_body();">
+<body onload="initial();" onunload="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" width="0" height="0" frameborder="0" scrolling="no"></iframe>
@@ -114,29 +114,7 @@ function unlockAcc(){
 			<div id="subMenu"></div>
 		</td>
 		<td valign="top">
-			<div id="tabMenu" class="submenuBlock">
-				<table border="0" cellspacing="0" cellpadding="0">
-					<tbody>
-					<tr>
-						<td>
-							<a href="cloud_main.asp"><div class="tab"><span>AiCloud 2.0</span></div></a>
-						</td>
-						<td>
-							<a id="smart_sync_link" href="cloud_sync.asp"><div class="tab"><span><#smart_sync#></span></div></a>
-						</td>
-						<td>
-							<a id="rrsLink" href="cloud_router_sync.asp"><div class="tab"><span><#Server_Sync#></span></div></a>
-						</td>
-						<td>
-							<div class="tabclick"><span><#Settings#></span></div>
-						</td>
-						<td>
-							<a href="cloud_syslog.asp"><div class="tab"><span><#Log#></span></div></a>
-						</td>
-					</tr>
-					</tbody>
-				</table>
-			</div>
+			<div id="tabMenu" class="submenuBlock"></div>
 <!--==============Beginning of hint content=============-->
 			<table width="98%" border="0" align="left" cellpadding="0" cellspacing="0">
 			  <tr>
@@ -147,8 +125,7 @@ function unlockAcc(){
 							  <td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle">AiCloud 2.0 - <#Settings#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
-
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 								  <div class="formfontdesc" style="font-style: italic;font-size: 14px;">
 										<#AiCloud_PWD_Mechanism#><br>
 										<#AiCloud_PWD_note1#><br>
@@ -158,7 +135,7 @@ function unlockAcc(){
 
 									<table width="100%" style="border-collapse:collapse;">
 
-									  <tr bgcolor="#444f53">
+									  <tr bgcolor="#4D595D">
 									    <td colspan="5" class="cloud_main_radius">
 												<div style="padding:30px;font-size:18px;word-break:break-all;border-style:dashed;border-radius:10px;border-width:1px;border-color:#999;">
 													<div><#AiCloud_PWD_enable#></div>
@@ -220,7 +197,7 @@ function unlockAcc(){
 											</td>
 									  </tr>
 
-									  <tr bgcolor="#444f53">
+									  <tr bgcolor="#4D595D">
 									    <td colspan="5" class="cloud_main_radius">
 												<div style="padding:30px;font-size:18px;word-break:break-all;border-style:dashed;border-radius:10px;border-width:1px;border-color:#999;">
 													<#AiCloud_webport#> <input type="text" name="webdav_https_port" class="input_6_table" maxlength="5" onKeyPress="return validator.isNumber(this,event);" value="<% nvram_get("webdav_https_port"); %>" autocorrect="off" autocapitalize="off">

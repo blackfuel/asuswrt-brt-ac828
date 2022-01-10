@@ -22,15 +22,23 @@ LDFLAGS += -L.
 
 vpath %.c $(SRCBASE)/bcmcrypto
 ifeq ($(RTCONFIG_BCMARM),y)
+ifeq ($(HND_ROUTER),y)
+vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.hnd
+else
 vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.arm
+endif
 else ifeq ($(RTCONFIG_RALINK),y)
 vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.mipsel
-else ifeq ($(RTCONFIG_QCA),y)
-ifeq ($(ARCH),arm)
+else ifeq ($(RTCONFIG_SOC_IPQ40XX),y)
+vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.qca_arm
+else ifeq ($(or $(RTCONFIG_SOC_IPQ8064),$(RTCONFIG_SOC_IPQ8074)),y)
 vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.qca.ipq806x
-else
-vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.qca
-endif
+else ifeq ($(RTCONFIG_QCA),y)
+vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.qca	# QCA MIPS
+else ifeq ($(RTCONFIG_ALPINE),y)
+vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.alpine
+else ifeq ($(RTCONFIG_LANTIQ),y)
+vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.lantiq
 else
 vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt.mipsel
 endif

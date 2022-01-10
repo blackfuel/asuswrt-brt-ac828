@@ -16,7 +16,7 @@ endif
 PF_EXT_SLIB+=ROUTE SNAT TCPMSS TRIGGER TTL NETMAP #TOS
 PF_EXT_SLIB+=connmark icmp iprange ttl #condition connlimit
 PF_EXT_SLIB+=length limit mac multiport standard state #recent quota mark
-PF_EXT_SLIB+=tcp tcpmss time u32 udp connbytes webstr webmon string #dscp tos web
+PF_EXT_SLIB+=tcp tcpmss time u32 udp connbytes webstr string #dscp tos web
 PF_EXT_SLIB+=IMQ #ipp2p geoip
 PF_EXT_SLIB+=conntrack
 ifeq ($(CONFIG_LINUX26),y)
@@ -25,7 +25,7 @@ endif
 
 ifeq ($(DO_IPV6), 1)
 PF6_EXT_SLIB:=connmark icmp6 length limit mac multiport standard state rt hl #mark
-PF6_EXT_SLIB+=tcp udp time u32 CONNMARK LOG MARK REJECT IMQ TCPMSS webstr
+PF6_EXT_SLIB+=tcp udp time u32 CONNMARK LOG MARK REJECT IMQ TCPMSS webstr string
 ifeq ($(CONFIG_BCMWL5),y)
 PF6_EXT_SLIB+=SKIPLOG
 endif

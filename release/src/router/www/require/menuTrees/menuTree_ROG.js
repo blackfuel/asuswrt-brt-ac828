@@ -1,4 +1,5 @@
-﻿define(function(){
+﻿/* menuTree_ROG.js */
+define(function(){
 	var menuTree = {
 		list: [
 			/*
@@ -34,7 +35,7 @@
 				] 
 			},
 			{
-				menuName: "Dash Board",
+				menuName: "<#AiProtection_title_Dashboard_title#>",
 				index: "menu_Dashboard",
 				tab: [
 					{url: "GameDashboard.asp", tabName: "__HIDE__"},
@@ -42,64 +43,58 @@
 				]
 			}, 
 			{
-				menuName: "Game IPS",
+				menuName: "<#AiProtection_title#>",
 				index: "menu_AiProtection", 
 				tab: [
 					{url: "AiProtection_HomeSecurity.asp", tabName: "__HIDE__"},
 					{url: "AiProtection_HomeProtection.asp", tabName: "<#AiProtection_Home#>"},
 					{url: "AiProtection_MaliciousSitesBlocking.asp", tabName: "<#AiProtection_sites_blocking#>"},
-					{url: "AiProtection_IntrusionPreventionSystem.asp", tabName: "Two-Way IPS"},
+					{url: "AiProtection_IntrusionPreventionSystem.asp", tabName: "<#AiProtection_two-way_IPS#>"},
 					{url: "AiProtection_InfectedDevicePreventBlock.asp", tabName: "<#AiProtection_detection_blocking#>"},
 					{url: "AiProtection_WebProtector.asp", tabName: "<#Parental_Control#>"},
 					{url: "ParentalControl.asp", tabName: "__INHERIT__"},
 					{url: "AiProtection_AdBlock.asp", tabName: "Ad Blocking"},
 					{url: "AiProtection_Key_Guard.asp", tabName: "Key Guard"},
+					{url: "YandexDNS.asp", tabName: "<#YandexDNS#>"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
 			{
-				menuName: "<#Game_Boost#>",
+				menuName: "Game Acceleration",
 				index: "menu_GameBoost",
 				tab: [
-					{url: "GameBoost_ROG.asp", tabName: "<#Game_Boost#>"},
+					{url: "GameBoost.asp", tabName: "Game Acceleration"},
 					{url: "QoS_EZQoS.asp", tabName: "<#menu5_3_2#>"},
-					{url: "AdaptiveQoS_WebHistory.asp", tabName: "<#Adaptive_History#>"},
-					{url: "Main_Spectrum_Content.asp", tabName: "Spectrum"},
+					//{url: "AdaptiveQoS_WebHistory.asp", tabName: "<#Adaptive_History#>"},
+					//{url: "Main_Spectrum_Content.asp", tabName: "<#Spectrum_title#>"},
 					{url: "Advanced_QOSUserPrio_Content.asp", tabName: "__INHERIT__"},
 					{url: "Advanced_QOSUserRules_Content.asp", tabName: "__INHERIT__"},
-					{url: "AdaptiveQoS_Adaptive.asp", tabName: "__INHERIT__"},
-					{url: "Bandwidth_Limiter.asp", tabName: "__INHERIT__"},
+					{url: "Advanced_WTFast_Content.asp", tabName: "WTFast"},
+					//{url: "AdaptiveQoS_Adaptive.asp", tabName: "__INHERIT__"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
 			{
-				menuName: "Game Private Network",
-				index: "menu_Wtfast",
-				tab: [
-					{url: "Advanced_WTFast_Content.asp", tabName: "<#Game_Boost#>"},
-					{url: "NULL", tabName: "__INHERIT__"}
-				] 
-			},			{
-				menuName: "Game Profile",
+				menuName: "Open NAT",
 				index: "menu_GameProfile", 
 				tab: [
-					{url: "GameProfile.asp", tabName: "Game Profile"},
+					{url: "GameProfile.asp", tabName: "Open NAT"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
 			{
-				menuName: "Game Radar",
+				menuName: "<#AiProtection_title_Radar#>",
 				index: "menu_GameRadar", 
 				tab: [
-					{url: "Main_GameServer_Content.asp", tabName: "Game Radar"},
+					{url: "Main_GameServer_Content.asp", tabName: "<#AiProtection_title_Radar#>"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
 			{
-				menuName: "WiFi Radar",
+				menuName: "<#WiFi_radar#>",
 				index: "menu_WifiRadar", 
 				tab: [
-					{url: "WiFi_Insight.asp", tabName: "WiFi Radar"},
+					{url: "WiFi_Insight.asp", tabName: "<#WiFi_radar#>"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
@@ -110,7 +105,7 @@
 					{url: "Advanced_VPN_PPTP.asp", tabName: "<#BOP_isp_heart_item#>"},
 					{url: "Advanced_VPN_OpenVPN.asp", tabName: "__INHERIT__"},
 					{url: "Advanced_VPN_IPSec.asp", tabName: "__INHERIT__"},
-					{url: "Advanced_VPNClient_Content.asp", tabName: "<#vpnc_title#>"},
+					{url: "Advanced_VPNClient_Content.asp", tabName: (vpn_fusion_support) ? "<#VPN_Fusion#>" : "<#vpnc_title#>"},
 					{url: "Advanced_TOR_Content.asp", tabName: "TOR"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				]
@@ -119,11 +114,13 @@
 				menuName: "<#Traffic_Analyzer#>",
 				index: "menu_TrafficAnalyzer", 
 				tab: [
-					{url: "TrafficAnalyzer_Statistic.asp", tabName: "Statistic"},
+					{url: "TrafficAnalyzer_Statistic.asp", tabName: "<#Statistic#>"},
+					{url: "AdaptiveQoS_Bandwidth_Monitor.asp", tabName: "<#Bandwidth_monitor#>"},
 					{url: "Main_TrafficMonitor_realtime.asp", tabName: "<#traffic_monitor#>"},
 					{url: "Main_TrafficMonitor_last24.asp", tabName: "__INHERIT__"},
 					{url: "Main_TrafficMonitor_daily.asp", tabName: "__INHERIT__"},
 					{url: "AdaptiveQoS_TrafficLimiter.asp", tabName: "Traffic Limiter"},
+					{url: "AdaptiveQoS_WebHistory.asp", tabName: "<#Adaptive_History#>"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
@@ -155,7 +152,8 @@
 					{url: "Advanced_ACL_Content.asp", tabName: "<#menu5_1_4#>"},
 					{url: "Advanced_WSecurity_Content.asp", tabName: "<#menu5_1_5#>"},
 					{url: "Advanced_WAdvanced_Content.asp", tabName: "<#menu5_1_6#>"},
-					{url: "Advanced_WProxy_Content.asp", tabName: "Wi-Fi Proxy"},
+					{url: "Advanced_WProxy_Content.asp", tabName: "<#WiFi_Proxy_item#>"},
+					{url: "Advanced_Roaming_Block_Content.asp", tabName: "<#WiFi_Roaming_Block_List#>"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
@@ -189,6 +187,8 @@
 				tab: [
 					{url: "Advanced_WAN_Content.asp", tabName: "<#menu5_3_1#>"},
 					{url: "Advanced_DSL_Content.asp", tabName: "<#menu5_3_1#>"},
+					{url: "Advanced_Modem_Content.asp", tabName: "<#menu5_3_1#>"},
+					{url: "Advanced_MobileBroadband_Content.asp", tabName: "<#menu5_3_1#>"},
 					{url: "Advanced_WANPort_Content.asp", tabName: "<#dualwan#>"},
 					{url: "Advanced_PortTrigger_Content.asp", tabName: "<#menu5_3_3#>"},
 					{url: "Advanced_VirtualServer_Content.asp", tabName: "<#menu5_3_4#>"},
@@ -210,6 +210,7 @@
 					{url: "PrinterServer.asp", tabName: "__INHERIT__"},
 					{url: "Advanced_Modem_Content.asp", tabName: "__INHERIT__"},
 					{url: "Advanced_TimeMachine.asp", tabName: "__INHERIT__"},
+					{url: "fileflex.asp", tabName: "__INHERIT__"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
 			},
@@ -224,6 +225,15 @@
 					{url: "cloud_syslog.asp", tabName: "<#Log#>"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				] 
+			},
+			{
+				menuName: "Alexa & IFTTT",
+				index: "menu_Alexa_IFTTT",
+				tab: [
+					{url: "Advanced_Smart_Home_Alexa.asp", tabName: "__INHERIT__"},
+					{url: "Advanced_Smart_Home_IFTTT.asp", tabName: "__INHERIT__"},
+					{url: "NULL", tabName: "__INHERIT__"}
+				]
 			},
 			{
 				menuName: "IPv6",
@@ -241,8 +251,7 @@
 					{url: "Advanced_BasicFirewall_Content.asp", tabName: "<#menu5_1_1#>"},
 					{url: "Advanced_URLFilter_Content.asp", tabName: "<#menu5_5_2#>"},
 					{url: "Advanced_KeywordFilter_Content.asp", tabName: "<#menu5_5_5#>"},
-					{url: "Advanced_Firewall_Content.asp", tabName: "<#menu5_5_4#>"},
-					{url: "Advanced_Firewall_IPv6_Content.asp", tabName: "<#menu5_5_6#>"},			
+					{url: "Advanced_Firewall_Content.asp", tabName: "<#menu5_5_4#>"},			
 					{url: "NULL", tabName: "__INHERIT__"}
 				]
 			},
@@ -254,12 +263,14 @@
 					{url: "Advanced_System_Content.asp", tabName: "<#menu5_6_2#>"},
 					{url: "Advanced_FirmwareUpgrade_Content.asp", tabName: "<#menu5_6_3#>"},
 					{url: "Advanced_SettingBackup_Content.asp", tabName: "<#menu5_6_4#>"},
-					{url: "Advanced_PerformanceTuning_Content.asp", tabName: "Performance tuning"},
+					{url: "Advanced_PerformanceTuning_Content.asp", tabName: "Fan tuning"},
 					{url: "Advanced_ADSL_Content.asp", tabName: "<#menu_dsl_setting#>"},
 					{url: "Advanced_Feedback.asp", tabName: "<#menu_feedback#>"},
+					{url: "Feedback_Info.asp", tabName: "__INHERIT__"},
 					{url: "Advanced_SNMP_Content.asp", tabName: "SNMP"},
 					{url: "Advanced_TR069_Content.asp", tabName: "TR-069"},
 					{url: "Advanced_Notification_Content.asp", tabName: "Notification"},
+					{url: "Advanced_Privacy.asp", tabName: "<#menu_privacy#>"},
 					{url: "NULL", tabName: "__INHERIT__"}
 				]
 			},
@@ -296,11 +307,7 @@
 			menus: function(){
 				var retArray = [];
 
-				if(multissid_support == -1){
-					retArray.push("menu_GuestNetwork");
-				}
-
-				if(multissid_support == -1){
+				if(!multissid_support){
 					retArray.push("menu_GuestNetwork");
 				}
 
@@ -316,6 +323,10 @@
 
 				if(!cloudsync_support && !aicloudipk_support){
 					retArray.push("menu_AiCloud");
+				}
+
+				if(!ifttt_support && !alexa_support){
+					retArray.push("menu_Alexa_IFTTT");
 				}
 
 				if(!IPv6_support){
@@ -362,6 +373,10 @@
 					if(wlc_express != 0){
 						retArray.push("menu_Wireless");
 					}
+
+					if(ifttt_support || alexa_support){
+						retArray.push("menu_Alexa_IFTTT");
+					}
 				}
 				else if(isSwMode("ap")){
 					retArray.push("menu_GameBoost");
@@ -377,6 +392,10 @@
 					retArray.push("menu_VPN");
 					retArray.push("menu_VLAN");
 					retArray.push("menu_Firewall");
+
+					if(ifttt_support || alexa_support){
+						retArray.push("menu_Alexa_IFTTT");
+					}
 				}
 				else if(isSwMode("mb")){
 					retArray.push("menu_GameBoost");
@@ -384,6 +403,7 @@
 					retArray.push("menu_AccessControl");
 					retArray.push("menu_Wtfast");
 					retArray.push("menu_GameProfile");
+					retArray.push("menu_WifiRadar");
 					retArray.push("menu_TrafficAnalyzer");
 					retArray.push("menu_QoS");
 					retArray.push("menu_BandwidthMonitor");
@@ -394,6 +414,10 @@
 					retArray.push("menu_VPN");
 					retArray.push("menu_VLAN");
 					retArray.push("menu_Firewall");
+
+					if(ifttt_support || alexa_support){
+						retArray.push("menu_Alexa_IFTTT");
+					}
 				}
 
 				return retArray;
@@ -437,6 +461,10 @@
 					retArray.push("Advanced_VPN_OpenVPN.asp");
 				}	
 
+				if(!ipsec_srv_support){
+					retArray.push("Advanced_VPN_IPSec.asp");
+				}
+
 				if(!vpnc_support){
 					retArray.push("Advanced_VPNClient_Content.asp");
 				}
@@ -449,8 +477,9 @@
 					retArray.push("YandexDNS.asp");
 				}
 
-				if(!feedback_support) {		
+				if(!frs_feedback_support) {		
 					retArray.push("Advanced_Feedback.asp");
+					retArray.push("Feedback_Info.asp");
 				}
 
 				if(noftp_support){
@@ -459,6 +488,21 @@
 				
 				if(!dualWAN_support){
 					retArray.push("Advanced_WANPort_Content.asp");
+					retArray.push("Advanced_Modem_Content.asp");
+					retArray.push("Advanced_MobileBroadband_Content.asp");
+				}
+				else{
+					if(!dualwan_enabled && usb_index == 0){
+						retArray.push("Advanced_WAN_Content.asp");
+						if(!gobi_support)
+							retArray.push("Advanced_MobileBroadband_Content.asp");
+						else
+							retArray.push("Advanced_Modem_Content.asp");
+					}
+					else{
+						retArray.push("Advanced_MobileBroadband_Content.asp");
+						retArray.push("Advanced_Modem_Content.asp");
+					}
 				}
 
 				if(!SwitchCtrl_support){
@@ -522,9 +566,16 @@
 					retArray.push("AdaptiveQoS_ROG.asp");
 				}
 
+				if(!alexa_support){
+					retArray.push("Advanced_Smart_Home_Alexa.asp");
+				}
+
+				if(!ifttt_support){
+					retArray.push("Advanced_Smart_Home_IFTTT.asp");
+				}
+
 				if(!IPv6_support){
 					retArray.push("Main_IPV6Status_Content.asp");
-					retArray.push("Advanced_Firewall_IPv6_Content.asp");
 				}
 
 				if(!fbwifi_support){
@@ -538,7 +589,7 @@
 				else
 					retArray.push("Advanced_DHCP_Content.asp");
 
-				if(!Rawifi_support || !concurrep_support || !isSwMode("re")){
+				if(!wifiproxy_support || !concurrep_support || !isSwMode("re")){
 					retArray.push("Advanced_WProxy_Content.asp");
 				}
 				
@@ -556,6 +607,23 @@
 				if(!cooler_support){
 					retArray.push("Advanced_PerformanceTuning_Content.asp");
 				}
+
+				if(!rrsut_support)
+					retArray.push("cloud_router_sync.asp");
+
+				if(!amesh_support)
+					retArray.push("Advanced_Roaming_Block_Content.asp");
+				else{
+					if(ameshRouter_support){
+						if(!isSwMode("rt") && !isSwMode("ap"))
+							retArray.push("Advanced_Roaming_Block_Content.asp");
+					}
+					else if(ameshNode_support)
+						retArray.push("Advanced_Roaming_Block_Content.asp");
+				}
+
+				if(!fileflex_support)
+					retArray.push("fileflex.asp");
 
 				/* Operation Mode */
 				if(isSwMode("re")){
@@ -609,7 +677,7 @@
 					retArray.push("Advanced_DHCP_Content.asp");
 					retArray.push("Advanced_MultiSubnet_Content.asp");
 					retArray.push("Advanced_GWStaticRoute_Content.asp");
-					retArray.push("Advanced_IPTV_Content.asp");								
+					retArray.push("Advanced_IPTV_Content.asp");
 					retArray.push("Advanced_SwitchCtrl_Content.asp");
 					retArray.push("Main_DHCPStatus_Content.asp");
 					retArray.push("Main_IPV6Status_Content.asp");

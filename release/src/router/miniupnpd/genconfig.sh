@@ -15,6 +15,8 @@ case "$argv" in
 	--vendorcfg) VENDORCFG=1 ;;
 	--pcp-peer) PCP_PEER=1 ;;
 	--portinuse) PORTINUSE=1 ;;
+	--aurasync) AURASYNC=1 ;;
+	--nvgfn) NVGFN=1 ;;
 	--help|-h)
 		echo "Usage : $0 [options]"
 		echo " --ipv6      enable IPv6"
@@ -365,6 +367,16 @@ echo "/* Comment the following line to disable NAT-PMP operations */" >> ${CONFI
 echo "#define ENABLE_NATPMP" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
+if [ -n "$AURASYNC" ]; then
+	echo "#define ENABLE_AURASYNC" >> ${CONFIGFILE}
+	echo "" >> ${CONFIGFILE}
+fi
+
+if [ -n "$NVGFN" ]; then
+	echo "#define ENABLE_NVGFN" >> ${CONFIGFILE}
+	echo "" >> ${CONFIGFILE}
+fi
+
 echo "/* Comment the following line to disable PCP operations */" >> ${CONFIGFILE}
 echo "#define ENABLE_PCP" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
@@ -414,6 +426,8 @@ if [ -n "$LEASEFILE" ] ; then
 else
 	echo "/*#define ENABLE_LEASEFILE*/" >> ${CONFIGFILE}
 fi
+echo "/* Uncomment the following line to store remaining time in lease file */" >> ${CONFIGFILE}
+echo "#define LEASEFILE_USE_REMAINING_TIME" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "/* Uncomment the following line to enable port in use check */" >> ${CONFIGFILE}

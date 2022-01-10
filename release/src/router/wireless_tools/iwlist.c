@@ -13,6 +13,7 @@
 
 #include "iwlib.h"		/* Header */
 #include <sys/time.h>
+#include "../shared/rtconfig.h"
 
 /****************************** TYPES ******************************/
 
@@ -624,7 +625,12 @@ print_scanning_info(int		skfd,
   struct iw_range	range;
   int			has_range;
   struct timeval	tv;				/* Select timeout */
+#if defined(RTCONFIG_QCA)
+  int			timeout = 45000000;		/* 45s */
+#else
   int			timeout = 15000000;		/* 15s */
+#endif
+  int first __attribute__((unused)) = 1;
 
   /* Avoid "Unused parameter" warning */
   args = args; count = count;
@@ -782,7 +788,20 @@ print_scanning_info(int		skfd,
 
 	realloc:
 	  /* (Re)allocate the buffer - realloc(NULL, len) == malloc(len) */
+#if defined(RTCONFIG_QCA)
+	  if (first) {
+			if ((newbuf = realloc(buffer, 32767)) != NULL) {
+				buflen = 32767;
+			} else {
+				newbuf = realloc(buffer, buflen);
+		  }
+		  first = 0;
+	  } else {
+			newbuf = realloc(buffer, buflen);
+		}
+#else
 	  newbuf = realloc(buffer, buflen);
+#endif
 	  if(newbuf == NULL)
 	    {
 	      if(buffer)
@@ -799,7 +818,7 @@ print_scanning_info(int		skfd,
 	  if(iw_get_ext(skfd, ifname, SIOCGIWSCAN, &wrq) < 0)
 	    {
 	      /* Check if buffer was too small (WE-17 only) */
-	      if((errno == E2BIG) && (range.we_version_compiled > 16))
+	      if((errno == E2BIG) && (range.we_version_compiled > 16) && (buflen < 65535))
 		{
 		  /* Some driver may return very large scan results, either
 		   * because there are many cells, or because they have many
@@ -814,6 +833,9 @@ print_scanning_info(int		skfd,
 		    buflen = wrq.u.data.length;
 		  else
 		    buflen *= 2;
+
+		  if(buflen > 65535)
+		    buflen = 65535;
 
 		  /* Try again */
 		  goto realloc;

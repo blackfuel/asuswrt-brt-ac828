@@ -18,12 +18,19 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <sys/sysinfo.h>
+#ifdef HND_ROUTER
+#include <limits.h>
+#include <time.h>
+#endif
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <dirent.h>
 #include <ctype.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <sys/un.h>
+#include <sys/mman.h>
+#include <asm/byteorder.h>
 
 #include <bcmnvram.h>
 #include <bcmdevs.h>
@@ -36,6 +43,14 @@
 #define	ETHER_ADDR_LEN		6
 #endif
 
+#ifndef MULTICAST_BIT
+#define MULTICAST_BIT  0x0001
+#endif
+
+#if defined(RTCONFIG_QCA)
+#include <qca.h>
+#endif
+
 #if (defined(RTCONFIG_RALINK) || defined(RTCONFIG_QCA))
 #else
 #include <wlioctl.h>
@@ -44,9 +59,6 @@
 #define MAC_FMT "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X"
 #define MAC_ARG(x) (x)[0],(x)[1],(x)[2],(x)[3],(x)[4],(x)[5]
 #endif
-
-
-
 
 extern char *read_whole_file(const char *target){
 	FILE *fp;
@@ -106,99 +118,36 @@ extern char *get_line_from_buffer(const char *buf, char *line, const int line_si
 	return line;
 }
 
-extern char *get_upper_str(const char *const str, char **target){
-	int len, i;
-	char *ptr;
+#ifdef HND_ROUTER
+// defined (__GLIBC__) && !defined(__UCLIBC__)
+size_t strlcpy(char *dst, const char *src, size_t size)
+{
+	size_t srclen, len;
 
-	len = strlen(str);
-	*target = (char *)malloc(sizeof(char)*(len+1));
-	if(*target == NULL){
-		_dprintf("No memory \"*target\".\n");
-		return NULL;
-	}
-	ptr = *target;
-	for(i = 0; i < len; ++i)
-		ptr[i] = toupper(str[i]);
-	ptr[len] = 0;
+	srclen = strlen(src);
+	if (size <= 0)
+		return srclen;
 
-	return ptr;
+	len = (srclen < size) ? srclen : size - 1;
+	memcpy(dst, src, len); /* should not overlap */
+	dst[len] = '\0';
+
+	return srclen;
 }
 
-extern int upper_strcmp(const char *const str1, const char *const str2){
-	char *upper_str1, *upper_str2;
-	int ret;
+size_t strlcat(char *dst, const char *src, size_t size)
+{
+	size_t dstlen;
+	char *null;
 
-	if(str1 == NULL || str2 == NULL)
-		return -1;
+	null = memchr(dst, '\0', size);
+	if (null == NULL)
+		null = dst + size;
+	dstlen = null - dst;
 
-	if(get_upper_str(str1, &upper_str1) == NULL)
-		return -1;
-
-	if(get_upper_str(str2, &upper_str2) == NULL){
-		free(upper_str1);
-		return -1;
-	}
-
-	ret = strcmp(upper_str1, upper_str2);
-	free(upper_str1);
-	free(upper_str2);
-
-	return ret;
+	return dstlen + strlcpy(null, src, size - dstlen);
 }
-
-extern int upper_strncmp(const char *const str1, const char *const str2, int count){
-	char *upper_str1, *upper_str2;
-	int ret;
-
-	if(str1 == NULL || str2 == NULL)
-		return -1;
-
-	if(get_upper_str(str1, &upper_str1) == NULL)
-		return -1;
-
-	if(get_upper_str(str2, &upper_str2) == NULL){
-		free(upper_str1);
-		return -1;
-	}
-
-	ret = strncmp(upper_str1, upper_str2, count);
-	free(upper_str1);
-	free(upper_str2);
-
-	return ret;
-}
-
-extern char *upper_strstr(const char *const str, const char *const target){
-	char *upper_str, *upper_target;
-	char *ret;
-	int len;
-
-	if(str == NULL || target == NULL)
-		return NULL;
-
-	if(get_upper_str(str, &upper_str) == NULL)
-		return NULL;
-
-	if(get_upper_str(target, &upper_target) == NULL){
-		free(upper_str);
-		return NULL;
-	}
-
-	ret = strstr(upper_str, upper_target);
-	if(ret == NULL){
-		free(upper_str);
-		free(upper_target);
-		return NULL;
-	}
-
-	if((len = upper_str-ret) < 0)
-		len = ret-upper_str;
-
-	free(upper_str);
-	free(upper_target);
-
-	return (char *)(str+len);
-}
+#endif
 
 in_addr_t inet_addr_(const char *addr)
 {
@@ -382,6 +331,29 @@ int illegal_ipv4_netmask(char *netmask)
 	return 0;
 }
 
+#if defined(RTCONFIG_QCA) || defined(RTCONFIG_LANTIQ)
+void convert_mac_string(char *mac)
+{
+	int i;
+	char mac_str[18], mac_str_t[18];
+	memset(mac_str,0,sizeof(mac_str));
+
+	for(i=0;i<strlen(mac);i++)
+	{
+		if(*(mac+i)>0x60 && *(mac+i)<0x67){
+			snprintf(mac_str_t, sizeof(mac_str), "%s%c",mac_str,*(mac+i)-0x20);
+			strlcpy(mac_str, mac_str_t, sizeof(mac_str));
+		}
+		else{
+			snprintf(mac_str_t, sizeof(mac_str), "%s%c",mac_str,*(mac+i));
+			strlcpy(mac_str, mac_str_t, sizeof(mac_str));
+		}
+
+	}
+	strlcpy(mac, mac_str, strlen(mac_str) + 1);
+}
+#endif
+
 #if defined(RTCONFIG_PORT_BASED_VLAN) || defined(RTCONFIG_TAGGED_BASED_VLAN)
 /**
  * Get all vlan rules.
@@ -473,6 +445,91 @@ void post_config_switch(void)
 {
 	if (__post_config_switch)
 		__post_config_switch();
+}
+
+/**
+ * Executed at end of start_lan()
+ */
+void post_start_lan(void)
+{
+	if (__post_start_lan)
+		__post_start_lan();
+}
+
+/**
+ * Executed at end of start_lan_wl()
+ */
+void post_start_lan_wl(void)
+{
+	if (__post_start_lan_wl)
+		__post_start_lan_wl();
+}
+
+/**
+ * Find-out whether a model use software bridge to implement IPTV or not.
+ * If yes, implement and return true in model-specific __sw_based_iptv().
+ * set_basic_ifname_vars() will use bridge interface, e.g., brvXXX,
+ * as WAN interface instead of VLAN interface, e.g., vlanXXX.
+ * @return:
+ * 	0:	This model doesn't use software bridge to implement IPTV.
+ *  otherwise:	This model do use software bridge to implement IPTV.
+ */
+int sw_based_iptv(void)
+{
+	if (__sw_based_iptv)
+		return __sw_based_iptv();
+	return 0;
+}
+
+/**
+ * If a model need to use custom VLAN to bridge WAN/STB port, define your
+ * own __sw_bridge_iptv_different_switches() and return 1 there.
+ * @return:
+ * 	0:	This model doesn't use VLAN to bridge WAN/STB port on different switches.
+ *  otherwise:	This model do use VLAN to bridge WAN/STB port on different switches.
+ */
+int sw_bridge_iptv_different_switches(void)
+{
+	if (__sw_bridge_iptv_different_switches)
+		return __sw_bridge_iptv_different_switches();
+	return 0;
+}
+
+/* Get VLAN ID that is used to bridge software-based IPTV implementation.
+ * @return:	VLAN ID
+ */
+int get_sw_bridge_iptv_vid(void)
+{
+	int vid;
+
+	vid = nvram_get_int("switch_br_vid");
+	if (vid > 2 && vid < 4096)
+		return vid;
+
+	return SW_IPTV_BRIDGE_VID;
+}
+
+/* Write @val to /sys/class/net/@iface/@param.
+ * @iface:	interface name
+ * @path:	relative path and filename under /sys/class/net/@iface
+ * @val:
+ * @return:
+ * 	0:	success
+ *     -1:	invalid parameter
+ *     -2:	@val is not writen completely.
+ */
+int set_netdev_sysfs_param(const char *iface, const char *param, const char *val)
+{
+	int r;
+	char path[sizeof(SYS_CLASS_NET) + 1 + IFNAMSIZ + 1 + 256];
+
+	if (!iface || !param || !val)
+		return -1;
+
+	snprintf(path, sizeof(path), "%s/%s/%s", SYS_CLASS_NET, iface, param);
+	r = f_write_string(path, val, 0, 0);
+
+	return (r < strlen(val))? -2 : 0;
 }
 
 #if defined(RTCONFIG_COOVACHILLI) || \
@@ -1104,7 +1161,7 @@ int test_and_get_free_uint_network(int t_class, uint32_t *exp_ip, uint32_t exp_c
 	    i < ARRAY_SIZE(known_network_tbl) && kn->ip && kn->cidr;
 	    ++i, ++kn)
 	{
-		m = min(exp_cidr, kn->cidr);
+		m = get_netmask(min(exp_cidr, kn->cidr));
 		if ((*exp_ip & m) == (kn->ip & m))
 			may_conflicts++;
 	}
@@ -1238,8 +1295,7 @@ enum wan_unit_e get_first_connected_public_wan_unit(void)
 	char prefix[sizeof("wanXXXXXX_")], link[sizeof("link_wanXXXXXX")];
 
 	for (i = WAN_UNIT_FIRST; i < WAN_UNIT_MAX; ++i) {
-		if (get_dualwan_by_unit(i) == WANS_DUALWAN_IF_NONE ||
-		    !is_wan_connect(i))
+		if (get_dualwan_by_unit(i) == WANS_DUALWAN_IF_NONE || !is_wan_connect(i))
 			continue;
 
 		/* If the WAN unit is configured as static IP, check link status too. */
@@ -1249,12 +1305,14 @@ enum wan_unit_e get_first_connected_public_wan_unit(void)
 				strlcpy(link, "link_wan", sizeof(link));
 			else
 				snprintf(link, sizeof(link), "link_wan%d", i);
+
 			if (!nvram_get_int(link))
 				continue;
 		}
+
 		snprintf(wan_ip, sizeof(wan_ip), "wan%d_ipaddr", i);
 		wan_public = is_private_subnet(nvram_safe_get(wan_ip));
-		if(wan_public) // wan_public = 0 is public IP, wan_public = 1, 2, 3 is private IP.
+		if(wan_public) // wan_public = 0 is public IP, wan_public = 1, 2, 3, 4 is private IP.
 			continue;
 		wan_unit = i;
 		break;
@@ -1296,7 +1354,7 @@ int get_ipv6_service_by_unit(int unit)
 	} services[] = {
 		{ "dhcp6",	IPV6_NATIVE_DHCP },
 #ifdef RTCONFIG_6RELAYD
-		{ "ipv6pt",     IPV6_PASSTHROUGH },
+		{ "ipv6pt",	IPV6_PASSTHROUGH },
 		{ "flets",	IPV6_PASSTHROUGH },
 #endif
 		{ "6to4",	IPV6_6TO4 },
@@ -1426,8 +1484,7 @@ void reset_ipv6_linklocal_addr(const char *ifname, int flush)
 
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-	mac = (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) ?
-		NULL : ifr.ifr_hwaddr.sa_data;
+	mac = (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) ? NULL : ifr.ifr_hwaddr.sa_data;
 	close(fd);
 
 	if (mac == NULL)
@@ -1443,8 +1500,10 @@ void reset_ipv6_linklocal_addr(const char *ifname, int flush)
 
 	if (flush)
 		eval("ip", "-6", "addr", "flush", "dev", (char *) ifname);
-	if (inet_ntop(AF_INET6, &addr, buf, sizeof(buf)))
-		eval("ip", "-6", "addr", "add", buf, "dev", (char *) ifname);
+	if (inet_ntop(AF_INET6, &addr, buf, sizeof(buf))) {
+		strlcat(buf, "/64", sizeof(buf));
+		eval("ip", "-6", "addr", "add", buf, "dev", (char *) ifname, "scope", "link");
+	}
 }
 
 int with_ipv6_linklocal_addr(const char *ifname)
@@ -1471,8 +1530,8 @@ const char *ipv6_gateway_address(void)
 	FILE *fp;
 	struct in6_addr addr;
 	char dest[41], nexthop[41], dev[17];
-	int mask, prefix, metric, flags;
-	int maxprefix, minmetric = minmetric;
+	int mask, prefix, maxprefix, flags;
+	unsigned int metric, minmetric = minmetric;
 
 	fp = fopen("/proc/net/ipv6_route", "r");
 	if (fp == NULL) {
@@ -1484,7 +1543,7 @@ const char *ipv6_gateway_address(void)
 	while (fscanf(fp, "%32s%x%*s%*x%32s%x%*x%*x%x%16s\n",
 		      &dest[7], &prefix, &nexthop[7], &metric, &flags, dev) == 6) {
 		/* Skip interfaces that are down and host routes */
-		if ((flags & (RTF_UP | RTF_HOST)) != RTF_UP)
+		if ((flags & (RTF_UP | RTF_HOST | RTF_REJECT)) != RTF_UP)
 			continue;
 
 		/* Skip dst not in "::/0 - 2000::/3" */
@@ -1506,7 +1565,7 @@ const char *ipv6_gateway_address(void)
 				continue;
 			inet_ntop(AF_INET6, &addr, buf, sizeof(buf));
 		} else
-			snprintf(buf, sizeof(buf), "::");
+			strlcpy(buf, "::", sizeof(buf));
 		maxprefix = prefix;
 		minmetric = metric;
 
@@ -1515,7 +1574,7 @@ const char *ipv6_gateway_address(void)
 	}
 	fclose(fp);
 
-	return *buf ? buf : NULL;
+	return (maxprefix < 0) ? NULL : buf;
 }
 #endif
 
@@ -1523,7 +1582,7 @@ int wl_client(int unit, int subunit)
 {
 	char *mode = nvram_safe_get(wl_nvname("mode", unit, subunit));
 
-	return ((strcmp(mode, "sta") == 0) || (strcmp(mode, "wet") == 0));
+	return ((strcmp(mode, "sta") == 0) || (strcmp(mode, "wet") == 0) || (strcmp(mode, "psta") == 0) || (strcmp(mode, "psr") == 0));
 }
 
 int foreach_wif(int include_vifs, void *param,
@@ -1541,6 +1600,7 @@ int foreach_wif(int include_vifs, void *param,
 
 	i = 0;
 	foreach(name, ifnames, next) {
+		SKIP_ABSENT_FAKE_IFACE(name);
 		if (nvifname_to_osifname(name, ifname, sizeof(ifname)) != 0)
 			continue;
 
@@ -1603,6 +1663,7 @@ void set_action(int a)
 
 	act.action = a;
 	act.pid = getpid();
+	memset(act.comm, 0, sizeof(act.comm));
 	snprintf(stat, sizeof(stat), "/proc/%d/stat", act.pid);
 	s = file2str(stat);
 	if (s) {
@@ -1633,8 +1694,8 @@ static int __check_action(struct action_s *pa)
 		if (--r == 0) return ACT_UNKNOWN;
 	}
 	if (pa)
-		*pa = act;
-	_dprintf("%d: check_action %d\n", getpid(), act.action);
+		memcpy(pa, &act, sizeof(act));
+	_dprintf("%d: check_action %d: %d(%s)\n", getpid(), act.action, act.pid, act.comm);
 
 	return act.action;
 }
@@ -1644,30 +1705,40 @@ int check_action(void)
 	return __check_action(NULL);
 }
 
+/* wait_action_idle(int n)
+ *
+ * n: the number (count down value) to try
+ *
+ * return value
+ * 	n: success and return the remainng value of n.
+ * 	0: fail
+ */
 int wait_action_idle(int n)
 {
 	int r;
 	struct action_s act;
 
-	while (n-- > 0) {
+	memset(&act, 0, sizeof(act));
+	while (n > 0) {
 		act.pid = 0;
-		if (__check_action(&act) == ACT_IDLE) return 1;
+		if (__check_action(&act) == ACT_IDLE) return n;
 		if (act.pid > 0 && !process_exists(act.pid)) {
 			if (!(r = unlink(ACTION_LOCK)) || errno == ENOENT) {
 				_dprintf("Terminated process, pid %d %s, hold action lock %d !!!\n",
 					act.pid, act.comm, act.action);
-				return 1;
+				return n;
 			}
 			_dprintf("Remove " ACTION_LOCK " failed. errno %d (%s)\n", errno, strerror(errno));
 		}
 		sleep(1);
+		n--;
 	}
 	_dprintf("pid %d %s hold action lock %d !!!\n", act.pid, act.comm, act.action);
 	return 0;
 }
 
 const char *get_wanip(void)
-{	
+{
 	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
@@ -1821,8 +1892,10 @@ int is_intf_up(const char* ifname)
 	if (!((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0))
 	{
 		strcpy(ifr.ifr_name, ifname);
-		if (!ioctl(sfd, SIOCGIFFLAGS, &ifr) && (ifr.ifr_flags & IFF_UP))
-			ret = 1;
+		if (ioctl(sfd, SIOCGIFFLAGS, &ifr))
+			ret = -1;			/* interface not exist */
+		else if((ifr.ifr_flags & IFF_UP))
+			ret = 1;			/* interface exist and up */
 
 		close(sfd);
 	}
@@ -1830,18 +1903,60 @@ int is_intf_up(const char* ifname)
 	return ret;
 }
 
+int aimesh_re_mode(void)
+{
+#ifdef RTCONFIG_LANTIQ
+	return (sw_mode() == SW_MODE_AP && nvram_get_int("wlc_psta") == 2);
+#else
+	return 0;
+#endif
+}
+
+char *wl_nvprefix(char *prefix, int prefix_size, int unit, int subunit)
+{
+	if(unit < 0)
+		strcpy(prefix, "wl_");
+#ifdef RTCONFIG_LANTIQ
+	else if(client_mode() && unit == nvram_get_int("wlc_band"))
+		snprintf(prefix, prefix_size, "wl%d.%d_", unit, 1);
+	else if(aimesh_re_mode())
+		snprintf(prefix, prefix_size, "wl%d.%d_", unit, 1);
+#endif
+	else if(subunit > 0)
+		snprintf(prefix, prefix_size, "wl%d.%d_", unit, subunit);
+	else
+		snprintf(prefix, prefix_size, "wl%d_", unit);
+
+	return prefix;
+}
+
 char *wl_nvname(const char *nv, int unit, int subunit)
 {
 	static char tmp[128];
-	char prefix[] = "wlXXXXXXXXXX_";
+	char prefix[] = "wlXXXXXXXXXXXXX_";
 
-	if (unit < 0)
-		strcpy(prefix, "wl_");
-	else if (subunit > 0)
-		snprintf(prefix, sizeof(prefix), "wl%d.%d_", unit, subunit);
-	else
-		snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+	wl_nvprefix(prefix, sizeof(prefix), unit, subunit);
+
 	return strcat_r(prefix, nv, tmp);
+}
+
+char *wl_nband_name(const char *nband)
+{
+	if (!nband || *nband == '\0') {
+		dbg("%s: invalid nband %p\n", __func__, nband);
+		return "2.4 GHz";
+	}
+
+	if (!strcmp(nband, "2"))
+		return "2.4 GHz";
+	else if (!strcmp(nband, "1"))
+		return "5 GHz";
+	else if (!strcmp(nband, "6"))
+		return "60 GHz";
+	else
+		dbg("%s: unknown nband [%s]\n", __func__, nband);
+
+	return "2.4 GHz";
 }
 
 // -----------------------------------------------------------------------------
@@ -1933,32 +2048,46 @@ int ubi_getinfo(const char *ubiname, int *dev, int *part, int *size)
 
 // -----------------------------------------------------------------------------
 
+/* 
+ * Get the value of an NVRAM variable, using supplied buffer.
+ * @param	name	name of variable to get
+ * @param	buf	local buffer for the value
+ * @param	bufsize	local buffer size
+ * @return	value of variable copied to local buffer or
+ *		NULL if undefined.
+ */
+char *nvram_get_r(const char *name, char *buf, size_t buflen)
+{
+	char *v = nvram_get(name);
+
+	if (v && buf) {
+		strlcpy(buf, v, buflen);
+		return buf;
+	}
+
+	return v;
+}
+
 /**
  * Combine prefix and name before nvram_get().
  * @prefix:
  * @name:
  * @return:
  */
-char *nvram_pf_get(char *prefix, const char *name)
+char *nvram_pf_get(const char *prefix, const char *name)
 {
+	char tmp[128], *t = tmp, *v;
 	size_t size;
-	char tmp[128], *t = tmp, *v = NULL;
 
 	if (!prefix || !name || *name == '\0')
 		return NULL;
 
-	if (!isprint(*prefix) || !isprint(*name)) {
-		dbg("%s: Invalid prefix 0x%x [%s] or name 0x%x [%s]?\n",
-			__func__, *prefix, prefix, *name, name);
-		return NULL;
-	}
-
 	size = strlen(prefix) + strlen(name) + 1;
-	if (size > sizeof(tmp))
+	if (size > sizeof(tmp)) {
 		t = malloc(size);
-
-	if (!t)
-		return NULL;
+		if (!t)
+			return NULL;
+	}
 
 	v = nvram_get(strcat_r(prefix, name, tmp));
 
@@ -1975,26 +2104,21 @@ char *nvram_pf_get(char *prefix, const char *name)
  * @value:
  * @return:
  */
-int nvram_pf_set(char *prefix, const char *name, const char *value)
+int nvram_pf_set(const char *prefix, const char *name, const char *value)
 {
-	int r = 0;
-	size_t size;
 	char tmp[128], *t = tmp;
+	size_t size;
+	int r;
 
 	if (!prefix || !name || *name == '\0')
-		return -1;
-
-	if (!isprint(*prefix) || !isprint(*name)) {
-		dbg("%s: Invalid prefix 0x%x or name 0x%x?\n", __func__, *prefix, *name);
-		return -2;
-	}
+		return -EINVAL;
 
 	size = strlen(prefix) + strlen(name) + 1;
-	if (size > sizeof(tmp))
+	if (size > sizeof(tmp)) {
 		t = malloc(size);
-
-	if (!t)
-		return -3;
+		if (!t)
+			return -ENOMEM;
+	}
 
 	r = nvram_set(strcat_r(prefix, name, tmp), value);
 
@@ -2009,7 +2133,7 @@ int nvram_get_int(const char *key)
 	return atoi(nvram_safe_get(key));
 }
 
-int nvram_pf_get_int(char *prefix, const char *key)
+int nvram_pf_get_int(const char *prefix, const char *key)
 {
 	return atoi(nvram_pf_safe_get(prefix, key));
 }
@@ -2022,7 +2146,7 @@ int nvram_set_int(const char *key, int value)
 	return nvram_set(key, nvramstr);
 }
 
-int nvram_pf_set_int(char *prefix, const char *key, int value)
+int nvram_pf_set_int(const char *prefix, const char *key, int value)
 {
 	char nvramstr[16];
 
@@ -2058,6 +2182,19 @@ int nvram_set_double(const char *key, double value)
 	char nvramstr[33];
 
 	snprintf(nvramstr, sizeof(nvramstr), "%.9g", value);
+	return nvram_set(key, nvramstr);
+}
+
+int nvram_get_hex(const char *key)
+{
+	return strtol(nvram_safe_get(key), NULL, 16);
+}
+
+int nvram_set_hex(const char *key, int value)
+{
+	char nvramstr[16];
+
+	snprintf(nvramstr, sizeof(nvramstr), "%x", value);
 	return nvram_set(key, nvramstr);
 }
 
@@ -2194,12 +2331,16 @@ static uint32 crc_table[256]={ 0x00000000,0x77073096,0xEE0E612C,0x990951BA,
 
 uint32_t crc_calc(uint32_t crc, const char *buf, int len)
 {
+#if !defined(RTCONFIG_LANTIQ) && !defined(RTCONFIG_ALPINE)
 	crc = crc ^ 0xffffffff;
+#endif
 	while (len-- > 0) {
 		crc = crc_table[(crc ^ *((unsigned char *)buf)) & 0xFF] ^ (crc >> 8);
 		buf++;
 	}
+#if !defined(RTCONFIG_LANTIQ) && !defined(RTCONFIG_ALPINE)
 	crc = crc ^ 0xffffffff;
+#endif
 	return crc;
 }
 
@@ -2208,7 +2349,6 @@ void bcmvlan_models(int model, char *vlan)
 {
 	switch (model) {
 	case MODEL_DSLAC68U:
-	case MODEL_RPAC68U:
 	case MODEL_RTAC68U:
 	case MODEL_RTAC87U:
 	case MODEL_RTAC56S:
@@ -2221,9 +2361,10 @@ void bcmvlan_models(int model, char *vlan)
 	case MODEL_RTAC53U:
 	case MODEL_RTAC3200:
 	case MODEL_RTAC88U:
+	case MODEL_RTAC86U:
 	case MODEL_RTAC3100:
 	case MODEL_RTAC5300:
-	case MODEL_RTAC5300R:
+	case MODEL_GTAC5300:
 	case MODEL_RTAC1200G:
 	case MODEL_RTAC1200GP:
 		strcpy(vlan, "vlan1");
@@ -2251,13 +2392,24 @@ void bcmvlan_models(int model, char *vlan)
 
 char *get_productid(void)
 {
-	char *productid = nvram_safe_get("productid");
 #ifdef RTCONFIG_ODMPID
-	char *odmpid = nvram_safe_get("odmpid");
-	if (*odmpid)
-		productid = odmpid;
+	char *productid = nvram_safe_get("odmpid");
+
+	if (*productid)
+		return productid;
 #endif
-	return productid;
+
+	return nvram_safe_get("productid");
+}
+
+char *get_lan_hostname(void)
+{
+	char *hostname = nvram_safe_get("lan_hostname");
+
+	if (*hostname && is_valid_hostname(hostname))
+		return hostname;
+
+	return get_productid();
 }
 
 int backup_rx;
@@ -2310,23 +2462,85 @@ ino_t get_iface_inode(const char *ifname)
 	return s.st_ino;
 }
 
-unsigned int netdev_calc(char *ifname, char *ifname_desc, unsigned long *rx, unsigned long *tx, char *ifname_desc2, unsigned long *rx2, unsigned long *tx2)		
+static void get_internet_desc(int unit, char *ifname_desc)
 {
+	if (!ifname_desc)
+		return;
+
+#ifdef RTCONFIG_DUALWAN
+	if (unit == WAN_UNIT_FIRST) {
+		strcpy(ifname_desc, "INTERNET");
+	} else {
+		sprintf(ifname_desc,"INTERNET%d", unit);
+	}
+#else
+	if (unit == wan_primary_ifunit()) {
+		strcpy(ifname_desc, "INTERNET");
+	}
+#endif	/* RTCONFIG_DUALWAN */
+}
+
+static const struct dummy_ifaces_s {
+	int exact;	/* 1: true if name equal to ifname; 0: true if name is substring of ifname. */
+	char *name;
+} dummy_ifaces_list[] = {
+	{ 1, "lo" },
+	{ 0, "imq" },		/* imq* */
+#if defined(RTCONFIG_QCA)
+	{ 0, "qca-nss-dev" },	/* qca-nss-dev0~11 */
+	{ 0, "wifi" },		/* wifi0, wifi1 */
+	{ 0, "sit" },		/* sit0 */
+	{ 0, "ip6tnl" },	/* ip6tnl0 */
+	{ 1, "miireg" },
+	{ 1, "soc0" },
+	{ 1, "ipsecdummy" },
+#endif
+
+	{ 0, NULL }
+};
+
+/*
+ * @ifname_desc:	12 bytes character array.
+ * @return:
+ * 	0:	ignore TX/RX bytes of this interface.
+ *  otherwise:	don't ignore TX/RX bytes of this interface.
+ */
+unsigned int netdev_calc(char *ifname, char *ifname_desc, unsigned long long *rx, unsigned long long *tx, char *ifname_desc2, unsigned long long *rx2, unsigned long long *tx2, char *nv_lan_ifname, char *nv_lan_ifnames)
+{
+#if defined(RTCONFIG_QCA) && defined(RTCONFIG_LACP)
+	const char *lacpiface[] = {
+#if defined(RTCONFIG_SWITCH_QCA8075_QCA8337_PHY_AQR107_AR8035_QCA8033)
+		"eth2", "eth1"			/* LAN1, LAN2 */
+#else
+#error Define slave interface.
+#endif
+	};
+#endif
 	char word[100], word1[100], *next, *next1;
 	char tmp[100];
 	char modelvlan[32];
 	int i, j, model, unit;
+	const struct dummy_ifaces_s *p;
+
 	strcpy(ifname_desc2, "");
 
 	model = get_model();
 	bcmvlan_models(model, modelvlan);
 
+	/* Exclude dummy interfaces. */
+	for (p = &dummy_ifaces_list[0]; p->name != NULL; ++p) {
+		if ((p->exact && !strcmp(p->name, ifname)) ||
+		    (!p->exact && !strncmp(p->name, ifname, strlen(p->name))))
+			return 0;
+	}
+
 	// find in LAN interface
-	if(nvram_contains_word("lan_ifnames", ifname))
+	if (find_word(nv_lan_ifnames, ifname))
 	{
 		// find Wireless interface
 		i=0;
 		foreach(word, nvram_safe_get("wl_ifnames"), next) {
+			SKIP_ABSENT_BAND_AND_INC_UNIT(i);
 			if(strcmp(word, ifname)==0) {
 				sprintf(ifname_desc, "WIRELESS%d", i);
 				return 1;
@@ -2381,6 +2595,11 @@ unsigned int netdev_calc(char *ifname, char *ifname_desc, unsigned long *rx, uns
 		// find wired interface
 		strcpy(ifname_desc, "WIRED");
 
+#if defined(RTAC53) //sherry fix rt-ac53 bug#5 traffic incorrect when hwnat enable{
+		get_realtek_lans_bytecount(tx, rx);
+#endif	//end sherry}	
+
+
 		if(model == MODEL_DSLAC68U)
 			return 1;
 
@@ -2401,29 +2620,34 @@ unsigned int netdev_calc(char *ifname, char *ifname_desc, unsigned long *rx, uns
 				/* Cherry Cho modified for RT-AC3200 Bug#202 in 2014/11/4. */	
 				unit = get_wan_unit("eth0");
 
-#ifdef RTCONFIG_DUALWAN			
-				if ( (unit == wan_primary_ifunit()) || ( !strstr(nvram_safe_get("wans_dualwan"), "none") && nvram_match("wans_mode", "lb")) )
-				{
-					if (unit == WAN_UNIT_FIRST)
-						strcpy(ifname_desc2, "INTERNET");
-					else
-						sprintf(ifname_desc2,"INTERNET%d", unit);
-				}									
-#else
-				if(unit == wan_primary_ifunit())
-					strcpy(ifname_desc2, "INTERNET");					
-#endif	/* RTCONFIG_DUALWAN */
+				if ((unit == wan_primary_ifunit())
+#ifdef RTCONFIG_DUALWAN
+				    || (!strstr(nvram_safe_get("wans_dualwan"), "none") && nvram_match("wans_mode", "lb"))
+#endif
+				    ) {
+					get_internet_desc(unit, ifname_desc2);
+				}
 			}
 		}//End of switch_wantag
 
 		return 1;
 	}
 	// find bridge interface
-	else if(nvram_match("lan_ifname", ifname))
+	else if(!strcmp(nv_lan_ifname, ifname))
 	{
 		strcpy(ifname_desc, "BRIDGE");
 		return 1;
 	}
+#if defined(RTCONFIG_QCA) && defined(RTCONFIG_LACP)
+	else if (nvram_match("lacp_enabled", "1") && !strcmp(ifname, lacpiface[0])) {
+		strlcpy(ifname_desc, "LACP1", 12);
+		return 1;
+	}
+	else if (nvram_match("lacp_enabled", "1") && !strcmp(ifname, lacpiface[1])) {
+		strlcpy(ifname_desc, "LACP2", 12);
+		return 1;
+	}
+#endif
 	// find in WAN interface
 	else if (ifname && (unit = get_wan_unit(ifname)) >= 0)	{
 		if (dualwan_unit__nonusbif(unit)) {
@@ -2432,57 +2656,39 @@ unsigned int netdev_calc(char *ifname, char *ifname_desc, unsigned long *rx, uns
 			get_mt7620_wan_unit_bytecount(unit, tx, rx);
 #elif defined(RTCONFIG_RALINK_MT7621)
 			get_mt7621_wan_unit_bytecount(unit, tx, rx);
-#endif			
 #endif
-#ifndef RTCONFIG_BCM5301X_TRAFFIC_MONITOR
-			if(strlen(modelvlan) && strcmp(ifname, "eth0")==0) {
+#elif defined(RTAC53)//sherry fix rt-ac53 bug#5 traffic incorrect when hwnat enable{
+			get_realtek_wan_bytecount(tx, rx);			
+#endif//end sherry}
+#if !defined(RTCONFIG_BCM5301X_TRAFFIC_MONITOR) && !defined(HND_ROUTER)
+			if(strlen(modelvlan) && !strcmp(ifname, "eth0"))
+			{
 				backup_rx = *rx;
 				backup_tx = *tx;
 				backup_set  = 1;
 			}
-			else{
+			else
 #endif
+			{
+				if ((unit == wan_primary_ifunit())
 #ifdef RTCONFIG_DUALWAN
-				if ( (unit == wan_primary_ifunit()) || ( !strstr(nvram_safe_get("wans_dualwan"), "none") && nvram_match("wans_mode", "lb")) )
-				{
-					if (unit == WAN_UNIT_FIRST) {	
-						strcpy(ifname_desc, "INTERNET");
-						return 1;
-					}
-					else {
-						sprintf(ifname_desc,"INTERNET%d", unit);
-						return 1;
-					}
-				}
-#else
-				if(unit == wan_primary_ifunit()){
-					strcpy(ifname_desc, "INTERNET");
-					return 1;
-				}			
-#endif	/* RTCONFIG_DUALWAN */
-#ifndef RTCONFIG_BCM5301X_TRAFFIC_MONITOR
-			}
+				    || (!strstr(nvram_safe_get("wans_dualwan"), "none") && nvram_match("wans_mode", "lb"))
 #endif
+				   ) {
+					get_internet_desc(unit, ifname_desc);
+					return 1;
+				}
+			}
 		}
 		else if (dualwan_unit__usbif(unit)) {
+			if ((unit == wan_primary_ifunit())
 #ifdef RTCONFIG_DUALWAN
-			if ( (unit == wan_primary_ifunit()) || ( !strstr(nvram_safe_get("wans_dualwan"), "none") && nvram_match("wans_mode", "lb")) )
-			{
-				if(unit == WAN_UNIT_FIRST){//Cherry Cho modified in 2014/11/4.
-					strcpy(ifname_desc, "INTERNET");
-					return 1;
-				}
-				else{
-					sprintf(ifname_desc,"INTERNET%d", unit);
-					return 1;
-				}
-			}					
-#else
-			if(unit == wan_primary_ifunit()){
-				strcpy(ifname_desc, "INTERNET");
+			    || (!strstr(nvram_safe_get("wans_dualwan"), "none") && nvram_match("wans_mode", "lb"))
+#endif
+			   ) {
+				get_internet_desc(unit, ifname_desc);
 				return 1;
 			}	
-#endif	/* RTCONFIG_DUALWAN */
 		}
 		else {
 			_dprintf("%s: unknown ifname %s\n", __func__, ifname);
@@ -2492,34 +2698,33 @@ unsigned int netdev_calc(char *ifname, char *ifname_desc, unsigned long *rx, uns
 	return 0;
 }
 
-// 0: Not private subnet, 1: A class, 2: B class, 3: C class.
+/* 0: Not private subnet
+ * 1: A class, 2: B class, 3: C class, 4: rfc6598 */
 int is_private_subnet(const char *ip)
 {
-	unsigned long long ip_num;
-	unsigned long long A_class_start, A_class_end;
-	unsigned long long B_class_start, B_class_end;
-	unsigned long long C_class_start, C_class_end;
+	const static struct {
+		in_addr_t network;
+		in_addr_t netmask;
+	} classes[] = {
+		{ __constant_htonl(0xc0a80000), __constant_htonl(0xffff0000) }, /* 192.168.0.0/16 */
+		{ __constant_htonl(0xac100000), __constant_htonl(0xfff00000) }, /* 172.16.0.0/12 */
+		{ __constant_htonl(0x0a000000), __constant_htonl(0xff000000) }, /* 10.0.0.0/8 */
+		{ __constant_htonl(0x64400000), __constant_htonl(0xffc00000) }, /* 100.64.0.0/10 */
+	};
+	struct in_addr sin;
+	int i;
 
-	if(ip == NULL)
+	if (ip == NULL)
 		return 0;
 
-	A_class_start = inet_network("10.0.0.0");
-	A_class_end = inet_network("10.255.255.255");
-	B_class_start = inet_network("172.16.0.0");
-	B_class_end = inet_network("172.31.255.255");
-	C_class_start = inet_network("192.168.0.0");
-	C_class_end = inet_network("192.168.255.255");
+	if (inet_pton(AF_INET, ip, &sin) > 0) {
+		for (i = 0; i < ARRAY_SIZE(classes); i++) {
+			if ((sin.s_addr & classes[i].netmask) == classes[i].network)
+				return i + 1;
+		}
+	}
 
-	ip_num = inet_network(ip);
-
-	if(ip_num > A_class_start && ip_num < A_class_end)
-		return 1;
-	else if(ip_num > B_class_start && ip_num < B_class_end)
-		return 2;
-	else if(ip_num > C_class_start && ip_num < C_class_end)
-		return 3;
-	else
-		return 0;
+	return 0;
 }
 
 // clean_mode: 0~3, clean_time: 0~(LONG_MAX-1), threshold(KB): 0: always act, >0: act when lower than.
@@ -2529,7 +2734,7 @@ int free_caches(const char *clean_mode, const int clean_time, const unsigned int
 	char memdata[256] = {0};
 	unsigned int memfree = 0;
 
-#ifdef RTCONFIG_BCMARM
+#if defined(RTCONFIG_BCMARM) || defined(RTCONFIG_LANTIQ)
 	return 0;
 #endif
 
@@ -2574,7 +2779,7 @@ _dprintf("%s: Start cleaning...\n", __FUNCTION__);
 _dprintf("%s: waiting %d second...\n", __FUNCTION__, clean_time);
 		sleep(clean_time);
 _dprintf("%s: Finish.\n", __FUNCTION__);
-		f_write_string("/proc/sys/vm/drop_caches", FREE_MEM_NONE, 0, 0);
+		f_write_string("/proc/sys/vm/drop_caches", FREE_MEM_NONE, FW_SILENT, 0);
 	}
 
 	return 0;
@@ -2646,18 +2851,45 @@ char *get_modemlog_fname(void){
 }
 #endif
 
-#ifdef RTCONFIG_BCMWL6
-#ifdef RTCONFIG_PROXYSTA
+#if defined(RTCONFIG_BCMWL6) && defined(RTCONFIG_PROXYSTA)
+#ifdef RTCONFIG_DPSTA
+int is_dpsta(int unit)
+{
+	char ifname[80], name[80], *next;
+	int idx = 0;
+
+	if (dpsta_mode()) {
+		foreach (ifname, nvram_safe_get("wl_ifnames"), next) {
+			if (idx == unit) break;
+			idx++;
+		}
+
+		foreach(name, nvram_safe_get("dpsta_ifnames"), next) {
+			if (!strcmp(name, ifname))
+				return 1;
+		}
+	}
+
+	return 0;
+}
+#endif
+
+int is_dpsr(int unit)
+{
+	if (dpsr_mode()) {
+		if ((num_of_wl_if() == 2) || !unit || unit == nvram_get_int("dpsta_band"))
+			return 1;
+	}
+
+	return 0;
+}
+
 int is_psta(int unit)
 {
 	if (unit < 0) return 0;
-	if ((nvram_get_int("sw_mode") == SW_MODE_AP) &&
+	if ((sw_mode() == SW_MODE_AP) &&
 		(nvram_get_int("wlc_psta") == 1) &&
-		((nvram_get_int("wlc_band") == unit)
-#ifdef PXYSTA_DUALBAND
-		|| (nvram_match("exband", "1") && nvram_get_int("wlc_band_ex") == unit)
-#endif
-		))
+		(nvram_get_int("wlc_band") == unit))
 		return 1;
 
 	return 0;
@@ -2669,12 +2901,21 @@ int is_psr(int unit)
 #ifdef RTCONFIG_QTN
 	if (unit == 1) return 0;
 #endif
-	if ((nvram_get_int("sw_mode") == SW_MODE_AP) &&
+	if ((sw_mode() == SW_MODE_AP) &&
 		(nvram_get_int("wlc_psta") == 2) &&
-		((nvram_get_int("wlc_band") == unit)
-#ifdef PXYSTA_DUALBAND
-		||  (nvram_match("exband", "1") && nvram_get_int("wlc_band_ex") == unit)
+		(
+		is_dpsr(unit) ||
+#ifdef RTCONFIG_DPSTA
+		is_dpsta(unit) ||
+#ifdef RTCONFIG_AMAS
+		dpsta_mode() ||
 #endif
+#endif
+		((nvram_get_int("wlc_band") == unit) && !dpsr_mode()
+#ifdef RTCONFIG_DPSTA
+		&& !dpsta_mode()
+#endif
+		)
 		))
 		return 1;
 
@@ -2739,7 +2980,6 @@ END:
 	return 0;
 }
 #endif
-#endif
 
 #if defined(RTCONFIG_OPENVPN) || defined(RTCONFIG_IPSEC)
 int set_crt_parsed(const char *name, char *file_path)
@@ -2792,110 +3032,6 @@ int set_crt_parsed(const char *name, char *file_path)
 }
 #endif
 
-#ifdef RTCONFIG_OPENVPN
-char *get_parsed_crt(const char *name, char *buf, size_t buf_len)
-{
-	char *value;
-	int len, i;
-#if defined(RTCONFIG_JFFS2) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS)
-	FILE *fp;
-	char tmpBuf[256] = {0};
-	char *p = buf;
-#endif
-
-	value = nvram_safe_get(name);
-	len = strlen(value);
-
-#if defined(RTCONFIG_JFFS2) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS)
-	if(!check_if_dir_exist(OVPN_FS_PATH))
-		mkdir(OVPN_FS_PATH, S_IRWXU);
-	snprintf(tmpBuf, sizeof(tmpBuf) -1, "%s/%s", OVPN_FS_PATH, name);
-#endif
-
-	if(len) {
-		for (i=0; (i < len); i++) {
-			if (value[i] == '>')
-				buf[i] = '\n';
-			else
-				buf[i] = value[i];
-		}
-		buf[i] = '\0';
-
-#if defined(RTCONFIG_JFFS2) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS)
-		//save to file and then clear nvram value
-		fp = fopen(tmpBuf, "w");
-		if(fp) {
-			chmod(tmpBuf, S_IRUSR|S_IWUSR);
-			fprintf(fp, "%s", buf);
-			fclose(fp);
-			nvram_set(name, "");
-		}
-#endif
-	}
-	else {
-#if defined(RTCONFIG_JFFS2) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS)
-		//nvram value cleard, get from file
-		fp = fopen(tmpBuf, "r");
-		if(fp) {
-			while(fgets(buf, buf_len, fp)) {
-				if(!strncmp(buf, "-----BEGIN", 10))
-					break;
-			}
-			if(feof(fp)) {
-				fclose(fp);
-				memset(buf, 0, buf_len);
-				return buf;
-			}
-			p += strlen(buf);
-			memset(tmpBuf, 0, sizeof(tmpBuf));
-			while(fgets(tmpBuf, sizeof(tmpBuf), fp)) {
-				strncpy(p, tmpBuf, strlen(tmpBuf));
-				p += strlen(tmpBuf);
-			}
-			*p = '\0';
-			fclose(fp);
-		}
-#endif
-	}
-	return buf;
-}
-
-int ovpn_crt_is_empty(const char *name)
-{
-	char file_path[128] ={0};
-	struct stat st;
-
-	if( nvram_is_empty(name) ) {
-#if defined(RTCONFIG_JFFS2) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS)
-		//check file
-		if(d_exists(OVPN_FS_PATH)) {
-			snprintf(file_path, sizeof(file_path) -1, "%s/%s", OVPN_FS_PATH, name);
-			if(stat(file_path, &st) == 0) {
-				if( !S_ISDIR(st.st_mode) && st.st_size ) {
-					return 0;
-				}
-				else {
-					return 1;
-				}
-			}
-			else {
-				return 1;
-			}
-		}
-		else {
-			mkdir(OVPN_FS_PATH, S_IRWXU);
-			return 1;
-		}
-#else
-		return 1;
-#endif
-	}
-	else {
-		return 0;
-	}
-}
-#endif
-
 #ifdef RTCONFIG_DUALWAN
 /**
  * Get wan_unit of USB interface
@@ -2907,11 +3043,11 @@ int get_usbif_dualwan_unit(void)
 {
 	int wan_unit;
 
-	for (wan_unit = WAN_UNIT_FIRST; wan_unit < WAN_UNIT_MAX; ++wan_unit)
-		if (dualwan_unit__usbif(wan_unit))
+	for(wan_unit = WAN_UNIT_FIRST; wan_unit < WAN_UNIT_MAX; ++wan_unit)
+		if(get_dualwan_by_unit(wan_unit) == WANS_DUALWAN_IF_USB)
 			break;
 
-	if (wan_unit == WAN_UNIT_MAX)
+	if(wan_unit == WAN_UNIT_MAX)
 		wan_unit = -1;
 
 	return wan_unit;
@@ -2947,10 +3083,7 @@ int get_primaryif_dualwan_unit(void)
 			continue;
 
 		wan_type = get_dualwan_by_unit(unit);
-		if (wan_type != WANS_DUALWAN_IF_WAN
-		    && wan_type != WANS_DUALWAN_IF_WAN2
-		    && wan_type != WANS_DUALWAN_IF_LAN
-		    && wan_type != WANS_DUALWAN_IF_USB)
+		if (!eth_wantype(unit) && wan_type != WANS_DUALWAN_IF_USB)
 			continue;
 
 		break;
@@ -2962,6 +3095,30 @@ int get_primaryif_dualwan_unit(void)
 	return unit;
 }
 #endif
+
+/**
+ * Get wan unit of upstream port of IPTV.
+ * Most models use WAN port as upstream port of IPTV.
+ * If platform-specific API exist, it is in charge of return wan unit of upstream port of IPTV.
+ * If platform-specific API doesn't exist, this function find WANS_DUALWAN_IF_WAN in all possible wan unit and return it.
+ * @return:	wan unit that upstream port of IPTV.
+ */
+int get_upstream_wan_unit(void)
+{
+	int i, unit = -1;
+
+	if (!__get_upstream_wan_unit) {
+		for (i = WAN_UNIT_FIRST; unit < 0 && i < WAN_UNIT_MAX; ++i) {
+			if (get_dualwan_by_unit(i) != WANS_DUALWAN_IF_WAN)
+				continue;
+			unit = i;
+		}
+	} else {
+		unit = __get_upstream_wan_unit();
+	}
+
+	return unit;
+}
 
 /* Return WiFi unit number in accordance with interface name.
  * @wif:	pointer to WiFi interface name.
@@ -2977,13 +3134,15 @@ int get_wifi_unit(char *wif)
 	if (!wif || *wif == '\0')
 		return -1;
 	foreach (word, nvram_safe_get("wl_ifnames"), next) {
+		SKIP_ABSENT_FAKE_IFACE(word);
 		if (strncmp(word, wif, strlen(word)))
 			continue;
 
-		for (i = 0; i <= 1; ++i) {
+		for (i = 0; i <= MAX_NR_WL_IF; ++i) {
+			SKIP_ABSENT_BAND(i);
 			sprintf(nv, "wl%d_ifname", i);
-			ifn = nvram_safe_get(nv);
-			if (!strncmp(word, ifn, strlen(word)))
+			ifn = nvram_get(nv);
+			if (ifn != NULL && !strncmp(word, ifn, strlen(word)))
 				return i;
 		}
 	}
@@ -3052,7 +3211,7 @@ int get_iface_hwaddr(char *name, unsigned char *hwaddr)
 	return ret;
 }
 
-#if defined(RTCONFIG_SOC_IPQ8064)
+#if defined(RTCONFIG_SOC_IPQ8064) || defined(RTCONFIG_SOC_IPQ8074)
 /**
  * Set Receive/Transmit Packet Scaling of specified interface.
  * @ifname:	interface name
@@ -3086,8 +3245,7 @@ int __set_iface_ps(const char *ifname, int nr_rx_mask, const unsigned int *rx_ma
 	if ((nr_rx_mask >= 0 && !rx_mask) || (nr_tx_mask >= 0 && !tx_mask))
 		return -1;
 
-	snprintf(path, sizeof(path), "%s/%s", SYS_CLASS_NET, ifname);
-	if (!d_exists(path))
+	if (!iface_exist(ifname))
 		return -2;
 
 	snprintf(prefix, sizeof(prefix), "%s/%s/queues", SYS_CLASS_NET, ifname);
@@ -3129,7 +3287,7 @@ int ctrl_gro(char *iface, int onoff)
 {
 	/* ethtool-util.h */
 #ifndef SIOCETHTOOL
-#define SIOCETHTOOL     0x8946
+#define SIOCETHTOOL	0x8946
 #endif
 
 	/* ethtool-copy.h */
@@ -3144,13 +3302,11 @@ int ctrl_gro(char *iface, int onoff)
 	int fd, err;
 	struct ifreq ifr;
 	struct ethtool_value eval;
-	char path[sizeof("/sys/class/net/ethXXXXXX")];
 
 	if (!iface)
 		return -1;
 
-	snprintf(path, sizeof(path), "%s/%s", SYS_CLASS_NET, iface);
-	if (!d_exists(path))
+	if (!iface_exist(iface))
 		return -2;
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -3189,16 +3345,13 @@ int ctrl_gro(char *iface, int onoff)
  */
 int ctrl_wan_gro(int wan_unit, int onoff)
 {
-	int r, type;
+	int r;
 	char prefix[8];
 
 	if (wan_unit < WAN_UNIT_FIRST || wan_unit >= WAN_UNIT_MAX)
 		return -1;
 
-	type = get_dualwan_by_unit(wan_unit);
-	if (type != WANS_DUALWAN_IF_WAN &&
-	    type != WANS_DUALWAN_IF_WAN2 &&
-	    type != WANS_DUALWAN_IF_LAN)
+	if (!eth_wantype(wan_unit))
 		return -2;
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", wan_unit);
@@ -3234,20 +3387,23 @@ int ctrl_lan_gro(int onoff)
 	strlcat(ifnames, " ", sizeof(ifnames));
 	strlcat(ifnames, nvram_safe_get("lan_ifnames"), sizeof(ifnames));
 	foreach(word, ifnames, next) {
+		SKIP_ABSENT_FAKE_IFACE(word);
 		/* Skip VLAN, TUN, TAP, and Wireless interface. */
 		if (!strncmp(word, "vlan", 4) || !strncmp(word, "tun", 3) || !strncmp(word, "tap", 3)
 #if defined(RTCONFIG_RALINK)
 		    || !strncmp(word, "ra", 2)
 #elif defined(RTCONFIG_QCA)
 		    || !strncmp(word, "ath", 3)
+#if defined(RTCONFIG_WIGIG)
+		    || !strncmp(word, "wlan", 4)
+#endif
 #else
 		    || !strncmp(word, "wl", 2)
 #endif
 		   )
 			continue;
 
-		snprintf(path, sizeof(path), "%s/%s", SYS_CLASS_NET, word);
-		if (!d_exists(path))
+		if (!iface_exist(word))
 			continue;
 		r = ctrl_gro(word, onoff);
 		if (r < 0)
@@ -3275,6 +3431,60 @@ int ctrl_lan_gro(int onoff)
 #endif
 
 /**
+ * Read unsigned long variable from memory.
+ * @addr:	address
+ * @value:	pointer to a unsigned long integer variable
+ * @return:
+ * 	0:	success
+ *     -1:	invalid parameter.
+ *     -2:	open /dev/mem failed
+ */
+int u_readl(unsigned long addr, unsigned long *value)
+{
+	off_t offset;
+	int ret, page_size;
+	char *map;
+	static int kfd = -1;
+	unsigned long *p4;
+
+	if (!value)
+		return 0;
+
+	page_size = getpagesize();
+	offset = addr & ~(page_size - 1);
+
+	kfd = open("/dev/mem", O_RDONLY);
+	if (kfd < 0) {
+		dbg("%s: open /dev/mem for accessing %x failed, errno %d (%s).,",
+			__func__, addr, errno, strerror(errno));
+		return -2;
+	}
+
+	map = mmap(NULL, page_size, PROT_READ, MAP_SHARED, kfd, offset);
+	if (map == MAP_FAILED) {
+		dbg("%s: mmap for address %x failed, errno %d (%s).\n",
+			__func__, addr, errno, strerror(errno));
+		close(kfd);
+		return -3;
+	}
+
+	p4 = (unsigned long*) (map + (addr - offset));
+	*value = *p4;
+
+	ret = munmap(map, page_size);
+	if (ret) {
+		dbg("%s: munmap() return %d errno %d (%s)\n",
+			__func__, ret, errno, strerror(errno));
+		close(kfd);
+		return -4;
+	}
+
+	close(kfd);
+
+	return 0;
+}
+
+/**
  * Set smp_affinity of specified irq
  * @irq:
  * @cpu_mask:
@@ -3295,6 +3505,282 @@ int set_irq_smp_affinity(unsigned int irq, unsigned int cpu_mask)
 	f_write_string(path, mask, 0, 0);
 
 	return 0;
+}
+
+#if defined(RTCONFIG_SOC_IPQ8074)
+#define PROC_INTR_FMT	"%d: %*d %*d %*d %*d %*s %*d %*s %64s"		/* kernel 4.4.x, 4 cores */
+#elif defined(RTCONFIG_SOC_IPQ8064)
+#define PROC_INTR_FMT	"%d: %*d %*d %*s %64s"				/* kernel 3.4.x, 2 cores */
+#elif defined(RTCONFIG_SOC_IPQ40XX)
+#define PROC_INTR_FMT	"%d: %*d %*d %*d %*d %*s %*d %64s"		/* kernel 3.14.x, 4 cores */
+#else
+#define PROC_INTR_FMT	"%d: %*d %*s %*s %64s"				/* kernel 2.6.36.x, 1 core */
+#endif
+
+/**
+ * Set smp_affinity of specified irq by name
+ * @name:	last field of /proc/interrupts
+ * @order:
+ * 	<= 0:	set smp_affinity of all irq with same @name
+ *  otherwise:	set smp_affinity of @order-th irq with same @name only
+ * @cpu_mask:
+ * @return:
+ * 	0:	success
+ *     -1:	invalid parameter
+ *     -2:	can't open /proc/interrupts
+ */
+int set_irq_smp_affinity_by_name(const char *name, int order, unsigned int cpu_mask)
+{
+	int irq, ord = 0;
+	FILE *fp;
+	char line[256], irq_name[64];
+	char mask[16], path[sizeof("/proc/irq/XXXXXX/smp_affinityYYYYYY")];
+
+	if (!name || *name == '\0')
+		return -1;
+
+	if (!(fp = fopen("/proc/interrupts", "r")))
+		return -2;
+
+	/* kernel 4.4.60 /proc/interrupts example.
+	 *            CPU0       CPU1       CPU2       CPU3
+	 *  18:    1019546    1126047     446170     840983       GIC  20 Edge      arch_timer
+	 *  21:          0          0          0          0       GIC 270 Level     bam_dma
+	 *  33:          0          0          0          0       GIC 411 Edge      nss-tx-unblock
+	 *  34:    2805573          0          0          0       GIC 412 Edge      nss_queue0
+	 *  35:          0          0          0          0       GIC 413 Edge      nss_queue1
+	 *  36:          0          0          0          0       GIC 414 Edge      nss_queue2
+	 *  37:          0          0          0          0       GIC 415 Edge      nss_queue3
+	 *  38:          0          0          0          0       GIC 416 Edge      nss_coredump_complete
+	 *  43:      58886          0          0          0       GIC 425 Edge      nss_queue0
+	 *  44:          0          0          0          0       GIC 426 Edge      nss_queue1
+	 *  45:          0          0          0          0       GIC 427 Edge      nss_queue2
+	 *  46:          0          0          0          0       GIC 428 Edge      nss_queue3
+	 * 106:       1617          0          0          0       GIC 189 Edge      wbm2host-tx-completions-ring1
+	 * 110:          0          0          0          0       GIC 216 Edge      tsens_interrupt
+	 * 217:          0          0          0          0   PCI-MSI   0 Edge      PCIe PME
+	 * 250:          0          0          1          0     smp2p   1 Edge      error_ready_interrupt
+	 * 253:          0          0          0          0       GIC 172 Edge      xhci-hcd:usb1
+	 * IPI0:          0          0          0          0  CPU wakeup interrupts
+	 * Err:          0
+	 */
+	fgets(line, sizeof(line), fp); //skip the 1st line
+	while (fgets(line, sizeof(line), fp)) {
+		if (*line == '\0' || !strncmp(line, "IPI", 3) || !strncmp(line, "Err", 3) || !strncmp(line, "ERR", 3))
+			continue;
+
+		if (sscanf(line, PROC_INTR_FMT, &irq, irq_name) != 2) {
+			//dbg("%s: can't parse line [%s]\n", __func__, line);
+			continue;
+		}
+
+		if (strcmp(irq_name, name))
+			continue;
+
+		ord++;
+
+		if (order > 0 && ord != order)
+			continue;
+
+		snprintf(path, sizeof(path), "%s/%d", PROC_IRQ, irq);
+		if (!d_exists(path))
+			continue;
+
+		snprintf(path, sizeof(path), "%s/%d/smp_affinity", PROC_IRQ, irq);
+		snprintf(mask, sizeof(mask), "%x", cpu_mask);
+		f_write_string(path, mask, 0, 0);
+
+		/* If @order is specified and we just configure it, stop while loop. */
+		if (order > 0 && ord == order)
+			break;
+	}
+
+	fclose(fp);
+
+	return 0;
+}
+
+/**
+ * Get active firmware number.
+ * @return:
+ * 	0:	DUT boot from 1st firmware.
+ * 	1:	DUT boot from 2nd firmware.
+ */
+int get_active_fw_num(void)
+{
+#if defined(RTCONFIG_DUAL_TRX2)
+	int ret = 0, idx = -1;
+	char name[sizeof("mtdblockXYYYYYY")];
+	char path[sizeof("/sys/class/mtd/mtdXYYY/nameYYYYYY")];
+	struct mntent *mnt;
+	struct stat sb;
+
+	mnt = findmntents("/", 0, NULL, 0);
+	if (!mnt || lstat(mnt->mnt_fsname, &sb) != 0)
+		return ret;
+
+	if ((sb.st_mode & S_IFMT) == S_IFLNK) {
+		if (readlink(mnt->mnt_fsname, name, sizeof(name)) <= 0) {
+			dbg("%s: can't read symlink of %s\n", __func__, mnt->mnt_fsname);
+			return ret;
+		}
+	} else {
+		strlcpy(name, mnt->mnt_fsname, sizeof(name));
+	}
+
+	if (!strncmp(name, "mtdblock", 8)) {
+		idx = safe_atoi(name + 8);
+	} else if (!strncmp(name, "mtd", 3)) {
+		idx = safe_atoi(name + 3);
+	} else {
+		dbg("%s: %s is not MTD.\n", __func__, mnt->mnt_fsname);
+		return ret;
+	}
+	snprintf(path, sizeof(path), "%s/mtd%d/name", SYS_CLASS_MTD, idx);
+	if (f_read_string(path, name, sizeof(name)) <= 0)
+		return ret;
+	if (!strncmp(name, "rootfs2", strlen("rootfs2")))
+		ret = 1;
+
+	return ret;
+#else
+	return 0;
+#endif
+}
+
+/**
+ * Execute @cmd, find @keyword in output and parse it.
+ * @cmd:
+ * @keyword:	If specified, only parse line with it.
+ * @fmt:	sscanf format string
+ * @cnt:	number of parameters should be get by sscanf()
+ * @return:
+ * 	0:	success
+ *  otherwise:	fail
+ */
+int exec_and_parse(const char *cmd, const char *keyword, const char *fmt, int cnt, ...)
+{
+	int r, ret = 1;
+	char line[256];
+	FILE *fp;
+	va_list args;
+
+	if (!cmd || cnt <= 0 || !fmt)
+		return -1;
+
+	if (!(fp = popen(cmd, "r"))) {
+		dbg("%s: can't execute [%s]\n", __func__, cmd);
+		return -2;
+	}
+
+	va_start(args, cnt);
+	while (ret && fgets(line, sizeof(line), fp)) {
+		if (keyword && !strstr(line, keyword))
+			continue;
+		if ((r = vsscanf(line, fmt, args)) != cnt) {
+			dbg("%s: Unknown output: [%s] of cmd [%s], fmt [%s], cnt %d, r %d\n",
+				__func__, line, cmd, fmt, cnt, r);
+			continue;
+		}
+		ret = 0;
+	}
+	va_end(args);
+	pclose(fp);
+
+	return ret;
+}
+
+/**
+ * Run "iwpriv XXX get_XXX" and return string behind colon.
+ * Expected result is shown below:
+ * ath1      get_mode:11ACVHT40
+ *                    ^^^^^^^^^ result
+ * @iface:	interface name
+ * @cmd:	get cmd
+ * @return:
+ * 	NULL	invalid parameter or error.
+ *  otherwise:	success
+ */
+char *iwpriv_get(const char *iface, char *cmd)
+{
+	char iwpriv_cmd[sizeof("iwpriv athX CCCCCCCCCCCCCCCCXXX") + IFNAMSIZ];
+	static char result[256] = { 0 };
+
+	if (!iface || !cmd)
+		return NULL;
+
+	snprintf(iwpriv_cmd, sizeof(iwpriv_cmd), "iwpriv %s %s", iface, cmd);
+	if (exec_and_parse(iwpriv_cmd, iface, "%*[^:]:%256[^\n]", 1, result))
+		return NULL;
+
+	return result;
+}
+
+/**
+ * Run "iwpriv XXX get_XXX" and return integer behind colon.
+ * Expected result is shown below:
+ * ath1      channf:-90
+ *                  ^^^ result
+ * @iface:	interface name
+ * @cmd:	get cmd
+ * @return:
+ * 	0:	success
+ *     -1:	invalid parameter;
+ *     -2:	error
+ */
+int iwpriv_get_int(const char *iface, char *cmd, int *result)
+{
+	char iwpriv_cmd[sizeof("iwpriv athX CCCCCCCCCCCCCCCCXXX") + IFNAMSIZ];
+
+	if (!iface || !cmd || !result)
+		return -1;
+
+	snprintf(iwpriv_cmd, sizeof(iwpriv_cmd), "iwpriv %s %s", iface, cmd);
+	if (exec_and_parse(iwpriv_cmd, iface, "%*[^:]:%d", 1, result))
+		return -2;
+
+	return 0;
+}
+
+/**
+ * readdir() wrapper
+ * This function is used to simplify opendir()/readdir()/closedir().
+ * If @keyword is NULL or empty string, @handler is called for all items under @path.
+ * If @keyword is a string, @handler is called only @keyword can be found in items under @path.
+ * @path:	path to a directory.
+ * @keyword:	used to filter specific items to @handler.
+ * @handler:	function pointer.
+ * @arg:	parameter for @handler.
+ * @return:
+ * 	0:	success
+ *     -1:	invalid parameter
+ *     -2:	can't open @path
+ *     -3:	error reported by @handler
+ */
+int readdir_wrapper(const char *path, const char *keyword, int (*handler)(const char *path, const struct dirent *de, void *arg), void *arg)
+{
+	int ret = 0;
+	DIR *dir;
+	struct dirent *de;
+
+	if (!path || !handler)
+		return -1;
+
+	if (!(dir = opendir(path)))
+		return - 2;
+
+	while ((de = readdir(dir)) != NULL) {
+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
+			continue;
+		if (!keyword || *keyword == '\0' || strstr(de->d_name, keyword) != NULL) {
+			if (handler(path, de, arg))
+				ret = -3;
+		}
+	}
+
+	closedir(dir);
+
+	return ret;
 }
 
 /**
@@ -3349,6 +3835,141 @@ unsigned int num_of_mssid_support(unsigned int unit)
 		subunit++;
 	}
 	return subunit;
+}
+
+/**
+ * Get led_id enumeration via wireless band.
+ * @band:	0 ~ MAX_NR_WL_IF - 1
+ * @return:	led_id enumeration.
+ *  LED_ID_MAX:	led_id for @band is not found.
+ */
+enum led_id get_wl_led_id(int band)
+{
+	enum led_id led = LED_ID_MAX;
+
+	if (band < 0 || band >= MAX_NR_WL_IF)
+		return led;
+
+	switch (band) {
+	case WL_2G_BAND:
+#if defined(PLN12)
+		led = LED_2G_RED;
+#elif defined(PLAC56)
+		led = LED_2G_GREEN;
+#else
+		led = LED_2G;
+#endif
+		break;
+#if defined(RTCONFIG_HAS_5G)
+	case WL_5G_BAND:
+#if defined(PLAC56)
+		led = LED_5G_GREEN;
+#else
+		led = LED_5G;
+#endif
+		break;
+#if defined(RTCONFIG_HAS_5G_2)
+	case WL_5G_2_BAND:
+		led = LED_5G2;
+		break;
+#endif
+#endif
+#if defined(RTCONFIG_WIGIG)
+	case WL_60G_BAND:
+		led = LED_60G;
+		break;
+#endif
+	default:
+		dbg("%s: Unknown wl%d band!\n", __func__, band);
+	}
+
+	return led;
+}
+
+/**
+ * Get led gpio nvram variable name via wireless band.
+ * @band:	0 ~ MAX_NR_WL_IF - 1
+ * @return:	char pointer to a nvram variable name, e.g., led_2g_gpio.
+ *  empty string:	led gpio nvram variable for @band is not found.
+ */
+char *get_wl_led_gpio_nv(int band)
+{
+	char *gpio_nv = "";
+
+	if (band < 0 || band >= MAX_NR_WL_IF)
+		return gpio_nv;
+
+	switch (band) {
+	case WL_2G_BAND:
+		gpio_nv = "led_2g_gpio";
+		break;
+#if defined(RTCONFIG_HAS_5G)
+	case WL_5G_BAND:
+		gpio_nv = "led_5g_gpio";
+		break;
+#if defined(RTCONFIG_HAS_5G_2)
+	case WL_5G_2_BAND:
+		gpio_nv = "led_5g2_gpio";
+		break;
+#endif
+#endif
+#if defined(RTCONFIG_WIGIG)
+	case WL_60G_BAND:
+		gpio_nv = "led_60g_gpio";
+		break;
+#endif
+	default:
+		dbg("%s: Unknown wl%d band!\n", __func__, band);
+	}
+
+	return gpio_nv;
+}
+
+#if defined(RTCONFIG_QCA)
+/**
+ * Return driver name for wpa_supplicant based on wireless band.
+ * @band:	0 ~ MAX_NR_WL_IF
+ * @return:	pointer to driver name of @band.
+ */
+char *get_wsup_drvname(int band)
+{
+	char *r = "";
+
+	if (absent_band(band))
+		return "";
+
+	switch (band) {
+	case WL_2G_BAND:	/* fall-through */
+	case WL_5G_BAND:	/* fall-through */
+	case WL_5G_2_BAND:
+		r = (char*) WSUP_DRV;
+		break;
+	case WL_60G_BAND:
+		r = (char*) WSUP_DRV_60G;
+		break;
+	}
+
+	return r;
+}
+#endif
+
+/**
+ * Check existence of @iface.
+ * @return:
+ * 	0:	invalid parameter or @iface doesn't exist
+ *  otherwise:	@iface exist.
+ */
+int iface_exist(const char *iface)
+{
+	char path[sizeof("/sys/class/net/XXXXXX") + IFNAMSIZ];
+
+	if (!iface)
+		return 0;
+
+	snprintf(path, sizeof(path), "%s/%s", SYS_CLASS_NET, iface);
+	if (!f_exists(path) && !d_exists(path))
+		return 0;
+	return 1;
 }
 
 #ifdef RTCONFIG_TRAFFIC_LIMITER
@@ -3437,13 +4058,13 @@ void deauth_guest_sta(char *wlif_name, char *mac_addr)
 #if defined(RTCONFIG_RALINK)
         sprintf(cmd,"iwpriv %s set DisConnectSta=%s", wlif_name, mac_addr);
 #elif defined(RTCONFIG_QCA)
-	sprintf(cmd, "iwpriv %s maccmd 2", wlif_name);
+	sprintf(cmd, IWPRIV " %s maccmd 2", wlif_name);
         system(cmd);
 	memset(cmd, 0, sizeof(cmd));
-	sprintf(cmd, "iwpriv %s addmac "MAC_FMT, wlif_name, MAC_ARG(mac_addr));
+	sprintf(cmd, IWPRIV " %s addmac "MAC_FMT, wlif_name, MAC_ARG(mac_addr));
         system(cmd);
 	memset(cmd, 0, sizeof(cmd));
-        sprintf(cmd, "iwpriv %s kickmac "MAC_FMT, wlif_name, MAC_ARG(mac_addr));
+        sprintf(cmd, IWPRIV " %s kickmac "MAC_FMT, wlif_name, MAC_ARG(mac_addr));
 #endif
         system(cmd);
 #else /* BCM */
@@ -3455,7 +4076,7 @@ void deauth_guest_sta(char *wlif_name, char *mac_addr)
 
         ret = wl_ioctl(wlif_name, WLC_SCB_DEAUTHENTICATE_FOR_REASON, &scb_val, sizeof(scb_val));
         if(ret < 0) {
-                printf("[WARNING] error to deauthticate ["MAC_FMT"] !!!\n", MAC_ARG(msc_addr));
+                //printf("[WARNING] error to deauthticate ["MAC_FMT"] !!!\n", MAC_ARG(msc_addr));
         }
 #endif
 }
@@ -3488,3 +4109,664 @@ int FindBrifByWlif(char *wl_ifname, char *brif_name, int size)
 }
 
 #endif
+
+#ifdef RTCONFIG_CFGSYNC
+int is_valid_group_id(const char *str)
+/* valid group id char : "0123456789ABCDEF" */
+{
+	int i;
+	for (i=0; i<CFGSYNC_GROUPID_LEN; i++) {
+		if (str[i] >= '0' && str[i] <= '9')
+			continue;
+		else if (str[i] >= 'A' && str[i] <= 'F')
+			continue;
+		else
+			return 0;
+	}
+	return 1;
+}
+
+char *if_nametoalias(char *name, char *alias, int alias_len)
+{
+	char prefix[]="wlXXXXXX_", tmp[100];
+	char word[256], *next;
+	int unit = 0;
+	int subunit = 0;
+	int max_mssid = 0;
+	char *ifname = NULL;
+	int found = 0;
+
+	if (!strncmp(name, "2G", 2) || !strncmp(name, "5G", 2)) {
+		snprintf(alias, alias_len, "%s", name);
+		return alias;
+	}
+
+        foreach (word, nvram_safe_get("wl_ifnames"), next) {
+		SKIP_ABSENT_BAND_AND_INC_UNIT(unit);
+		max_mssid = num_of_mssid_support(unit);
+		memset(prefix, 0, sizeof(prefix));
+		snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+		ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
+		subunit = 0;
+
+		if (!strcmp(ifname, name)) {
+			snprintf(alias, alias_len, "%s", unit ? (unit == 2 ? "5G1" : "5G") : "2G");
+			found = 1;
+			break;
+		}
+
+		for (subunit = 1; subunit < max_mssid+1; subunit++) {
+			memset(prefix, 0, sizeof(prefix));
+                        snprintf(prefix, sizeof(prefix), "wl%d.%d_", unit, subunit);
+			ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
+
+			if (!strcmp(ifname, name)) {
+#if defined(CONFIG_BCMWL5) || defined(RTCONFIG_BCMARM)
+				if (repeater_mode()
+					|| dpsr_mode()
+#if defined(RTCONFIG_PROXYSTA) && defined(RTCONFIG_DPSTA)
+					|| dpsta_mode()
+#endif
+					)
+					snprintf(alias, alias_len, "%s", unit ? (unit == 2 ? "5G1" : "5G") : "2G");
+				else
+#endif
+				snprintf(alias, alias_len, "%s_%d", unit ? (unit == 2 ? "5G1" : "5G") : "2G", subunit);
+				found = 1;
+				break;
+			}
+		}
+
+		if (found)
+			break;
+ 
+		unit++;
+	}
+
+	return alias;
+}
+
+int check_re_in_macfilter(int unit, char *mac)
+{
+	char tmp[128], prefix[] = "wlXXXXXXXXXX_";
+	char *nv, *nvp, *b;
+	int exist = 0;
+
+#ifdef RTCONFIG_AMAS
+	if (nvram_get_int("re_mode") == 1)
+		snprintf(prefix, sizeof(prefix), "wl%d.1_", unit);
+	else
+#endif
+		snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+
+	nv = nvp = strdup(nvram_safe_get(strcat_r(prefix, "maclist_x", tmp)));
+	if (nv) {
+		while ((b = strsep(&nvp, "<")) != NULL) {
+			if (strlen(b) == 0) continue;
+
+			if (strcmp(mac, b) == 0) {
+				dbg("mac (%s) exists in maclist_x (%s)\n", mac, prefix);
+				exist = 1;
+				break;
+			}
+		}
+		free(nv);
+	}
+
+	return exist;
+}
+#endif /* RTCONFIG_CFGSYNC */
+
+#ifdef RTCONFIG_BONDING
+#ifdef HND_ROUTER
+
+#define SYS_BOND_FILE "/proc/net/bonding/bond0"
+#define STR_PARTNER_MAC "Partner Mac Address: "
+
+enum {
+	BS_NOCONFIG,
+	BS_NOPROC,
+	BS_NOLINK,
+	BS_FAIL,
+	BS_OK
+};
+
+char *bs_desc[] = {
+	"option disabled",
+	"no report",
+	"not linked",
+	"not established",
+	"successfully"
+};
+
+int get_bonding_status()
+{
+	FILE *fp;
+	char line[128], *lp, *mp=NULL;
+	int ret = 0;
+
+	if(!nvram_match("lacp_enabled", "1"))
+		return BS_NOCONFIG;
+
+	fp = fopen(SYS_BOND_FILE, "r");
+
+	if(fp != NULL)
+	{
+		while(fgets(line, sizeof(line), fp) != NULL){
+			if((lp = strstr(line, STR_PARTNER_MAC)) != NULL) {
+				mp = lp + strlen(STR_PARTNER_MAC);
+				mp[17] = 0;
+				break;
+			}
+		}
+
+		fclose(fp);
+
+		if(mp == NULL)
+			ret = BS_NOLINK;
+		else if(strncmp(mp, "00:00:00:00:00:00", 17) == 0)
+			ret = BS_FAIL;
+		else
+			ret = BS_OK;
+	} else {
+		ret = BS_NOPROC;
+	}
+
+	return ret;
+}
+
+#endif
+#endif
+
+#ifdef RTCONFIG_LANTIQ
+int ppa_support(int wan_unit)
+{
+	int ret = 1;
+	char wan_proto[16];
+	char tmp[100], prefix[32];
+	int ctf_disable_force = 0 ;
+
+	ctf_disable_force = nvram_get_int("ctf_disable_force");
+
+	/* recover the NAT accelerator*/
+	// nvram_set("ctf_disable_force", "0");
+
+#ifdef RTCONFIG_USB_MODEM
+	char modem_type[32];
+	int wan_type = get_dualwan_by_unit(wan_unit);
+	int modem_unit = get_modemunit_by_type(wan_type);
+	char tmp2[100], prefix2[32];
+
+	if(modem_unit < 0)
+		modem_unit = 0;
+
+	usb_modem_prefix(modem_unit, prefix2, sizeof(prefix2));
+	snprintf(modem_type, sizeof(modem_type), "%s", nvram_safe_get(strcat_r(prefix2, "act_type", tmp2)));
+
+	if((wan_type == WANS_DUALWAN_IF_USB || wan_type == WANS_DUALWAN_IF_USB2)
+			&& (!strcmp(modem_type, "tty") || !strcmp(modem_type, "mbim"))
+			)
+	{
+		ret = 0;
+	}
+#endif
+
+	/*
+		1. traditaional qos / bandwidth limiter / disable NAT accelerator
+		2. stop_ppa_wan : debug usage
+	*/
+	if(IS_NON_AQOS())
+	{
+		ret = 0;
+	}
+
+	if(ctf_disable_force == 1) ret = 0;
+
+	if (nvram_match("stop_ppa_wan", "1")) ret = 0;
+
+	snprintf(prefix, sizeof(prefix), "wan%d_", wan_unit);
+	snprintf(wan_proto, sizeof(wan_proto), "%s", nvram_safe_get(strcat_r(prefix, "proto", tmp)));
+
+	if(strcmp(wan_proto, "pptp") == 0) ret = 0;
+	if(strcmp(wan_proto, "l2tp") == 0) ret = 0;
+	if(strcmp(nvram_safe_get(strcat_r(prefix, "hwaddr_x", tmp)), "")) ret = 0;
+
+	return ret;
+}
+
+int disable_ppa_wan(char *wan_ifname)
+{
+	char ppa_cmd[255] = {0};
+
+	if(client_mode() || aimesh_re_mode()){
+		system("ppacmd setppefp -f 1");
+	}else{
+		system("ppacmd setppefp -f 0");
+	}
+	snprintf(ppa_cmd, sizeof(ppa_cmd), "ppacmd delwan -i %s", wan_ifname);
+	_dprintf("[%s][%d] %s\n", __func__, __LINE__, ppa_cmd);
+	system(ppa_cmd);
+	nvram_set("ctf_disable", "1");
+}
+
+int enable_ppa_wan(char *wan_ifname)
+{
+	char ppa_cmd[255] = {0};
+	snprintf(ppa_cmd, sizeof(ppa_cmd), "ppacmd addwan -i %s", wan_ifname);
+	_dprintf("[%s][%d] %s\n", __func__, __LINE__, ppa_cmd);
+	system(ppa_cmd);
+	system("ppacmd setppefp -f 1");
+	nvram_set("ctf_disable", "0");
+}
+#endif
+
+#ifdef RTCONFIG_MULTICAST_IPTV
+#define MOVISTART_PORT 1
+#else
+#define MOVISTART_PORT 3
+#endif
+int IPTV_ports_cnt(void)
+{
+	int cnt = 0;
+	const char *switch_wantag = nvram_safe_get("switch_wantag");
+
+	if (switch_wantag[0] == '\0' || strcmp(switch_wantag, "none") == 0)
+	{
+		int switch_stb_x = nvram_get_int("switch_stb_x");
+		if (switch_stb_x >= 1 && switch_stb_x <= 4)
+			cnt = 2;
+		else if (switch_stb_x >= 5 && switch_stb_x <= 6)
+			cnt = 3;
+	}
+	else if (strcmp(switch_wantag, "unifi_biz") == 0)
+		cnt = 1;
+	else if (strcmp(switch_wantag, "singtel_mio") == 0 
+	      || strcmp(switch_wantag, "vodafone") == 0)
+		cnt = 3;
+	else if (strcmp(switch_wantag, "movistar") == 0) {
+		cnt = MOVISTART_PORT;
+	}
+	else if (strcmp(switch_wantag, "manual") == 0) {
+		if (nvram_safe_get("switch_wan0tagid")[0] != 0)
+			cnt++;
+		if (nvram_safe_get("switch_wan1tagid")[0] != 0)
+			cnt++;
+		if (nvram_safe_get("switch_wan2tagid")[0] != 0)
+			cnt++;
+	}
+	else
+		cnt = 2;
+	return cnt;
+}
+
+/*
+ * Validate a mac address
+ * @mac:	pointer to mac address.
+ * 	1:	Legal mac address
+ *  	0:	illegal mac address
+ */
+int isValidMacAddress(const char* mac) {
+	int i=0, s=0;
+
+	while (*mac) {
+		if (isxdigit(*mac))
+			i++;
+		else if (*mac == ':' || *mac == '-') {
+			if (i == 0 || i / 2 - 1 != s)
+				break;
+			++s;
+		}
+		else
+			s = -1;
+		++mac;
+	}
+	return (i == 12 && (s == 5 || s == 0));
+}
+
+/*
+ * Validate a mac address 
+ * @mac:	pointer to mac address.
+ * 	1:	Legal mac address and is not a multicast mac address
+ *  	0:	illegal mac address or a multicast mac address
+ */
+
+int isValidMacAddr_and_isNotMulticast(const char* mac)
+{
+	int sec_byte;
+	int i = 0, s = 0;
+
+	if (strlen(mac) != 17 || !strcmp("00:00:00:00:00:00", mac))
+		return 0;
+
+	while (*mac && i < 12) {
+		if (isxdigit(*mac)) {
+			if (i == 1) {
+				sec_byte= strtol(mac, NULL, 16);
+				if ((sec_byte & MULTICAST_BIT)){
+					_dprintf("isValidMacAddr 1 sec_byte %x %d %d\n",sec_byte,i,s);
+					break;
+				}
+			}
+			i++;
+		}
+		else if (*mac == ':') {
+			if (i == 0 || i/2-1 != s){
+				_dprintf("isValidMacAddr 2 %d %d\n",i,s);
+				break;
+			}
+			++s;
+		}
+		++mac;
+	}
+	return (i == 12 && s == 5);
+}
+/*
+ * Validate a option input
+ * @option:	pointer to  a option.
+    @range:	unsigned int range.
+ * 	1:	Legal input
+ *  	0:	illegal input
+ */
+int isValidEnableOption(const char *option, int range) {
+
+	int n=0;
+
+	if(!option || strlen(option)!=1)
+		return 0;
+
+	n = safe_atoi(option);
+
+	if(n >= 0 && n <=range)
+		return 1;
+	else
+		return 0;
+}
+
+/*
+ * Validate a string is digit
+ * @string:	pointer to  a string.
+ */
+int isValid_digit_string(const char *string) {
+
+	if (!string || !*string)
+		return 0;
+
+	while (*string)
+	{
+		if (!isdigit(*string))
+			return 0;
+		else
+			++string;
+	}
+	return 1;
+}
+
+/*
+ * Validate a char is not valid for a host hame
+ * @name:	pointer to  a string.
+ */
+static int is_invalid_char_for_hostname(int c)
+{
+	int ret = 0;
+
+	if (c < 0x20)
+		ret = 1;
+#if 0
+	else if (c >= 0x21 && c <= 0x2c)	/* !"#$%&'()*+, */
+		ret = 1;
+#else	/* allow '+' */
+	else if (c >= 0x21 && c <= 0x2a)	/* !"#$%&'()* */
+		ret = 1;
+	else if (c == 0x2c)			/* , */
+		ret = 1;
+#endif
+	else if (c >= 0x2e && c <= 0x2f)	/* ./ */
+		ret = 1;
+	else if (c >= 0x3a && c <= 0x40)	/* :;<=>?@ */
+		ret = 1;
+#if 0
+	else if (c >= 0x5b && c <= 0x60)	/* [\]^_ */
+		ret = 1;
+#else	/* allow '_' */
+	else if (c >= 0x5b && c <= 0x5e)	/* [\]^ */
+		ret = 1;
+	else if (c == 0x60)			/* ` */
+		ret = 1;
+#endif
+	else if (c >= 0x7b)			/* {|}~ DEL */
+		ret = 1;
+#if 0
+	printf("%c (0x%02x) is %svalid for hostname\n", c, c, (ret == 0) ? "  " : "in");
+#endif
+	return ret;
+}
+
+/*
+ * Validate a string is valid host name
+ * @name:	pointer to  a string.
+ */
+int is_valid_hostname(const char *name)
+{
+	const char *p;
+	int c;
+
+	if (!name)
+		return 0;
+
+	for (p = name; (c = *p); p++) {
+		if (is_invalid_char_for_hostname(c))
+			return 0;
+	}
+
+	return p - name;
+}
+
+/*
+ * Validate a string is valid domain name
+ * @name:	pointer to  a string.
+ */
+int is_valid_domainname(const char *name)
+{
+	const char *p;
+	int c;
+
+	if (!name)
+		return 0;
+
+	for (p = name; (c = *p); p++) {
+		if (((c | 0x20) < 'a' || (c | 0x20) > 'z') &&
+		    ((c < '0' || c > '9')) &&
+		    (c != '.' && c != '-' && c != '_'))
+			return 0;
+	}
+
+	return p - name;
+}
+
+#if defined(RTCONFIG_AMAS)
+/*
+	define amas_lib trigger function
+*/
+static int SEND_AMAS_NODE_EVENT(AMASLIB_EVENT_T *event)
+{
+	struct    sockaddr_un addr;
+	int       sockfd, n;
+
+	if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+		printf("[%s:(%d)] ERROR socket.\n", __FUNCTION__, __LINE__);
+		perror("socket error");
+		return 0;
+	}
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strlcpy(addr.sun_path, AMASLIB_SOCKET_PATH, sizeof(addr.sun_path));
+
+	if (connect(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+		printf("[%s:(%d)] ERROR connecting:%s.\n", __FUNCTION__, __LINE__, strerror(errno));
+		perror("connect error");
+		close(sockfd);
+		return 0;
+	}
+
+	n = write(sockfd, (AMASLIB_EVENT_T *)event, sizeof(AMASLIB_EVENT_T));
+
+	close(sockfd);
+
+	if (n < 0) {
+		printf("[%s:(%d)] ERROR writing:%s.\n", __FUNCTION__, __LINE__, strerror(errno));
+		perror("writing error");
+		return 0;
+	}
+
+	return 1;
+}
+
+int AMAS_EVENT_TRIGGER(char *sta2g, char *sta5g, int flag)
+{
+	AMASLIB_EVENT_T *node = NULL;
+	node = (AMASLIB_EVENT_T *)malloc(sizeof(AMASLIB_EVENT_T));
+
+	char *buf1 = sta2g;
+	char *buf2 = sta5g;
+
+	if (node == NULL) {
+		printf("[%s:(%d)] malloc(AMASLIB_EVENT_T) error:%s.\n", __FUNCTION__, __LINE__, strerror(errno));
+		return 0;
+	}
+
+	if (sta2g == NULL) buf1 = "\0";
+	if (sta5g == NULL) buf2 = "\0";
+
+	//printf("[%s:(%d)] sta2g=%s, sta5g=%s, flag=%d\n", __FUNCTION__, __LINE__, buf1, buf2, flag);
+	memset(node, 0, sizeof(AMASLIB_EVENT_T));
+	memcpy(node->sta2g, buf1, sizeof(node->sta2g));
+	memcpy(node->sta5g, buf2, sizeof(node->sta5g));
+	node->flag = flag;
+
+	/* send wlc event into wlc_nt */
+	SEND_AMAS_NODE_EVENT(node);
+
+	/* free memory */
+	if (node) free(node);
+
+	return 1;
+}
+
+/*
+	define amaslib enable function for check
+*/
+int is_amaslib_enabled()
+{
+	int ret = 0;
+	if ((nvram_get_int("wrs_enable") && nvram_get_int("wrs_app_enable")) ||
+		IS_TQOS() || IS_BW_QOS() ||
+		nvram_get_int("MULTIFILTER_ALL"))
+	{
+		ret = 1;
+	}
+
+	return ret;
+}
+#endif
+
+int get_discovery_ssid(char *ssid_g, int size)
+{
+#if defined(RTCONFIG_WIRELESSREPEATER) || defined(RTCONFIG_PROXYSTA)
+	char tmp[100], prefix[] = "wlXXXXXXXXXXXXXX";
+#endif
+#ifdef RTCONFIG_DPSTA
+	char word[80], *next;
+	int unit, connected;
+#endif
+#ifdef RTCONFIG_WIRELESSREPEATER
+	if (sw_mode() == SW_MODE_REPEATER)
+	{
+#ifdef RTCONFIG_CONCURRENTREPEATER
+		if (nvram_get_int("wlc_band") < 0 || nvram_get_int("wlc_express") == 0)
+			snprintf(prefix, sizeof(prefix), "wl0.1_");
+		else if (nvram_get_int("wlc_express") == 1)
+			snprintf(prefix, sizeof(prefix), "wl1.1_");
+		else if (nvram_get_int("wlc_express") == 2)
+			snprintf(prefix, sizeof(prefix), "wl0.1_");
+		else
+#endif
+			snprintf(prefix, sizeof(prefix), "wl%d.1_", nvram_get_int("wlc_band"));
+		strlcpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), size);
+	}
+	else
+#ifdef RTCONFIG_REALTEK
+		if (sw_mode() == SW_MODE_AP && nvram_get_int("wlc_psta") == 1)
+		{
+#ifdef RTCONFIG_CONCURRENTREPEATER
+			snprintf(prefix, sizeof(prefix), "wl0_");
+#else
+			snprintf(prefix, sizeof(prefix), "wl%d.1_", nvram_get_int("wlc_band"));
+#endif
+			strlcpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), size);
+		}
+		else
+#endif
+#endif
+#ifdef RTCONFIG_BCMWL6
+#ifdef RTCONFIG_PROXYSTA
+#ifdef RTCONFIG_DPSTA
+		if (dpsta_mode() && nvram_get_int("re_mode") == 0)
+		{
+			connected = 0;
+			foreach(word, nvram_safe_get("dpsta_ifnames"), next) {
+				wl_ioctl(word, WLC_GET_INSTANCE, &unit, sizeof(unit));
+				snprintf(prefix, sizeof(prefix), "wlc%d_", unit == 0 ? 0 : 1);
+				if (nvram_get_int(strcat_r(prefix, "state", tmp)) == 2) {
+					connected = 1;
+					snprintf(prefix, sizeof(prefix), "wl%d.1_", unit);
+					strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), size);
+					break;
+				}
+			}
+		if (!connected)
+			strlcpy(ssid_g, nvram_safe_get("wl0.1_ssid"), size);
+		}
+		else
+#endif
+		if (is_psta(nvram_get_int("wlc_band")))
+		{
+			snprintf(prefix, sizeof(prefix), "wl%d_", nvram_get_int("wlc_band"));
+			strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), size);
+		}
+		else if (is_psr(nvram_get_int("wlc_band")))
+		{
+			snprintf(prefix, sizeof(prefix), "wl%d.1_", nvram_get_int("wlc_band"));
+			strlcpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), size);
+		}
+		else
+#endif
+#endif
+	strlcpy(ssid_g, nvram_safe_get("wl0_ssid"), size);
+	return 0;
+}
+
+int get_chance_to_control(void)
+{
+	time_t now_t, login_ts, app_login_ts;
+
+	now_t = uptime();
+	login_ts = atol(nvram_safe_get("login_timestamp"));
+	app_login_ts = atol(nvram_safe_get("app_login_timestamp"));
+	if(((unsigned long)(login_ts) == 0 || (unsigned long)(now_t-login_ts) > 1800 || nvram_match("login_ip", ""))
+	&& ((unsigned long)(app_login_ts) == 0 || (unsigned long)(now_t-app_login_ts) > 1800 )) //check httpd from browser not in use
+	{
+		return 1;
+	}else
+		return 0;
+}
+
+int get_index_page(char *page, int size)
+{
+	if(check_if_file_exist("/www/GameDashboard.asp"))
+		strlcpy(page, "GameDashboard.asp", size);
+	else
+		strlcpy(page, "index.asp", size);
+
+	return 0;
+}

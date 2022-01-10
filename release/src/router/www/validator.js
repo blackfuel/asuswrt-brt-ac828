@@ -1,6 +1,18 @@
 ﻿
 var validator = {
 
+	ipv4cidr: function(obj){
+		var rangere_cidr=new RegExp("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$", "gi");
+		if(rangere_cidr.test(obj.value) || validator.ipAddr4(obj)) {
+			return true;
+		}else{
+			alert(obj.value+" is not valid.  Please enter a valid IP, which can optionally be in CIDR format (1.2.3.4/24).");
+			obj.focus();
+			obj.select();
+			return false;
+		}
+	},
+
 	account: function(string_obj, flag){
 		var invalid_char = "";
 
@@ -298,19 +310,6 @@ var validator = {
 		}
 	},
 
-	hostName: function (obj){
-		var re = new RegExp(/^[a-z0-9][a-z0-9-_]+$/i);
-		if(re.test(obj.value)){
-			return "";
-		}
-		else if(location.pathname == "/" || location.pathname == "/index.asp"){
-			return "Client device name only accept alphanumeric characters, under line and dash symbol. The first character cannot be dash \"-\" or under line \"_\".";
-		}
-		else{
-			return "<#JS_validhostname#>";
-		}
-	},
-
 	hostNameChar: function(ch){
 		if (ch>=48&&ch<=57) return true;	//0-9
 		if (ch>=97&&ch<=122) return true;	//little EN
@@ -327,8 +326,45 @@ var validator = {
 			return "";
 		}
 		else{
-			return "<#JS_validhostname#>";
+			return "<#JS_valid_FQDN#>";
 		}
+	},
+
+	host_name: function(obj){
+		var re = new RegExp(/^[a-z0-9][a-z0-9-_]+$/i);
+		if(re.test(obj.value))
+			return "";
+		else
+			return "<#JS_valid_host_name#> <#JS_valid_host_name_first_char#>";
+	},
+
+	samba_name: function(obj){
+		var re = new RegExp(/^[a-z0-9][a-z0-9-_]*$/i);
+		if(re.test(obj.value))
+			return "";
+		else
+			return "<#JS_valid_host_name#> <#JS_valid_host_name_first_char#>";
+	},
+
+	friendly_name: function(obj){
+		var invalid_char = "";
+		for(var i = 0; i < obj.value.length; ++i){
+			if(obj.value.charAt(i) < ' ' || obj.value.charAt(i) > '~')
+				invalid_char = invalid_char+obj.value.charAt(i);
+		}
+
+		if(invalid_char != "")
+			return "<#JS_validstr2#> '"+invalid_char+"' !";
+		else
+			return "";
+	},
+
+	account_name: function(obj){
+		var re = new RegExp(/^[a-z][a-z0-9-]*$/i);
+		if(re.test(obj.value))
+			return "";
+		else
+			return "<#JS_valid_account_name#> <#JS_valid_account_name_first_char#>";
 	},
 
 	requireWANIP: function(v){
@@ -1287,19 +1323,25 @@ var validator = {
 		
 		if(v == 'wan_ipaddr_x'){
 			if(o.value.length == 0){    /*Blank.*/
+				if(document.getElementById(o.name+"_div")){
+					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				}
 				alert(o.title+"<#JS_fieldblank#>");
-				document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
 				document.form.wan_ipaddr_x1.focus();
 				return false;
 			}
 			else if(o.value.indexOf("0") == 0){ /*首字不能為0*/
-				document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				if(document.getElementById(o.name+"_div")){
+					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				}
 				alert(document.form.wan_ipaddr_x.value + " <#JS_validip#>");
 				document.form.wan_ipaddr_x1.focus();
 				return false;
 			}		
 			else if(!(IP_Validate(o))){ /*IP格式錯誤*/
-				document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				if(document.getElementById(o.name+"_div")){
+					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				}
 				alert(document.form.wan_ipaddr_x.value + " <#JS_validip#>");
 				document.form.wan_ipaddr_x4.focus();
 				return false;
@@ -1326,7 +1368,9 @@ var validator = {
 			var wan_ipaddr_x1 = document.form.wan_ipaddr_x1.value;
 			if(o.value.length == 0){    /*Blank.*/
 
-				document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				if(document.getElementById(o.name+"_div")){
+					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				}
 				
 				if(confirm(o.title+"<#JS_fieldblank#>\n<#JS_field_fulfillSubmask#>")){
 					if((wan_ipaddr_x1 > 0) && (wan_ipaddr_x1 < 127)) o.value = "255.0.0.0";
@@ -1339,7 +1383,9 @@ var validator = {
 				return false;
 			}
 			else if(!(IP_Validate(o))){ /*IP格式錯誤*/
-				document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				if(document.getElementById(o.name+"_div")){
+					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				}
 				alert(o.value + " <#JS_validip#>");
 				return false;
 			}
@@ -1347,8 +1393,10 @@ var validator = {
 				if(this.requireWANIP(v) && (
 				(this.matchSubnet2(document.form.wan_ipaddr_x.value, o, document.form.lan_ipaddr.value, document.form.lan_netmask))
 				)){
+					if(document.getElementById(o.name+"_div")){
+						document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+					}
 					alert(o.value + " <#JS_validip#>");
-					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
 					return false;
 				}
 				else{
@@ -1359,13 +1407,17 @@ var validator = {
 		else if(v == 'wan_gateway_x'){
 			if(o.value.length > 0){
 				if(!(IP_Validate(o))){ /* IP格式錯誤*/
-					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+					if(document.getElementById(o.name+"_div")){
+						document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+					}
 					alert(o.value + " <#JS_validip#>");
 					return false;
 				}
 				else if(o.value == document.form.wan_ipaddr_x.value){
+					if(document.getElementById(o.name+"_div")){
+						document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+					}
 					alert("<#IPConnection_warning_WANIPEQUALGatewayIP#>");
-					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
 					return false;			
 				}
 			}
@@ -1376,8 +1428,10 @@ var validator = {
 			
 			var split_IP = o.value.split(".");
 			
-			if(!(IP_Validate(o))){ 
-				document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+			if(!(IP_Validate(o))){
+				if(document.getElementById(o.name+"_div")){
+					document.getElementById(o.name+"_div").style.border = "2px solid #CE1E1E";
+				}
 				alert(o.value + " <#JS_validip#>");
 				return false;
 			}
@@ -1753,6 +1807,12 @@ var validator = {
         return true;
 	},
 
+	lengthInUtf8: function(str) {
+		var asciiLength = str.match(/[\u0000-\u007f]/g) ? str.match(/[\u0000-\u007f]/g).length : 0;
+		var multiByteLength = encodeURI(str.replace(/[\u0000-\u007f]/g)).match(/%/g) ? encodeURI(str.replace(/[\u0000-\u007f]/g, '')).match(/%/g).length : 0;
+		return asciiLength + multiByteLength;
+	},
+
 	ssidChar: function(ch){
 		if(ch >= 32 && ch <= 126)
 			return false;
@@ -1847,31 +1907,45 @@ var validator = {
 	},
 
 	stringSSID: function(o){
+		var rc_support = '<% nvram_get("rc_support"); %>';
+		var utf8_ssid_support = (rc_support.split(" ").indexOf("utf8_ssid") == -1) ? false : true;
 		var c;	// character code
 		var flag=0; // notify valid characters of SSID except space
 		
-		if(o.value==""){      // to limit null SSID
+		if(o.value==""){	// to limit null SSID
 			alert('<#JS_fieldblank#>');
 			o.focus();
 			return false;
 		}	
-		
-		for(var i = 0; i < o.value.length; ++i){
+
+		len = this.lengthInUtf8(o.value);
+
+		if(len > 32){
+			alert("SSID length is over 32 characters");
+			o.value = "";
+			o.focus();
+			o.select();
+			return false;
+		}
+
+		for(var i = 0; i < len; ++i){
+
 			c = o.value.charCodeAt(i);
-			
-			if(this.ssidChar(c)){
-				alert('<#JS_validSSID1#> '+o.value.charAt(i)+' <#JS_validSSID2#>');
-				o.value = "";
-				o.focus();
-				o.select();
-				return false;
+			if(!utf8_ssid_support){
+				if(this.ssidChar(c)){
+					alert('<#JS_validSSID1#> '+o.value.charAt(i)+' <#JS_validSSID2#>');
+					o.value = "";
+					o.focus();
+					o.select();
+					return false;
+				}
 			}
 			
 			if(c != 32)
 				flag ++;
 		}
-		
-		if(flag ==0){     // to limit SSID only include space
+
+		if(flag ==0){	// to limit SSID only include space
 			alert('<#JS_fieldblank#>');
 			return false;
 		}
@@ -2136,5 +2210,36 @@ var validator = {
 			return true;
 		else
 			return false;
+	},
+
+	dwb_check_wl_setting: function(_jsonPara) {
+		var status = true;
+		var edit_wl_unit = _jsonPara["edit_wl_unit"];
+		var edit_wl_ssid = _jsonPara["edit_wl_ssid"];
+		var dwb_unit = _jsonPara["dwb_unit"];
+		var smart_connect = _jsonPara["smart_connect"];
+		var current_ssid = _jsonPara["current_ssid"];
+		if(edit_wl_unit != dwb_unit) {
+			if(edit_wl_ssid == current_ssid[dwb_unit])//compare dwb ssid
+				status = false;
+		}
+		else {
+			if(smart_connect == "1") {
+				if(edit_wl_ssid == current_ssid[0])//compare wl0 ssid
+					status = false;
+			}
+			else {
+				current_ssid.splice(dwb_unit, 1);//filter dwb ssid
+				for (var idx in current_ssid) {
+					if (current_ssid.hasOwnProperty(idx)) {
+						if(edit_wl_ssid == current_ssid[idx]) {//compare all ssid
+							status = false;
+							break;
+						}
+					}
+				}
+			}
+		}
+		return status;
 	}
 };

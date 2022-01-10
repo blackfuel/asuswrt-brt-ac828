@@ -176,8 +176,7 @@ _PUBLIC_ void ndr_print_ntlmssp_Version(struct ndr_print *ndr, const char *name,
 	}
 }
 
-_PUBLIC_ struct AV_PAIR *ndr_ntlmssp_find_av(const struct AV_PAIR_LIST *av_list,
-					     enum ntlmssp_AvId AvId)
+_PUBLIC_ struct AV_PAIR *ndr_ntlmssp_find_av(const struct AV_PAIR_LIST *av_list, enum ntlmssp_AvId AvId)
 {
 	struct AV_PAIR *res = NULL;
 	uint32_t i = 0;

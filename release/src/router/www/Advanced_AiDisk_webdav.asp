@@ -58,7 +58,7 @@ function applyRule(){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 
 <div id="Loading" class="popup_bg"></div>
@@ -112,7 +112,7 @@ function applyRule(){
 					</tr>
 				</table>
 			</div>
-			<div style="margin:5px;"><img src="/images/New_ui/export/line_export.png"></div>
+			<div style="margin:5px;" class="splitLine"></div>
 		  <div class="formfontdesc"><#USB_Application_disk_miscellaneous_desc#></div>
 				<table width="98%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
         	<tr>

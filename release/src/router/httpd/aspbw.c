@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
@@ -19,6 +21,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <httpd.h>
+#ifdef HND_ROUTER
+#include <shared.h>
+#endif
 
 #define nvram_match(name, match) ({ \
 	const char *value = nvram_get(name); \
@@ -29,8 +34,9 @@
 #define FW_APPEND	1
 #define FW_NEWLINE	2
 
+#ifndef _dprintf
 #define _dprintf(args...)	do { } while(0)
-
+#endif
 
 /*
 typedef union {
@@ -68,8 +74,6 @@ static const nvset_t nvset_list[] = {
 	{ NULL }
 };
 */
-
-FILE *connfp;
 
 // for backup =========================================================
 
@@ -156,17 +160,6 @@ int f_read_string(const char *path, char *buffer, int max)
 	return n;
 }
 
- size_t strlcpy(char *d, const char *s, size_t bufsize)
-{
-	size_t len = strlen(s);
-	size_t ret = len;
-	if (bufsize <= 0) return 0;
-	if (len >= bufsize) len = bufsize-1;
-	memcpy(d, s, len);
-	d[len] = 0;
-	return ret;
-}
-
 char *psname(int pid, char *buffer, int maxlen)
 {
 	char buf[512];
@@ -235,7 +228,7 @@ void do_f(char *path, webs_t wp)
 {
 	FILE *f;
 	char buf[1024];
-	int ret;
+	int ret=0;
 
 //printf("do_f: %s\n", path);
 	if ((f = fopen(path, "r")) != NULL) {

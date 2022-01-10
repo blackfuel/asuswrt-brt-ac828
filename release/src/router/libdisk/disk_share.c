@@ -14,6 +14,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307 USA
  */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -309,45 +313,6 @@ extern int get_all_folder(const char *const mount_path, int *sh_num, char ***fol
 	return 0;
 }
 
-#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
-int get_var_file_name(const char *const account, const char *const path,
-		      char **file_name, const int is_group)
-{
-	int len;
-	char *var_file;
-	char ascii_user[64];
-
-	if (path == NULL)
-		return -1;
-
-	len = strlen(path) + strlen("/.___var.txt");
-	if (is_group)
-		len += 2;
-
-	if (account != NULL) {
-		memset(ascii_user, 0, sizeof(ascii_user));
-		char_to_ascii_safe(ascii_user, account, sizeof(ascii_user));
-
-		len += strlen(ascii_user);
-	}
-
-	*file_name = (char *)malloc(sizeof(char) * (len + 1));
-	if (*file_name == NULL)
-		return -1;
-
-	var_file = *file_name;
-	if (account != NULL) {
-		if (is_group)
-			snprintf(var_file, (len+1), "%s/.__G_%s_var.txt", path, ascii_user);
-		else
-			snprintf(var_file, (len+1), "%s/.__%s_var.txt", path, ascii_user);
-	} else
-		snprintf(var_file, (len+1), "%s/.___var.txt", path);
-	var_file[len] = 0;
-
-	return 0;
-}
-#else	/* !RTCONFIG_PERMISSION_MANAGEMENT */
 extern int get_var_file_name(const char *const account, const char *const path, char **file_name, const int is_group){
 	int len;
 	char *var_file;
@@ -357,6 +322,11 @@ extern int get_var_file_name(const char *const account, const char *const path, 
 		return -1;
 
 	len = strlen(path)+strlen("/.___var.txt");
+#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
+	if(is_group)
+		len += 2;
+#endif
+
 	if(account != NULL){
 		memset(ascii_user, 0, sizeof(ascii_user));
 		char_to_ascii_safe(ascii_user, account, sizeof(ascii_user));
@@ -368,15 +338,20 @@ extern int get_var_file_name(const char *const account, const char *const path, 
 		return -1;
 
 	var_file = *file_name;
-	if(account != NULL)
-		snprintf(var_file, (len+1), "%s/.__%s_var.txt", path, ascii_user);
+	if(account != NULL){
+#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
+		if(is_group)
+			snprintf(var_file, (len+1), "%s/.__G_%s_var.txt", path, ascii_user);
+		else
+#endif
+			snprintf(var_file, (len+1), "%s/.__%s_var.txt", path, ascii_user);
+	}
 	else
 		snprintf(var_file, (len+1), "%s/.___var.txt", path);
 	var_file[len] = 0;
 
 	return 0;
 }
-#endif
 
 extern void free_2_dimension_list(int *num, char ***list){
 	int i;
@@ -450,10 +425,7 @@ extern int initial_folder_list(const char *const mount_path){
 	return 0;
 }
 
-#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
-int initial_var_file(const char *const account, const char *const mount_path,
-		     const int is_group)
-{
+extern int initial_var_file(const char *const account, const char *const mount_path, const int is_group) {
 	FILE *fp;
 	char *var_file;
 	int i;
@@ -468,94 +440,17 @@ int initial_var_file(const char *const account, const char *const mount_path,
 		usb_dbg("No input, mount_path\n");
 		return -1;
 	}
+
 	// 1. get the folder number and folder_list
 	//get_folder_list(mount_path, &sh_num, &folder_list);
 	get_all_folder(mount_path, &sh_num, &folder_list);
 
 	// 2. get the var file
-	if (get_var_file_name(account, mount_path, &var_file, is_group)) {
-		usb_dbg("Can't malloc \"var_file\".\n");
-		free_2_dimension_list(&sh_num, &folder_list);
-		return -1;
-	}
-	// 3. get the default permission of all protocol.
-	if (account == NULL	// share mode.
-	    || !strcmp(account, nvram_safe_get("http_username"))) {
-		samba_right = DEFAULT_SAMBA_RIGHT;
-		ftp_right = DEFAULT_FTP_RIGHT;
-		dms_right = DEFAULT_DMS_RIGHT;
-#ifdef RTCONFIG_WEBDAV_OLD
-		webdav_right = DEFAULT_WEBDAV_RIGHT;
-#endif
-	} else if (is_group) {
-		samba_right = DEFAULT_SAMBA_RIGHT;
-		ftp_right = DEFAULT_FTP_RIGHT;
-		dms_right = DEFAULT_DMS_RIGHT;
-#ifdef RTCONFIG_WEBDAV_OLD
-		webdav_right = DEFAULT_WEBDAV_RIGHT;
-#endif
-	} else {
-		samba_right = 0;
-		ftp_right = 0;
-		dms_right = 0;
-#ifdef RTCONFIG_WEBDAV_OLD
-		webdav_right = 0;
-#endif
-	}
-
-	// 4. write the default content in the var file
-	if ((fp = fopen(var_file, "w")) == NULL) {
-		usb_dbg("Can't create the var file, \"%s\".\n", var_file);
-		free_2_dimension_list(&sh_num, &folder_list);
-		free(var_file);
-		return -1;
-	}
-
-	for (i = -1; i < sh_num; ++i) {
-		fprintf(fp, "*");
-
-		if (i != -1)
-			fprintf(fp, "%s", folder_list[i]);
-#ifdef RTCONFIG_WEBDAV_OLD
-		fprintf(fp, "=%d%d%d%d\n", samba_right, ftp_right, dms_right,
-			webdav_right);
+#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
+	if(get_var_file_name(account, mount_path, &var_file, is_group)){
 #else
-		fprintf(fp, "=%d%d%d\n", samba_right, ftp_right, dms_right);
-#endif
-	}
-
-	fclose(fp);
-	free_2_dimension_list(&sh_num, &folder_list);
-
-	// 5. set the check target of file.
-	set_file_integrity(var_file);
-	free(var_file);
-
-	return 0;
-}
-#else	/* !RTCONFIG_PERMISSION_MANAGEMENT */
-extern int initial_var_file(const char *const account, const char *const mount_path, const int is_group) {
-	FILE *fp;
-	char *var_file;
-	int result, i;
-	int sh_num;
-	char **folder_list;
-	int samba_right, ftp_right, dms_right;
-#ifdef RTCONFIG_WEBDAV_OLD
-	int webdav_right;
-#endif
-
-	if (mount_path == NULL || strlen(mount_path) <= 0) {
-		usb_dbg("No input, mount_path\n");
-		return -1;
-	}
-
-	// 1. get the folder number and folder_list
-	//result = get_folder_list(mount_path, &sh_num, &folder_list);
-	result = get_all_folder(mount_path, &sh_num, &folder_list);
-
-	// 2. get the var file
 	if(get_var_file_name(account, mount_path, &var_file, 0)){
+#endif
 		usb_dbg("Can't malloc \"var_file\".\n");
 		free_2_dimension_list(&sh_num, &folder_list);
 		return -1;
@@ -571,6 +466,16 @@ extern int initial_var_file(const char *const account, const char *const mount_p
 		webdav_right = DEFAULT_WEBDAV_RIGHT;
 #endif
 	}
+#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
+	else if(is_group){
+		samba_right = DEFAULT_SAMBA_RIGHT;
+		ftp_right = DEFAULT_FTP_RIGHT;
+		dms_right = DEFAULT_DMS_RIGHT;
+#ifdef RTCONFIG_WEBDAV_OLD
+		webdav_right = DEFAULT_WEBDAV_RIGHT;
+#endif
+	}
+#endif
 	else{
 		samba_right = 0;
 		ftp_right = 0;
@@ -609,22 +514,16 @@ extern int initial_var_file(const char *const account, const char *const mount_p
 
 	return 0;
 }
-#endif
 
 #if defined(RTCONFIG_PERMISSION_MANAGEMENT)
 int initial_all_var_file(const char *const mount_path)
 {
 	int result;
 	int acc_num;
-#ifdef RTCONFIG_PERMISSION_MANAGEMENT
 	PMS_ACCOUNT_INFO_T *account_list, *follow_account;
 	int group_num;
 	PMS_ACCOUNT_GROUP_INFO_T *group_list, *follow_group;
 	char char_user[64];
-#else
-	int i;
-	char **account_list;
-#endif
 	DIR *opened_dir;
 	struct dirent *dp;
 
@@ -658,7 +557,6 @@ int initial_all_var_file(const char *const mount_path)
 		usb_dbg("Can't initial the var file for the share mode.\n");
 
 	// 3. get the account number and account_list
-#ifdef RTCONFIG_PERMISSION_MANAGEMENT
 	PMS_GetAccountInfo(PMS_ACTION_GET_FULL, &account_list, &group_list,
 			   &acc_num, &group_num);
 
@@ -685,16 +583,6 @@ int initial_all_var_file(const char *const mount_path)
 	}
 
 	PMS_FreeAccInfo(&account_list, &group_list);
-#else
-	result = get_account_list(&acc_num, &account_list);
-
-	for (i = 0; i < acc_num; ++i) {
-		if (initial_var_file(account_list[i], mount_path, 0) != 0)
-			usb_dbg("Can't initial \"%s\"'s file in %s.\n",
-				account_list[i], mount_path);
-	}
-	free_2_dimension_list(&acc_num, &account_list);
-#endif
 
 	// 4. initial the folder list
 	result = initial_folder_list(mount_path);
@@ -976,117 +864,6 @@ extern int create_if_no_var_files(const char *const mount_path) {
 }
 #endif
 
-#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
-int modify_if_exist_new_folder(const char *const account,
-			       const char *const mount_path, const int is_group)
-{
-	int sh_num;
-	char **folder_list, *target;
-	int result, i, len;
-	char *var_file;
-	FILE *fp;
-	int samba_right, ftp_right, dms_right;
-#ifdef RTCONFIG_WEBDAV_OLD
-	int webdav_right;
-#endif
-
-	// 1. get the var file
-	if (get_var_file_name(account, mount_path, &var_file, is_group)) {
-		usb_dbg("Can't malloc \"var_file\".\n");
-		return -1;
-	}
-	// 2. check the file integrity.
-	if (!check_file_integrity(var_file)) {
-		usb_dbg("Fail to check the file: %s.\n", var_file);
-		if (initial_var_file(account, mount_path, is_group) != 0)
-			usb_dbg("Can't initial \"%s\"'s file in %s.\n", account,
-				mount_path);
-
-		free(var_file);
-		return 0;
-	}
-	// 3. get all folder in mount_path
-	result = get_all_folder(mount_path, &sh_num, &folder_list);
-	if (result != 0) {
-		usb_dbg("Can't get the folder list in \"%s\".\n", mount_path);
-		free_2_dimension_list(&sh_num, &folder_list);
-		free(var_file);
-		return -1;
-	}
-
-	for (i = 0; i < sh_num; ++i) {
-		result = test_if_exist_share(mount_path, folder_list[i]);
-		if (result)
-			continue;
-
-		// 4. get the target
-		len = strlen("*") + strlen(folder_list[i]) + strlen("=");
-		target = (char *)malloc(sizeof(char) * (len + 1));
-		if (target == NULL) {
-			usb_dbg("Can't allocate \"target\".\n");
-			free_2_dimension_list(&sh_num, &folder_list);
-			free(var_file);
-			return -1;
-		}
-		snprintf(target, (len+1), "*%s=", folder_list[i]);
-		target[len] = 0;
-
-		// 5. get the default permission of all protocol.
-		if (account == NULL	// share mode.
-		    || !strcmp(account, nvram_safe_get("http_username"))) {
-			samba_right = DEFAULT_SAMBA_RIGHT;
-			ftp_right = DEFAULT_FTP_RIGHT;
-			dms_right = DEFAULT_DMS_RIGHT;
-#ifdef RTCONFIG_WEBDAV_OLD
-			webdav_right = DEFAULT_WEBDAV_RIGHT;
-#endif
-		}
-		else if (is_group) {
-			samba_right = DEFAULT_SAMBA_RIGHT;
-			ftp_right = DEFAULT_FTP_RIGHT;
-			dms_right = DEFAULT_DMS_RIGHT;
-#ifdef RTCONFIG_WEBDAV_OLD
-			webdav_right = DEFAULT_WEBDAV_RIGHT;
-#endif
-		}
-		else {
-			samba_right = 0;
-			ftp_right = 0;
-			dms_right = 0;
-#ifdef RTCONFIG_WEBDAV_OLD
-			webdav_right = 0;
-#endif
-		}
-
-		// 6. add the information of the new folder
-		fp = fopen(var_file, "a+");
-		if (fp == NULL) {
-			usb_dbg("Can't write \"%s\".\n", var_file);
-			free_2_dimension_list(&sh_num, &folder_list);
-			free(var_file);
-			free(target);
-			return -1;
-		}
-#ifdef RTCONFIG_WEBDAV_OLD
-		fprintf(fp, "%s%d%d%d%d\n", target, samba_right, ftp_right,
-			dms_right, webdav_right);
-#else
-		fprintf(fp, "%s%d%d%d\n", target, samba_right, ftp_right,
-			dms_right);
-#endif
-
-		free(target);
-		fclose(fp);
-	}
-	free_2_dimension_list(&sh_num, &folder_list);
-
-	// 7. set the check target of file.
-	set_file_integrity(var_file);
-	free(var_file);
-
-	return 0;
-}
-#else	/* !RTCONFIG_PERMISSION_MANAGEMENT */
 extern int modify_if_exist_new_folder(const char *const account, const char *const mount_path, const int is_group) {
 	int sh_num;
 	char **folder_list, *target;
@@ -1099,7 +876,11 @@ extern int modify_if_exist_new_folder(const char *const account, const char *con
 #endif
 	
 	// 1. get the var file
+#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
+	if(get_var_file_name(account, mount_path, &var_file, is_group)){
+#else
 	if(get_var_file_name(account, mount_path, &var_file, 0)){
+#endif
 		usb_dbg("Can't malloc \"var_file\".\n");
 		return -1;
 	}
@@ -1107,11 +888,11 @@ extern int modify_if_exist_new_folder(const char *const account, const char *con
 	// 2. check the file integrity.
 	if(!check_file_integrity(var_file)){
 		usb_dbg("Fail to check the file: %s.\n", var_file);
-		if(initial_var_file(account, mount_path, 0) != 0){
+		if(initial_var_file(account, mount_path, 0) != 0)
 			usb_dbg("Can't initial \"%s\"'s file in %s.\n", account, mount_path);
-			free(var_file);
-			return -1;
-		}
+
+		free(var_file);
+		return -1;
 	}
 	
 	// 3. get all folder in mount_path
@@ -1150,6 +931,16 @@ extern int modify_if_exist_new_folder(const char *const account, const char *con
 			webdav_right = DEFAULT_WEBDAV_RIGHT;
 #endif
 		}
+#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
+		else if (is_group) {
+			samba_right = DEFAULT_SAMBA_RIGHT;
+			ftp_right = DEFAULT_FTP_RIGHT;
+			dms_right = DEFAULT_DMS_RIGHT;
+#ifdef RTCONFIG_WEBDAV_OLD
+			webdav_right = DEFAULT_WEBDAV_RIGHT;
+#endif
+		}
+#endif
 		else{
 			samba_right = 0;
 			ftp_right = 0;
@@ -1174,6 +965,7 @@ extern int modify_if_exist_new_folder(const char *const account, const char *con
 #else
 		fprintf(fp, "%s%d%d%d\n", target, samba_right, ftp_right, dms_right);
 #endif
+
 		free(target);
 		fclose(fp);
 	}
@@ -1185,7 +977,6 @@ extern int modify_if_exist_new_folder(const char *const account, const char *con
 	
 	return 0;
 }
-#endif
 
 #if defined(RTCONFIG_PERMISSION_MANAGEMENT)
 int get_permission(const char *const account,
@@ -1230,7 +1021,7 @@ int get_permission(const char *const account,
 		len = strlen("*=");
 	else
 		len = strlen("*") + strlen(f) + strlen("=");
-	target = (char *)malloc(sizeof(char) * (len + 1));
+	target = (char *)malloc(sizeof(char)*(len+1));
 	if (target == NULL) {
 		usb_dbg("Can't allocate \"target\".\n");
 		free(var_info);
@@ -1239,7 +1030,7 @@ int get_permission(const char *const account,
 	snprintf(target, (len+1), "*%s=", (f != NULL)?f:"");
 	target[len] = 0;
 
-	follow_info = upper_strstr(var_info, target);
+	follow_info = strcasestr(var_info, target);
 	free(target);
 	if (follow_info == NULL) {
 		if (account == NULL)
@@ -1354,7 +1145,7 @@ retry_get_permission:
 	snprintf(target, (len+1), "*%s=", (f != NULL)?f:"");
 	target[len] = 0;
 	
-	follow_info = upper_strstr(var_info, target);
+	follow_info = strcasestr(var_info, target);
 	free(target);
 	if (follow_info == NULL) {
 		if(account == NULL)
@@ -1463,7 +1254,7 @@ int set_permission(const char *const account,
 		len = strlen("*=");
 	else
 		len = strlen("*") + strlen(folder) + strlen("=");
-	target = (char *)malloc(sizeof(char) * (len + 1));
+	target = (char *)malloc(sizeof(char)*(len+1));
 	if (target == NULL) {
 		usb_dbg("Can't allocate \"target\".\n");
 		free(var_file);
@@ -1474,7 +1265,7 @@ int set_permission(const char *const account,
 	target[len] = 0;
 
 	// 5. judge if the target is in the var file.
-	follow_info = upper_strstr(var_info, target);
+	follow_info = strcasestr(var_info, target);
 	if (follow_info == NULL) {
 		if (account == NULL)
 			usb_dbg("No right about \"%s\" with the share mode.\n",
@@ -1650,7 +1441,7 @@ extern int set_permission(const char *const account,
 	target[len] = 0;
 	
 	// 5. judge if the target is in the var file.
-	follow_info = upper_strstr(var_info, target);
+	follow_info = strcasestr(var_info, target);
 	if (follow_info == NULL) {
 		if(account == NULL)
 			usb_dbg("No right about \"%s\" with the share mode.\n", (folder == NULL?"Pool":folder));
@@ -1753,9 +1544,8 @@ extern int set_permission(const char *const account,
 	
 	return 0;
 }
-#endif	/* RTCONFIG_PERMISSION_MANAGEMENT */
+#endif
 
-#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
 int add_folder_at_var_file(const char *const account,
 			   const char *const owned_account,
 			   const char *const mount_path,
@@ -1789,15 +1579,13 @@ int add_folder_at_var_file(const char *const account,
 	}
 
 	len = strlen("*") + strlen(folder) + strlen("=");
-	target = (char *)malloc(sizeof(char) * (len + 1));
+	target = (char *)malloc(sizeof(char)*(len+1));
 	if (target == NULL) {
 		usb_dbg("add_folder: Can't allocate \"target\".\n");
 		free(var_file);
 		return -1;
 	}
-
 	snprintf(target, (len+1), "*%s=", folder);
-
 	target[len] = 0;
 
 	var_info = read_whole_file(var_file);
@@ -1807,7 +1595,7 @@ int add_folder_at_var_file(const char *const account,
 		free(var_file);
 		free(target);
 		return -1;
-	} else if (upper_strstr(var_info, target) != NULL) {
+	} else if (strcasestr(var_info, target) != NULL) {
 		free(var_file);
 		free(target);
 		free(var_info);
@@ -1840,7 +1628,6 @@ int add_folder_at_var_file(const char *const account,
 		webdav_right = DEFAULT_WEBDAV_RIGHT;
 #endif
 	}
-#ifdef RTCONFIG_PERMISSION_MANAGEMENT
 	else if (is_group) {
 		samba_right = DEFAULT_SAMBA_RIGHT;
 		ftp_right = DEFAULT_FTP_RIGHT;
@@ -1849,7 +1636,6 @@ int add_folder_at_var_file(const char *const account,
 		webdav_right = DEFAULT_WEBDAV_RIGHT;
 #endif
 	}
-#endif
 	else {
 		samba_right = 0;
 		ftp_right = 0;
@@ -1873,15 +1659,6 @@ int add_folder_at_var_file(const char *const account,
 
 	return 0;
 }
-#else	/* !RTCONFIG_PERMISSION_MANAGEMENT */
-int add_folder_at_var_file(const char *const account,
-			   const char *const owned_account,
-			   const char *const mount_path,
-			   const char *const folder, const int is_group)
-{
-	return 0;
-}
-#endif
 
 extern int add_folder(const char *const account, const char *const mount_path, const char *const folder){
 	int result, len;
@@ -1980,7 +1757,6 @@ extern int add_folder(const char *const account, const char *const mount_path, c
 	return 0;
 }
 
-#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
 int del_folder_at_var_file(const char *const account,
 			   const char *const mount_path,
 			   const char *const folder, const int is_group)
@@ -2010,7 +1786,7 @@ int del_folder_at_var_file(const char *const account,
 	}
 
 	len = strlen("*") + strlen(folder) + strlen("=");
-	target = (char *)malloc(sizeof(char) * (len + 1));
+	target = (char *)malloc(sizeof(char)*(len+1));
 	if (target == NULL) {
 		usb_dbg("%s: Can't allocate \"target\".\n", __FUNCTION__);
 		free(var_file);
@@ -2028,7 +1804,7 @@ int del_folder_at_var_file(const char *const account,
 		return -1;
 	}
 
-	follow_info = upper_strstr(var_info, target);
+	follow_info = strcasestr(var_info, target);
 	free(target);
 	if (follow_info == NULL) {
 		free(var_file);
@@ -2063,14 +1839,6 @@ int del_folder_at_var_file(const char *const account,
 
 	return 0;
 }
-#else	/* !RTCONFIG_PERMISSION_MANAGEMENT */
-int del_folder_at_var_file(const char *const account,
-			   const char *const mount_path,
-			   const char *const folder, const int is_group)
-{
-	return 0;
-}
-#endif	/* RTCONFIG_PERMISSION_MANAGEMENT */
 
 extern int del_folder(const char *const mount_path, const char *const folder){
 	int result, len;
@@ -2172,7 +1940,6 @@ extern int del_folder(const char *const mount_path, const char *const folder){
 	return 0;
 }
 
-#if defined(RTCONFIG_PERMISSION_MANAGEMENT)
 int mod_folder_at_var_file(const char *const account,
 			   const char *const mount_path,
 			   const char *const folder,
@@ -2203,7 +1970,7 @@ int mod_folder_at_var_file(const char *const account,
 	}
 
 	len = strlen("*") + strlen(folder) + strlen("=");
-	target = (char *)malloc(sizeof(char) * (len + 1));
+	target = (char *)malloc(sizeof(char)*(len+1));
 	if (target == NULL) {
 		usb_dbg("%s: Can't allocate \"target\".\n", __FUNCTION__);
 		return -1;
@@ -2212,7 +1979,7 @@ int mod_folder_at_var_file(const char *const account,
 	target[len] = 0;
 
 	len = strlen("*") + strlen(new_folder) + strlen("=");
-	new_target = (char *)malloc(sizeof(char) * (len + 1));
+	new_target = (char *)malloc(sizeof(char)*(len+1));
 	if (new_target == NULL) {
 		usb_dbg("%s: Can't allocate \"new_target\".\n", __FUNCTION__);
 		free(target);
@@ -2231,7 +1998,7 @@ int mod_folder_at_var_file(const char *const account,
 		return -1;
 	}
 
-	if ((follow_info = upper_strstr(var_info, target)) == NULL) {
+	if ((follow_info = strcasestr(var_info, target)) == NULL) {
 		usb_dbg("%s: No \"%s\" in \"%s\"..\n", __FUNCTION__, folder,
 			var_file);
 		free(var_file);
@@ -2271,15 +2038,6 @@ int mod_folder_at_var_file(const char *const account,
 
 	return 0;
 }
-#else	/* !RTCONFIG_PERMISSION_MANAGEMENT */
-int mod_folder_at_var_file(const char *const account,
-			   const char *const mount_path,
-			   const char *const folder,
-			   const char *const new_folder, const int is_group)
-{
-	return 0;
-}
-#endif	/* RTCONFIG_PERMISSION_MANAGEMENT */
 
 extern int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder){
 	int result, len;
@@ -2415,7 +2173,7 @@ extern int test_if_exist_share(const char *const mount_path, const char *const f
 	
 	result = 0;
 	for(i = 0; i < sh_num; ++i)
-		if(!upper_strcmp(folder, folder_list[i])){
+		if(strcasecmp(folder, folder_list[i]) == 0){
 			result = 1;
 			break;
 		}
@@ -2565,7 +2323,7 @@ extern int add_account(const char *const account, const char *const password){
 	int acc_num;
 	int len;
 	char nvram_value[PATH_MAX], *ptr;
-	char ascii_user[64], ascii_passwd[64];
+	char ascii_user[64], ascii_passwd[84];
 	int lock;
 
 	if(account == NULL || strlen(account) <= 0){
@@ -2586,6 +2344,18 @@ extern int add_account(const char *const account, const char *const password){
 
 	memset(ascii_passwd, 0, sizeof(ascii_passwd));
 	char_to_ascii_safe(ascii_passwd, password, sizeof(ascii_passwd));
+#ifdef RTCONFIG_NVRAM_ENCRYPT
+	int enclen = pw_enc_blen(ascii_passwd);
+	char enc_passwd[enclen];
+	char passwdbuf[NVRAM_ENC_MAXLEN];
+
+	if(!pw_dec(password, passwdbuf, sizeof(passwdbuf))){
+		pw_enc(ascii_passwd, enc_passwd);
+		strlcpy(ascii_passwd, enc_passwd, sizeof(ascii_passwd));
+	}else{
+		strlcpy(ascii_passwd, password, sizeof(ascii_passwd));
+	}
+#endif
 
 	acc_num = nvram_get_int("acc_num");
 	if(acc_num < 0)
@@ -2595,8 +2365,7 @@ extern int add_account(const char *const account, const char *const password){
 		return -1;
 	}
 
-	memset(nvram_value, 0, PATH_MAX);
-	strcpy(nvram_value, nvram_safe_get("acc_list"));
+	snprintf(nvram_value, sizeof(nvram_value), "%s", nvram_safe_get("acc_list"));
 	len = strlen(nvram_value);
 	if(len > 0){
 		ptr = nvram_value+len;
@@ -2651,22 +2420,15 @@ int del_account(const char *const account)
 	char *ptr;
 	int len;
 	int acc_num;
-#ifdef RTCONFIG_PERMISSION_MANAGEMENT
 	PMS_ACCOUNT_INFO_T *account_list, *follow_account;
 	int group_num;
 	PMS_ACCOUNT_GROUP_INFO_T *group_list;
 	char ascii_user[64];
-#else
-	char *tmp_ascii_user, *tmp_ascii_passwd, char_user[64];
-	char *nv, *nvp, *b;
-	char nvram_value[PATH_MAX];
-#endif
 
 	if (account == NULL || strlen(account) <= 0) {
 		usb_dbg("No input, \"account\".\n");
 		return -1;
 	}
-#ifdef RTCONFIG_PERMISSION_MANAGEMENT
 	if (PMS_GetAccountInfo
 	    (PMS_ACTION_GET_FULL, &account_list, &group_list, &acc_num,
 	     &group_num) < 0) {
@@ -2677,13 +2439,10 @@ int del_account(const char *const account)
 
 	PMS_FreeAccInfo(&account_list, &group_list);
 
-#else
-	acc_num = nvram_get_int("acc_num");
-#endif
 	if (acc_num <= 0) {
 		return 0;
 	}
-#ifdef RTCONFIG_PERMISSION_MANAGEMENT
+
 	memset(ascii_user, 0, sizeof(ascii_user));
 	char_to_ascii_safe(ascii_user, account, sizeof(ascii_user));
 
@@ -2695,51 +2454,6 @@ int del_account(const char *const account)
 	PMS_list_ACCOUNT_free(follow_account);
 
 	i = acc_num - 1;
-#else
-	memset(nvram_value, 0, sizeof(nvram_value));
-	nv = nvp = strdup(nvram_safe_get("acc_list"));
-	i = 0;
-	if (nv && strlen(nv) > 0) {
-		while ((b = strsep(&nvp, "<")) != NULL) {
-			if (vstrsep(b, ">", &tmp_ascii_user, &tmp_ascii_passwd)
-			    != 2)
-				continue;
-
-			memset(char_user, 0, sizeof(char_user));
-			ascii_to_char_safe(char_user, tmp_ascii_user,
-					   sizeof(char_user));
-
-			if (!strcmp(account, char_user)) {
-				if (--acc_num == 0) {
-					nvram_set("acc_num", "0");
-					nvram_set("acc_list", "");
-
-					free(nv);
-					return 0;
-				}
-
-				continue;
-			}
-
-			len = strlen(nvram_value);
-			if (len > 0) {
-				ptr = nvram_value + len;
-				sprintf(ptr, "<%s>%s", tmp_ascii_user, tmp_ascii_passwd);
-			} else
-				snprintf(nvram_value, sizeof(nvram_value), "%s>%s", tmp_ascii_user, tmp_ascii_passwd);
-
-			if (++i >= acc_num)
-				break;
-		}
-	}
-	if (nv)
-		free(nv);
-	nvram_set("acc_list", nvram_value);
-
-	snprintf(nvram_value, sizeof(nvram_value), "%d", i);
-	nvram_set("acc_num", nvram_value);
-	need_commit = 1;
-#endif
 
 	if (i <= 0) {
 		nvram_set("st_samba_mode", "1");
@@ -2808,7 +2522,9 @@ int del_account(const char *const account)
 				if (strncmp(dp->d_name, ptr, len))
 					continue;
 
-				snprintf(test_path, sizeof(test_path), "%s/%s", follow_partition->mount_point, dp->d_name);
+				snprintf(test_path, sizeof(test_path), "%s/%s",
+					follow_partition->mount_point,
+					dp->d_name);
 				usb_dbg("delete %s.\n", test_path);
 				delete_file_or_dir(test_path);
 			}
@@ -2952,11 +2668,11 @@ extern int del_account(const char *const account){
 
 	return 0;
 }
-#endif	/* RTCONFIG_PERMISSION_MANAGEMENT */
+#endif
 
+#ifdef RTCONFIG_PERMISSION_MANAGEMENT
 // "new_account" can be the same with "account" and only change the password!
 extern int mod_account(const char *const account, const char *const new_account, const char *const new_password){
-#ifdef RTCONFIG_PERMISSION_MANAGEMENT
 	disk_info_t *disk_list, *follow_disk;
 	partition_info_t *follow_partition;
 	char *var_file, *new_var_file;
@@ -3085,7 +2801,9 @@ extern int mod_account(const char *const account, const char *const new_account,
 	free_disk_data(&disk_list);
 
 	return 0;
+}
 #else	/* !RTCONFIG_PERMISSION_MANAGEMENT */
+extern int mod_account(const char *const account, const char *const new_account, const char *const new_password){
 	disk_info_t *disk_list, *follow_disk;
 	partition_info_t *follow_partition;
 	int acc_num;
@@ -3119,7 +2837,7 @@ extern int mod_account(const char *const account, const char *const new_account,
 	if(acc_num <= 0)
 		return 0;
 
-	memset(nvram_value, 0, PATH_MAX);
+	memset(nvram_value, 0, sizeof(nvram_value));
 	nv = nvp = strdup(nvram_safe_get("acc_list"));
 	i = 0;
 	if(nv && strlen(nv) > 0){
@@ -3139,7 +2857,16 @@ extern int mod_account(const char *const account, const char *const new_account,
 			if(new_password != NULL && strlen(new_password) > 0){
 				memset(ascii_passwd, 0, sizeof(ascii_passwd));
 				char_to_ascii_safe(ascii_passwd, new_password, sizeof(ascii_passwd));
+
+#ifdef RTCONFIG_NVRAM_ENCRYPT
+				char enc_passwd[64];
+
+				memset(enc_passwd, 0, sizeof(enc_passwd));
+				pw_enc(ascii_passwd, enc_passwd);
+				set_passwd = enc_passwd;
+#else
 				set_passwd = ascii_passwd;
+#endif
 			}
 			else
 				set_passwd = tmp_ascii_passwd;
@@ -3240,8 +2967,8 @@ extern int mod_account(const char *const account, const char *const new_account,
 	free_disk_data(&disk_list);
 
 	return 0;
-#endif	/* RTCONFIG_PERMISSION_MANAGEMENT */
 }
+#endif
 
 extern int test_if_exist_account(const char *const account){
 	int acc_num;

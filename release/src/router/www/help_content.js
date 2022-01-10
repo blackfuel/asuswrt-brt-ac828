@@ -16,7 +16,7 @@ helpcontent[0] = new Array("",
 			"<#WLANConfig11b_ChannelBW_itemdesc#><br/><#WLANConfig11b_Wireless_Speed_itemname_3#>",
 			"<#WLANConfig11b_EChannel_itemdesc#>",
 			"<#WLANConfig11b_TxPower_help1#>",
-			"<#WLANConfig11b_TxPower_help#>",
+			"",
 			"WEP-64bits: <#WLANConfig11b_WEPKey_itemtype1#><br/>WEP-128bits: <#WLANConfig11b_WEPKey_itemtype2#>",
 			"<#WLANConfig11b_WEPKey_itemtype1#><br/><#WLANConfig11b_WEPKey_itemtype2#>",
 			"<#WLANConfig11b_WEPKey_itemtype1#><br/><#WLANConfig11b_WEPKey_itemtype2#>",
@@ -74,7 +74,7 @@ helpcontent[3] = new Array("",
 							"<#WLANConfig11b_x_roamingassit_desc#>",	//31
 							"<#WLANConfig11b_x_Airtime_Fairness_itemdesc#>",
 							"<#WLANConfig11b_x_Auto#>",
-							"Enable/Disable Bluetooth Coexisistence. Data rate 1Mbps and 2 Mbps are not allowed in Pre-emptive mode. TX Bursting is also not allowed in Pre-emptive mode."
+							"<#WLANConfig11b_x_BTCoexistence_itemdesc#>"
 							 );
 
 helpcontent[4] = new Array("",
@@ -135,7 +135,11 @@ helpcontent[7] = new Array("",
 							 "<#qis_pppoe_help1#>",
 							 "<#isp_profile#>",
 							 "<#PPPConnection_Authentication_itemdesc#>",
-							 "<#PPPConnection_Authentication_itemdesc2#>");
+							 "<#PPPConnection_Authentication_itemdesc2#>",
+							 "<b>PPP Echo:</b> Use Echo-Request and Echo-Reply message defined in PPP Link Control Protocol (LCP) to test the PPP connection. <b>DNS Probe:</b> Performs a DNS lookup request and resolved IP address to test DNS connection",	//31
+							 "Send an LCP Echo-Request frame to the peer every n seconds.",
+							 "Presume the peer to be dead if n LCP Echo-Requests are sent without receiving a valid LCP Echo-Reply. Use of this option requires a non-zero value for the Echo Interval parameter.",
+"If DNS resolution fails or returns the wrong address to n times, then it is assumed that the internet connection is completely unsuccessful");
 //Firewall
 helpcontent[8] = new Array("",
 						   "<#FirewallConfig_WanLanLog_itemdesc#>",
@@ -217,7 +221,9 @@ helpcontent[18] = new Array("",
 helpcontent[19] = new Array("",
 							"<#Setting_factorydefault_itemdesc#>",
 							"<#Setting_save_itemdesc#>",
-							"<#Setting_upload_itemdesc#>");
+							"<#Setting_upload_itemdesc#>",
+							"<#Setting_factorydefault_itemdesc_dpi#>"
+							);
 // QoS
 helpcontent[20] = new Array("",
 							"",
@@ -359,7 +365,9 @@ helpcontent[32] = new Array("",
 							"The Network Address of a subnet to generate an internal route to a specific client. This specific client should own this subnet.",/*untranslated*/
 							"The Network Mask of a subnet to generate an internal route to a specific client. This specific client should own this subnet.",/*untranslated*/
 							" If you would like other clients to be able to this specific client's subnet, choose Yes and Enable \"Allow Client <-> Client\".",/*untranslated*/
-							"The message digest algorithm which is used to authenticate packets with HMAC. HMAC usually adds 16 or 20 bytes per packet."/*untranslated*/
+							"The message digest algorithm which is used to authenticate packets with HMAC. HMAC usually adds 16 or 20 bytes per packet.",/*untranslated*/
+							"When you would restore or replace router, you can keep original certification of OpenVPN server via \"Export Current Certification\".",/*untranslated*/
+							"You can shift original certification of OpenVPN server from your other one or the old ASUS router, rather than create a new one and ask all clients to setup OpenVPN profile again."/*untranslated*/
 							);
 
 //IPSec
@@ -369,5 +377,6 @@ helpcontent[33] = new Array("",
 
 //Feedback
 helpcontent[34] = new Array("",
-							"This feature allows system to capture diagnostic System debug log in the background, duration depends on the “Diagnostic debug log capture duration” option, depends on the option selected, system might transmit single debug log automatically to ASUS Support Team for analysis after capture completed or transmit multiple debug logs over a period of time. Click on the yellow System icon could cancel the debug log capture."/*untranslated*/
+							"This feature allows system to capture diagnostic System debug log in the background, duration depends on the “Diagnostic debug log capture duration” option, depends on the option selected, system might transmit single debug log automatically to ASUS Support Team for analysis after capture completed or transmit multiple debug logs over a period of time. Click on the yellow System icon could cancel the debug log capture.",/*untranslated*/
+							"<#Feedback_case_No_desc#>"
 							);

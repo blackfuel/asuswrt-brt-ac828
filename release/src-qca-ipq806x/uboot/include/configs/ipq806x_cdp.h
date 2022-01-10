@@ -37,6 +37,8 @@
 #endif
 #endif /* !DO_DEPS_ONLY */
 
+#define CONFIG_SYS_VSNPRINTF
+
 #define CONFIG_BOARD_EARLY_INIT_F
 
 #define CONFIG_SYS_NO_FLASH
@@ -377,6 +379,12 @@ typedef struct {
 /* Enabling this flag will report any L2 errors.
  * By default we are disabling it */
 /*#define CONFIG_IPQ_REPORT_L2ERR*/
+
+/*
+* Location in IMEM which contains the physical address of
+* 4K page allocated from kernel for storing the crashdump data
+*/
+#define CONFIG_IPQ_KERNEL_CRASHDUMP_ADDRESS 0x2A03F658
 
 #endif /* _IPQCDP_H */
 

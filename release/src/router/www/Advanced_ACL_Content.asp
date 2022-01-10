@@ -39,19 +39,18 @@
 var wl_maclist_x_array = '<% nvram_get("wl_maclist_x"); %>';
 
 var manually_maclist_list_array = new Array();
-Object.prototype.getKey = function(value) {
-	for(var key in this) {
-		if(this[key] == value) {
-			return key;
-		}
-	}
-	return null;
-};
 
 function initial(){
-	show_menu();
+	if(isSwMode("re") && concurrep_support){
+		document.form.wl_subunit.value = 1;
+		if('<% nvram_get("wl_subunit"); %>' != '1') change_wl_unit();
+	}
 
+	show_menu();
 	regen_band(document.form.wl_unit);
+	if(lantiq_support){
+		checkWLReady();
+	}	
 
 	if(!band5g_support)
 		document.getElementById("wl_unit_field").style.display = "none";
@@ -59,16 +58,18 @@ function initial(){
 	var wl_maclist_x_row = wl_maclist_x_array.split('&#60');
 	var clientName = "New device";
 	for(var i = 1; i < wl_maclist_x_row.length; i += 1) {
-		if(clientList[wl_maclist_x_row[i]]) {
-			clientName = (clientList[wl_maclist_x_row[i]].nickName == "") ? clientList[wl_maclist_x_row[i]].name : clientList[wl_maclist_x_row[i]].nickName;
+		var _index = wl_maclist_x_row[i].toUpperCase();
+		if(clientList[_index]) {
+			clientName = (clientList[_index].nickName == "") ? clientList[_index].name : clientList[_index].nickName;
 		}
 		else {
 			clientName = "New device";
 		}
-		manually_maclist_list_array[wl_maclist_x_row[i]] = clientName;
+
+		manually_maclist_list_array[_index] = clientName;
 	}
 
-	if((sw_mode == 2 || sw_mode == 4) && document.form.wl_unit.value == '<% nvram_get("wlc_band"); %>'){
+	if((sw_mode == 2 || sw_mode == 4) && document.form.wl_unit.value == '<% nvram_get("wlc_band"); %>' && !concurrep_support){
 		for(var i=3; i>=3; i--)
 			document.getElementById("MainTable1").deleteRow(i);
 		for(var i=2; i>=0; i--)
@@ -77,8 +78,9 @@ function initial(){
 		document.getElementById("wl_maclist_x_Block").style.display = "none";
 		document.getElementById("submitBtn").style.display = "none";
 	}
-	else
+	else{
 		show_wl_maclist_x();
+	}
 
 	setTimeout("showDropdownClientList('setClientmac', 'mac', 'wl', 'WL_MAC_List_Block', 'pull_arrow', 'all');", 1000);
 	check_macMode();
@@ -86,15 +88,17 @@ function initial(){
 
 function show_wl_maclist_x(){
 	var code = "";
-	code +='<table width="100%" border="1" cellspacing="0" cellpadding="4" align="center" class="list_table"  id="wl_maclist_x_table">'; 
+	var clientListEventData = [];
+	code += '<table width="100%" cellspacing="0" cellpadding="4" align="center" class="list_table"  id="wl_maclist_x_table">';
 	if(Object.keys(manually_maclist_list_array).length == 0)
-		code +='<tr><td style="color:#FFCC00;"><#IPConnection_VSList_Norule#></td>';
+		code += '<tr><td style="color:#FFCC00;"><#IPConnection_VSList_Norule#></td></tr>';
 	else{
 		//user icon
 		var userIconBase64 = "NoIcon";
 		var clientName, deviceType, deviceVender;
 		Object.keys(manually_maclist_list_array).forEach(function(key) {
-			var clientMac = key;
+			var clientMac = key.toUpperCase();
+			var clientIconID = "clientIcon_" + clientMac.replace(/\:/g, "");
 			if(clientList[clientMac]) {
 				clientName = (clientList[clientMac].nickName == "") ? clientList[clientMac].name : clientList[clientMac].nickName;
 				deviceType = clientList[clientMac].type;
@@ -109,25 +113,25 @@ function show_wl_maclist_x(){
 			code +='<td width="80%" align="center">';
 			code += '<table style="width:100%;"><tr><td style="width:35%;height:56px;border:0px;float:right;">';
 			if(clientList[clientMac] == undefined) {
-				code += '<div class="clientIcon type0" onClick="popClientListEditTable(\'' + clientMac + '\', this, \'\', \'\', \'ACL\')"></div>';
+				code += '<div id="' + clientIconID + '" class="clientIcon type0"></div>';
 			}
 			else {
 				if(usericon_support) {
 					userIconBase64 = getUploadIcon(clientMac.replace(/\:/g, ""));
 				}
 				if(userIconBase64 != "NoIcon") {
-					code += '<div style="text-align:center;" onClick="popClientListEditTable(\'' + clientMac + '\', this, \'\', \'\', \'ACL\')"><img class="imgUserIcon_card" src="' + userIconBase64 + '"></div>';
+					code += '<div id="' + clientIconID + '" style="text-align:center;"><img class="imgUserIcon_card" src="' + userIconBase64 + '"></div>';
 				}
 				else if(deviceType != "0" || deviceVender == "") {
-					code += '<div class="clientIcon type' + deviceType + '" onClick="popClientListEditTable(\'' +clientMac + '\', this, \'\', \'\', \'ACL\')"></div>';
+					code += '<div id="' + clientIconID + '" class="clientIcon type' + deviceType + '"></div>';
 				}
 				else if(deviceVender != "" ) {
 					var venderIconClassName = getVenderIconClassName(deviceVender.toLowerCase());
 					if(venderIconClassName != "" && !downsize_4m_support) {
-						code += '<div class="venderIcon ' + venderIconClassName + '" onClick="popClientListEditTable(\'' + clientMac + '\', this, \'\', \'\', \'ACL\')"></div>';
+						code += '<div id="' + clientIconID + '" class="venderIcon ' + venderIconClassName + '"></div>';
 					}
 					else {
-						code += '<div class="clientIcon type' + deviceType + '" onClick="popClientListEditTable(\'' + clientMac + '\', this, \'\', \'\', \'ACL\')"></div>';
+						code += '<div id="' + clientIconID + '" class="clientIcon type' + deviceType + '"></div>';
 					}
 				}
 			}
@@ -136,19 +140,26 @@ function show_wl_maclist_x(){
 			code += '<div>' + clientMac + '</div>';
 			code += '</td></tr></table>';
 			code += '</td>';
-			code +='<td width="20%"><input type="button" class=\"remove_btn\" onclick=\"deleteRow(this, \'' + clientMac + '\');\" value=\"\"/></td></tr>';		
+			code += '<td width="20%"><input type="button" class=\"remove_btn\" onclick=\"deleteRow(this, \'' + clientMac + '\');\" value=\"\"/></td></tr>';
+			if(validator.mac_addr(clientMac))
+				clientListEventData.push({"mac" : clientMac, "name" : "", "ip" : "", "callBack" : "ACL"});
 		});
-	}	
-	
-  	code +='</tr></table>';
+	}
+	code += '</table>';
 	document.getElementById("wl_maclist_x_Block").innerHTML = code;
+	for(var i = 0; i < clientListEventData.length; i += 1) {
+		var clientIconID = "clientIcon_" + clientListEventData[i].mac.replace(/\:/g, "");
+		var clientIconObj = $("#wl_maclist_x_Block").children("#wl_maclist_x_table").find("#" + clientIconID + "")[0];
+		var paramData = JSON.parse(JSON.stringify(clientListEventData[i]));
+		paramData["obj"] = clientIconObj;
+		$("#wl_maclist_x_Block").children("#wl_maclist_x_table").find("#" + clientIconID + "").click(paramData, popClientListEditTable);
+	}
 }
 
 function deleteRow(r, delMac){
 	var i = r.parentNode.parentNode.rowIndex;
 	delete manually_maclist_list_array[delMac];
 	document.getElementById('wl_maclist_x_table').deleteRow(i);
-
 	if(Object.keys(manually_maclist_list_array).length == 0)
 		show_wl_maclist_x();
 }
@@ -168,7 +179,7 @@ function addRow(obj, upper){
 		obj.focus();
 		obj.select();			
 		return false;
-	}else if(!check_macaddr(obj, check_hwaddr_flag(obj))){
+	}else if(!check_macaddr(obj, check_hwaddr_flag(obj, 'inner'))){
 		obj.focus();
 		obj.select();	
 		return false;	
@@ -196,11 +207,17 @@ function addRow(obj, upper){
 }
 
 function applyRule(){
+	if(lantiq_support && wave_ready != 1){
+		alert("Please wait a minute for wireless ready");
+		return false;
+	}
+	
 	var rule_num = document.getElementById('wl_maclist_x_table').rows.length;
 	var item_num = document.getElementById('wl_maclist_x_table').rows[0].cells.length;
 	var tmp_value = "";
 
 	Object.keys(manually_maclist_list_array).forEach(function(key) {
+		key = key.toUpperCase();
 		tmp_value += "<" + key;
 	});
 
@@ -310,10 +327,29 @@ function enable_macMode(){
 		document.form.wl_maclist_x.disabled = true;
 	}	
 }
+
+function checkWLReady(){
+	$.ajax({
+	    url: '/ajax_wl_ready.asp',
+	    dataType: 'script',	
+	    error: function(xhr) {
+			setTimeout("checkWLReady();", 1000);
+	    },
+	    success: function(response){
+	    	if(wave_ready != 1){
+	    		$("#lantiq_ready").show();
+	    		setTimeout("checkWLReady();", 1000);
+	    	}
+	    	else{
+	    		$("#lantiq_ready").hide();
+	    	}	
+	    }
+  	});
+}
 </script>
 </head>
 
-<body onload="initial();">
+<body onload="initial();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
@@ -350,8 +386,9 @@ function enable_macMode(){
 				<td bgcolor="#4D595D" valign="top">
 					<div>&nbsp;</div>
 					<div class="formfonttitle"><#menu5_1#> - <#menu5_1_4#></div>
-					<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+					<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 					<div class="formfontdesc"><#DeviceSecurity11a_display1_sectiondesc#></div>
+					<div id="lantiq_ready" style="display:none;color:#FC0;margin-left:5px;font-size:13px;">Wireless is setting...</div>
 					<table id="MainTable1" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 						<thead>
 						  <tr>

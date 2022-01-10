@@ -34,43 +34,43 @@ var debugTime = 0;
 var href_lang = get_supportsite_lang();
 switch("<% nvram_get("preferred_lang"); %>"){
 	case "KR":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "RO":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "HU":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "IT":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "DA":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;	
 	case "BR":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "SV":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "FI":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "NO":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "TH":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "DE":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "PL":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	case "CZ":
-						href_lang = "/us/";
+						href_lang = "/";
 						break;
 	default:
 						break;
@@ -172,8 +172,10 @@ function init()
 	ref.initX();
 	document.getElementById("faq0").href = "https://www.asus.com/support/FAQ/114483/" ;
 	if(bwdpi_support){
-		document.getElementById('content_title').innerHTML = "<#menu5_3_2#> - <#traffic_monitor#>";
-	}	
+		document.getElementById('content_title').innerHTML = "<#traffic_monitor#>";
+	}
+
+	document.getElementById('traffic_unit').value = getTrafficUnit();
 }
 
 function switchPage(page){
@@ -208,10 +210,15 @@ function Zoom(func){
 	else
 		return false;
 }
+
+function setUnit(unit){
+	cookie.set('ASUS_TrafficMonitor_unit', unit);
+	initCommon(1, 0, 0, 1);
+}
 </script>
 </head>
 
-<body onload="show_menu();init();" >
+<body onload="show_menu();init();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
@@ -270,7 +277,7 @@ function Zoom(func){
 						</td>
         			</tr>
         			<tr>
-          				<td height="5"><img src="images/New_ui/export/line_export.png" /></td>
+          				<td height="5"><div class="splitLine"></div></td>
         			</tr>
         			<tr>
           				<td height="30" align="left" valign="middle" >
@@ -280,14 +287,30 @@ function Zoom(func){
         			<tr>
           				<td align="left" valign="middle">
 							<!-- add some hard code of style attributes to wordkaround for IE 11-->
-							<table width="95%" border="1" align="left" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="DescTable" style="font-size:12px; font-family:Arial, Helvetica, sans-serif;	border: 1px solid #000000; border-collapse: collapse;">
-								<tr><th style="	font-family:Arial, Helvetica, sans-serif; background-color:#1F2D35; color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;	border: 1px solid #222;	border-collapse: collapse; background:#2F3A3E;" width="16%"></th><th style="	font-family:Arial, Helvetica, sans-serif; background-color:#1F2D35; color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;	border: 1px solid #222;	border-collapse: collapse; background:#2F3A3E;" width="26%"><#Internet#></th><th style="	font-family:Arial, Helvetica, sans-serif; background-color:#1F2D35; color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;	border: 1px solid #222;	border-collapse: collapse; background:#2F3A3E;" width="29%"><#tm_wired#></th><th style="	font-family:Arial, Helvetica, sans-serif; background-color:#1F2D35; color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;	border: 1px solid #222;	border-collapse: collapse; background:#2F3A3E;" width="29%"><#tm_wireless#></th></tr>
-								<tr><th style="	font-family:Arial, Helvetica, sans-serif; background-color:#1F2D35; color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;	border: 1px solid #222;	border-collapse: collapse; background:#2F3A3E;"><#tm_reception#></th><td style="color:#FF9000;padding-left: 10px;	background-color:#475a5f; border: 1px solid #222;border-collapse: collapse;"><#tm_recp_int#></td><td style="color:#3CF;padding-left: 10px;	background-color:#475a5f; border: 1px solid #222;border-collapse: collapse;"><#tm_recp_wired#></td><td style="color:#3CF;padding-left: 10px;	background-color:#475a5f; border: 1px solid #222;border-collapse: collapse;"><#tm_recp_wireless#></td></tr>
-								<tr><th style="	font-family:Arial, Helvetica, sans-serif; background-color:#1F2D35; color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;	border: 1px solid #222;	border-collapse: collapse; background:#2F3A3E;"><#tm_transmission#></th><td style="color:#3CF;padding-left: 10px;	background-color:#475a5f; border: 1px solid #222;border-collapse: collapse;"><#tm_trans_int#></td><td style="color:#FF9000;padding-left: 10px;	background-color:#475a5f; border: 1px solid #222;border-collapse: collapse;"><#tm_trans_wired#></td><td style="color:#FF9000;padding-left: 10px;	background-color:#475a5f; border: 1px solid #222;border-collapse: collapse;"><#tm_trans_wireless#></td></tr>
+							<table width="95%" border="1" align="left" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="DescTable" style="font-size:12px; border: 1px solid #000000; border-collapse: collapse;">
+								<tr><th class="tm_title_bg" style="color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;padding-left: 10px;	border-collapse: collapse;" width="16%"></th><th class="tm_title_bg" style="color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;border-collapse: collapse;" width="26%"><#Internet#></th><th class="tm_title_bg" style="color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;border-collapse: collapse;" width="29%"><#tm_wired#></th><th class="tm_title_bg" style="color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;border-collapse: collapse;" width="29%"><#tm_wireless#></th></tr>
+								<tr><th class="tm_title_bg" style="color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;	border-collapse: collapse;"><#tm_reception#></th><td style="color:#FF9000;padding-left: 10px;border-collapse: collapse;"><#tm_recp_int#></td><td style="color:#3CF;padding-left: 10px;border-collapse: collapse;"><#tm_recp_wired#></td><td style="color:#3CF;padding-left: 10px;border-collapse: collapse;"><#tm_recp_wireless#></td></tr>
+								<tr><th class="tm_title_bg" style="color:#FFFFFF; font-weight:normal; line-height:15px; height: 30px; text-align:left; font-size:12px;	padding-left: 10px;border-collapse: collapse;"><#tm_transmission#></th><td style="color:#3CF;padding-left: 10px;border-collapse: collapse;"><#tm_trans_int#></td><td style="color:#FF9000;padding-left: 10px;	border-collapse: collapse;"><#tm_trans_wired#></td><td style="color:#FF9000;padding-left: 10px;border-collapse: collapse;"><#tm_trans_wireless#></td></tr>
 							</table>
 							<!--End-->
           				</td>
-        			</tr>
+					</tr>
+					<tr>
+						<td>
+							<div style="display:flex;align-items: center;margin: 4px 0;">
+								<div><#Statistic_show_type#></div>
+								<div style="margin-left: 24px;">
+									<select class="input_option" id="traffic_unit" onchange="setUnit(this.value);">
+										<option value="0">KB</option>
+										<option value="1">MB</option>
+										<option value="2">GB</option>
+										<option value="3">TB</option>
+									</select>
+								</div>
+							</div>
+							
+						</td>
+					</tr>
         			<tr>
           				<td height="30" align="left" valign="middle" >
 							<div class="formfontcontent"><p><#traffic_monitor_desc2#></p></div>		
@@ -302,29 +325,29 @@ function Zoom(func){
 								<input title="Zoom in" type="button" onclick="Zoom('in');" class="zoomin_btn" name="button">
          						<input title="Zoom out" type="button" onclick="Zoom('out');" class="zoomout_btn" name="button">
 							</span>
+							<span id="iftitle" style="font-weight: bold; color: #A0B06B; position: absolute; margin-top: 30px; margin-left: 41%; min-width: 180px;"></span>
 							<!--========= svg =========-->
 							<!--[if IE]>
-										<div id="svg-table" align="left">
-										<object id="graph" src="tm.svg" classid="image/svg+xml" width="730" height="350">
-										</div>
+								<div id="svg-table" align="left" class="IE8HACK">
+									<object id="graph" src="tm.svg" classid="image/svg+xml" width="730" height="350">
+								</div>
 							<![endif]-->
 							<!--[if !IE]>-->
 								<object id="graph" data="tm.svg" type="image/svg+xml" width="730" height="350">
 							<!--<![endif]-->
 								</object>
 							<!--========= svg =========-->
-      			
                     	</td>
         	    	</tr>
         	    
   		     		<tr>
 						<td>
-				    	 	<table width="730px" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable_NWM" style="margin-top:10px;margin-left:-1px;*margin-left:-10px;">
+				    	 	<table width="730px" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable_NWM" style="margin-top:0px;margin-left:-1px;*margin-left:-10px;margin-left:-12px \9;">
 						  		<tr>
-						  			<th style="text-align:center;width:160px;height:25px;"><#Current#></th>
-						  			<th style="text-align:center;width:160px;height:25px;"><#Average#></th>
-						  			<th style="text-align:center;width:160px;height:25px;"><#Maximum#></th>
-						  			<th style="text-align:center;width:160px;height:25px;"><#Total#></th>
+						  			<th style="text-align:center;width:160px;"><#Current#></th>
+						  			<th style="text-align:center;width:160px;"><#Average#></th>
+						  			<th style="text-align:center;width:160px;"><#Maximum#></th>
+						  			<th style="text-align:center;width:160px;"><#Total#></th>
 						  		</tr>
 						  		<tr>
 						  			<td style="text-align:center;font-weight: bold; background-color:#111;"><div id="rx-current"></div></td>
@@ -354,7 +377,7 @@ function Zoom(func){
 		    				</thead>
 							<div id='bwm-controls'>						
 								<tr>
-									<th width='50%'><#Traffic_Hours#>:&nbsp;</th>
+									<th width='50%'>:&nbsp;</th>
 									<td>
 										<a href='javascript:switchHours(4);' id='hr4'>4</a>,
 										<a href='javascript:switchHours(6);' id='hr6'>6</a>,
@@ -364,7 +387,7 @@ function Zoom(func){
 									</td>
 								</tr>						
 								<tr>
-									<th><#Traffic_Avg#>:&nbsp;</th>
+									<th>:&nbsp;</th>
 									<td>
 										<a href='javascript:switchAvg(1)' id='avg1'>Off</a>,
 										<a href='javascript:switchAvg(2)' id='avg2'>2x</a>,
@@ -374,23 +397,23 @@ function Zoom(func){
 									</td>
 								</tr>			
 								<tr>
-									<th><#Traffic_Max#>:&nbsp;</th>
+									<th>:&nbsp;</th>
 									<td>
 										<a href='javascript:switchScale(0)' id='scale0'>Uniform</a>,
 										<a href='javascript:switchScale(1)' id='scale1'>Per IF</a>
 									</td>
 								</tr>			
 								<tr>
-									<th><#Traffic_SvgDisp#>:&nbsp;</th>
+									<th>:&nbsp;</th>
 									<td>
 										<a href='javascript:switchDraw(0)' id='draw0'>Solid</a>,
 										<a href='javascript:switchDraw(1)' id='draw1'>Line</a>
 									</td>
 								</tr>		
 								<tr>
-									<th><#Traffic_Color#>:&nbsp; </th>
+									<th>:&nbsp; </th>
 									<td>
-										<a href='javascript:switchColor()' id='drawcolor'> </a><small><a href='javascript:switchColor(1)' id='drawrev'><#Traffic_Reverse#></a></small>
+										<a href='javascript:switchColor()' id='drawcolor'> </a><small><a href='javascript:switchColor(1)' id='drawrev'></a></small>
 									</td>
 								</tr>	
 							</div>							

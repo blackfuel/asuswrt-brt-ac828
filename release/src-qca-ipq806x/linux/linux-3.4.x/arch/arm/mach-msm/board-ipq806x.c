@@ -1665,10 +1665,13 @@ void ipq806x_pcie_pdata_fixup(void)
 
 	if (machine_is_ipq806x_ap148() ||
 		machine_is_ipq806x_ap148_1xx()) {
+#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_QCA_AP148)
 		rst[2] = -1;
 		pwr[2] = -1;
 		no_vreg[2] = 1;
-#if defined(CONFIG_ASUS_BRTAC828)
+#endif
+
+#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_ASUS_RTAD7200)
 		msm_pcie_platform_data[0].force_gen1 = 1;
 #else
 		msm_pcie_platform_data[1].force_gen1 = 1;
@@ -2971,7 +2974,7 @@ static void nss_gmac_init(void)
 
 #define IPQ_MAC_ADDR_PARTITION	"Factory"
 
-#if defined(CONFIG_ASUS_BRTAC828)
+#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_ASUS_RTAD7200)
 #define WAN0_MAC_OFFSET		0x1006	/* 2G MAC */
 #define LAN_MAC_OFFSET		0x5006	/* 5G MAC */
 #elif defined(CONFIG_QCA_AP148)
@@ -2981,7 +2984,7 @@ static void nss_gmac_init(void)
 #define EEPROM_OFFSET_MASK	~(0xFFF)
 #define	QC98XX_EEPROM_SIZE_LARGEST	12064 // sync with driver
 
-#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_QCA_AP148)
+#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_ASUS_RTAD7200) || defined(CONFIG_QCA_AP148)
 uint8_t eeprom[QC98XX_EEPROM_SIZE_LARGEST] __initdata;
 
 static int __init qc98xx_verify_checksum(void *eeprom)
@@ -2999,9 +3002,9 @@ static int __init qc98xx_verify_checksum(void *eeprom)
 	}
 	return 0;
 }
-#endif	/* CONFIG_ASUS_BRTAC828 || CONFIG_QCA_AP148 */
+#endif	/* CONFIG_ASUS_BRTAC828 || CONFIG_ASUS_RTAD7200 || CONFIG_QCA_AP148 */
 
-#if defined(CONFIG_ASUS_BRTAC828)
+#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_ASUS_RTAD7200)
 void __init ipq_nss_get_mac_addr(struct mtd_info *mtd, int id, struct msm_nss_gmac_platform_data *pdata)
 {
 	int ret, len, off, csum_fail = 0;
@@ -3152,7 +3155,7 @@ inline void __init ipq_nss_get_mac_addr(struct mtd_info *mtd, int id,
 	printk("%s: MAC[%d]: %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, id,
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
-#endif	/* CONFIG_ASUS_BRTAC828 */
+#endif	/* CONFIG_ASUS_BRTAC828 || CONFIG_ASUS_RTAD7200 */
 
 static int __init nss_fixup_platform_data(void)
 {

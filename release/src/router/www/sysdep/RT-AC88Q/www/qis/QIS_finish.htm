@@ -26,7 +26,7 @@ span{
 <script type="text/javascript" src="/qis/QISMobilePlugin.js"></script>
 <script type="text/JavaScript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/help.js"></script>
-
+<script type="text/JavaScript" src="/js/httpApi.js"></script>
 <script>
 <% wanlink(); %>
 <% first_wanlink(); %>
@@ -106,7 +106,7 @@ var timezones = {
 	"EBST3DST_1":	"(GMT-03:00)",
 	"UTC3":	"(GMT-03:00)",
 	"EBST3DST_2":	"(GMT-03:00)",
-	"NORO2DST":	"(GMT-02:00)",
+	"UTC2":	"(GMT-02:00)",
 	"EUT1DST":	"(GMT-01:00)",
 	"UTC1":	"(GMT-01:00)",
 	"GMT0":	"(GMT)",
@@ -115,7 +115,7 @@ var timezones = {
 	/*"GMT0DST_3":		"(GMT)",	use adj_dst to desc*/
 	"UTC-1DST_1":	"(GMT+01:00)",
 	"UTC-1_1_1":	"(GMT+01:00)",
-	"UTC-1_2":	"(GMT+01:00)",
+	"UTC-1DST_1_2":	"(GMT+01:00)",
 	"UTC-1_2_1":	"(GMT+01:00)",
 	"MET-1DST":	"(GMT+01:00)",
 	"MET-1DST_1":	"(GMT+01:00)",
@@ -123,7 +123,7 @@ var timezones = {
 	"MEZ-1DST_1":	"(GMT+01:00)",
 	"UTC-1_3":	"(GMT+01:00)",
 	"UTC-2DST":	"(GMT+02:00)",
-	"EST-2DST":	"(GMT+02:00)",
+	"EST-2":	"(GMT+02:00)",
 	"UTC-2_1":	"(GMT+02:00)",
 	"UTC-2DST_2":	"(GMT+02:00)",
 	"IST-2DST":	"(GMT+02:00)",
@@ -136,7 +136,7 @@ var timezones = {
 	"UTC-4_2":	"(GMT+04:00)",
 	"UTC-4_3":	"(GMT+04:00)",
 	"UTC-4_1":	"(GMT+04:00)",
-	"UTC-4DST_2":	"(GMT+04:00)",
+	"UTC-4_6":	"(GMT+04:00)",
 	"UTC-4.30":	"(GMT+04:30)",
 	"UTC-5":	"(GMT+05:00)",
 	"UTC-5.30_2":	"(GMT+05:30)",
@@ -162,11 +162,11 @@ var timezones = {
 	"UTC-10_3":	"(GMT+10:00)",
 	"UTC-10_1":	"(GMT+10:00)",
 	"UTC-10_2":	"(GMT+10:00)",
-	"TST-10TDT":	"(GMT+10:00)",
-	"UTC-10_5":	"(GMT+10:00)",
+	"TST-10TDT":	"(GMT+10:00)",	
 	"UTC-11_2":	"(GMT+11:00)",
 	"UTC-11":	"(GMT+11:00)",
 	"UTC-11_1":	"(GMT+11:00)",
+	"UTC-11_4":	"(GMT+11:00)",
 	"UTC-12":	"(GMT+12:00)",
 	"NZST-12DST":	"(GMT+12:00)",
 	"UTC-13":	"(GMT+13:00)"
@@ -176,6 +176,9 @@ if(parent.yadns_support){
 	var yadns_enable = '<% nvram_get("yadns_enable_x"); %>';
 	var yadns_mode = '<% nvram_get("yadns_mode"); %>';
 }
+
+var header_info = [<% get_header_info(); %>];
+var location_org = header_info[0].protocol + "://" + header_info.host + ":" + header_info.port;
 
 var wans_mode = '<% nvram_get("wans_mode"); %>';
 
@@ -189,18 +192,6 @@ function yadns_apply(){
 	yadns_update.yadns_mode.value = (enable && defmode) ? "1" : yadns_mode;
 	yadns_update.submit();
 }
-
-var get_protocol = function() {
-	var protocol = "http:";
-	if(window.location.protocol == "http:" || window.location.protocol == "https:") {
-		protocol = window.location.protocol;
-		return protocol;
-	}
-
-	return protocol;
-};
-var header_info = [<% get_header_info(); %>];
-var location_org = get_protocol() + "//" + header_info[0].host;
 
 function yadns_change(need_apply){
 	var enable = document.getElementById("yadns_enable").checked;
@@ -220,12 +211,15 @@ function doLiveUpdate(_do){
 	}
 	else{
 		goto_index();
-		setTimeout("parent.location.href='/index.asp'", 3000);
+		setTimeout("parent.location.href='/'", 3000);
 	}
 }
 
 function showCancel(){
 	document.getElementById("newFWCancel").style.display = "";
+	if(parent.new_FW_type==2){
+		document.getElementById("newFWCancelDesc").innerHTML = "<#exist_new_force#>";
+	}
  	document.getElementById("newFWDetected").style.display = "none";
 }
 
@@ -252,7 +246,7 @@ function detect_httpd(){
 				progressBar = 100;
 				document.getElementById('progress_bar_no').innerHTML = "100%";
 				document.getElementById("updateProgress").style.width = "100%";
-				document.getElementById("liveUpdateResult").innerHTML = "<#connect_failed#>";
+				document.getElementById("liveUpdateResult").innerHTML = "<#info_failed#>";
 				document.getElementById("newFWgraded").style.display = "";
 				return false;
 			}else if(webs_state_error == "2"){
@@ -322,11 +316,11 @@ function checkIsNewFirmware(){
 
 		document.getElementById("QISmain").style.display = "none";
 		document.getElementById("liveUpdate_div").style.display = "";
-
-		//force_upgrade_support : rc_support with "fupgrade"
-		if(!parent.is_CN && parent.force_upgrade_support){
-			doLiveUpdate(true);
+		if(parent.new_FW_type==2){
+			document.getElementById("liveUpdate_div_leftbutton").value = "<#CTL_UpgradeNight#>";
+			document.getElementById("liveUpdate_div_rightbutton").value = "<#CTL_UpgradeNow#>";
 		}
+
 	}
 	else{
 		goto_index();
@@ -342,7 +336,12 @@ function QKfinish_load_body(){
 		parent.yadns_stage++;
 		checkIsNewFirmware();
 	}
-		
+	
+	var linkInternet = httpApi.isConnected();
+	if(linkInternet){
+		document.getElementById("main_manual").style.display = "";
+	}
+
 	document.getElementById("QISmain").style.display = "";
 	parent.document.title = "<#Web_Title#> - <#QKSet_all_title#>";
 
@@ -1146,6 +1145,10 @@ function QKfinish_load_body(){
 		if(parent.new_FW){
 			document.getElementById("mainDiv_finish").style.display = "none";
 			document.getElementById("liveUpdate_div").style.display = "";
+			if(parent.new_FW_type==2){
+				document.getElementById("liveUpdate_div_leftbutton").value = "<#CTL_UpgradeNight#>";
+				document.getElementById("liveUpdate_div_rightbutton").value = "<#CTL_UpgradeNow#>";
+			}
 			document.getElementById("liveUpdateTitle").style.display = "none";
 			$("#currentFW")[0].innerHTML = parent.exist_firmver + "_" + parent.current_buildno + "_" + parent.current_extendno;
 			$("#latestFW")[0].innerHTML = "" 
@@ -1180,7 +1183,7 @@ function repage(){
 }
 
 function gotoASUS(){
-	parent.location.href = "http://www.asus.com/support/";
+	parent.location.href = "https://www.asus.com/support/";
 }
 
 var wans_dualwan_orig = '<% nvram_get("wans_dualwan"); %>';
@@ -1266,9 +1269,6 @@ function startLiveDetect(){
 }
 
 function redirect_index(){
-	parent.document.getElementById("btn_gotoindex").onclick = "";
-	parent.document.getElementById("btn_gotoindex").style.cursor = "";
-	parent.document.getElementById("btn_gotoindex").className = "m_qis_r_blocked";	
 	if(parent.new_FW){
 		return checkIsNewFirmware();
 	}
@@ -1278,10 +1278,10 @@ function redirect_index(){
 	else{
 		if(parent.based_modelid == "BRT-AC828"){
 			document.getElementById('loadingIcon').style.display = '';
-			setTimeout("detect_redirect()", 5000);
+			setTimeout("detect_redirect()", 10000);
 		}
 		else
-			parent.location.href = "/index.asp";
+			parent.location.href = "/";
 	}
 }
 
@@ -1432,7 +1432,7 @@ function detect_redirect(){
     		setTimeout("detect_redirect();", 1000);
     	},
     	success: function(){
-      		top.location.href = "/index.asp";
+      		top.location.href = "/";
   		}
   	});
 }
@@ -1465,13 +1465,13 @@ function detect_redirect(){
 					<td align="left">
 						<div class="description_down"><#qis_finish_title1#></div>
 					</td>
-					<td align="right">
-						<!--img onclick="parent.gotoIndex();" style="cursor:pointer;" align="right" title="Go to Home" src="/images/backtohome.png" onMouseOver="this.src='/images/backtohomeclick.png'" onMouseOut="this.src='/images/backtohome.png'"-->
-					</td>
+					<td align="right"></td>
 				</tr>
 			</table>
 		</div>
-		<div style="margin:5px;" id="splitLine"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
+		<div style="margin:5px;" id="splitLine">
+			<div style="width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
+		</div>
 <br/>
 
 <p id="timeObject" class="QISGeneralFont" style="margin-top:-5px;"><#General_x_SystemTime_itemname#>: <span id="system_time" size="40" class="devicepin" style="font-size:12px;"></span>&nbsp&nbsp<span id="change_tz" style="font-family:Lucida Console;"></span>&nbsp<span id="dstzone" style="display:none;"></span></p>
@@ -1679,7 +1679,7 @@ function detect_redirect(){
 	<div class="itemTitle"><#menu5_2#></div>
 	<fieldset>
 		<div class="row">
-			<label><#LAN IP#></label>
+			<label><#LAN_IP#></label>
 			<div id="lanip_m"></div>
 		</div>
 		<div class="row_end">
@@ -1690,17 +1690,12 @@ function detect_redirect(){
 	<br />
 	
 	<fieldset>
-		<div class="row_end"><a class="iuiA" onclick="parent.location.href='/index.asp';"><#menu5#></a></div>
+		<div class="row_end"><a class="iuiA" onclick="parent.location.href='/';"><#menu5#></a></div>
 	</fieldset>
 	<br />
 	<fieldset>
 		<div class="row_end"><a class="iuiA" onclick="parent.location.href='/Logout.asp';"><#t1Logout#></a></div>
 	</fieldset>
-
-	<!-- support Live update -->
-	<!--fieldset class="theFieldset">
-		<div class="row_end"><a class="iuiA" onclick="">check FW</a></div>
-	</fieldset-->
 </div>
 
 <div id="applyBtn" class="apply_gen" style="margin-top:30px">
@@ -1710,8 +1705,8 @@ function detect_redirect(){
 </div>
 
 <div id="AreaHint" style="margin-top:10px; margin-left:5px;">
-	<div><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
-	<div id="main_manual" style="padding-left:20px;margin-top:10px">
+	<div style="width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
+	<div id="main_manual" style="padding-left:20px;margin-top:10px;display:none;">
 		<span><#ASUS_Registration#></span>
 	</div>
 </div>
@@ -1730,7 +1725,7 @@ function detect_redirect(){
 				</tr>
 			</table>
 		</div>
-		<div style="margin:5px;"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
+		<div style="margin:5px;width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
 		<br>
 		<br>
 	</div>
@@ -1750,8 +1745,8 @@ function detect_redirect(){
 		<br>
 		<br>
 		<div class="apply_gen" style="margin-top:5px">
-			<input type="button" value="<#CTL_Cancel#>" onclick="showCancel();" class="button_gen">
-			<input type="button" value="<#checkbox_Yes#>" onclick="doLiveUpdate(true);" class="button_gen">
+			<input type="button" id="liveUpdate_div_leftbutton" value="<#CTL_Cancel#>" onclick="showCancel();" class="button_gen">
+			<input type="button" id="liveUpdate_div_rightbutton" value="<#checkbox_Yes#>" onclick="doLiveUpdate(true);" class="button_gen">
 		</div>
 	</div>
 		
@@ -1781,12 +1776,13 @@ function detect_redirect(){
 						margin-top:5px;
 						width:90%;
 						height:30px;
-						background:url(/images/quotabar_bg_progress.gif);
-						background-repeat: repeat-x;
+						background: #596E74;
+						border-top: 1px solid #929EA1;
+						border-bottom: 1px solid #929eA1;
 					}
 				</style>
 				<span id="progress_bar_no" style="display:none;position:absolute;margin-left:285px;margin-top:7px;*margin-left:290px">0%</span>
-				<img id="updateProgress" src="/images/quotabar.gif" style="width:0%" height="30px">
+				<div id="updateProgress" class="quotabar" style="width:0%;height:30px;"></div>
 			</div>
 		</div>
 		<br>
@@ -1831,7 +1827,7 @@ function detect_redirect(){
 				</tr>
 			</table>
 		</div>
-		<div style="margin:5px;"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
+		<div style="margin:5px;width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
 		<br>
 		<br>
 	</div>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <asm/arch-ipq806x/clock.h>
 #include <asm/arch-ipq806x/ebi2.h>
 #include <asm/arch-ipq806x/smem.h>
+#include <asm/arch-ipq806x/scm.h>
 #include <asm/errno.h>
 #include "ipq806x_board_param.h"
 #include "ipq806x_cdp.h"
@@ -32,8 +33,11 @@
 #include <mmc.h>
 #include <environment.h>
 #include <watchdog.h>
+#include <malloc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
+
+#define BUILD_ID_LEN	(32)
 
 #define MTDPARTS_BUF_LEN	256
 
@@ -508,11 +512,12 @@ void ipq_get_part_details(void)
 #ifdef CONFIG_IPQ_MMC
 			mmc = find_mmc_device(mmc_host.dev_num);
 
-			if (mmc)
+			if (mmc) {
 				smem->flash_secondary_type = SMEM_BOOT_MMC_FLASH;
-			else
+				continue;
+			}
 #endif
-				smem->flash_secondary_type = SMEM_BOOT_NAND_FLASH;
+			smem->flash_secondary_type = SMEM_BOOT_NAND_FLASH;
 
 			ipq_part_entry_t *part = entries[i].part;
 			printf("cdp: get part failed for %s\n", entries[i].name);
@@ -610,6 +615,8 @@ int get_eth_mac_address(uchar *enetaddr, uint no_of_macs)
 	block_dev_desc_t *blk_dev;
 	disk_partition_t disk_info;
 	struct mmc *mmc;
+	u8 *tmp_block_buf;
+	u32 blks_cnt;
 #endif
 
 	if (sfi->flash_type != SMEM_BOOT_MMC_FLASH) {
@@ -649,8 +656,22 @@ int get_eth_mac_address(uchar *enetaddr, uint no_of_macs)
 		 */
 		if (ret > 0) {
 			mmc = mmc_host.mmc;
-			ret = mmc->block_dev.block_read(mmc_host.dev_num, disk_info.start, disk_info.size,
-										enetaddr);
+			blks_cnt = (length / disk_info.blksz) + 1;
+			if (blks_cnt > disk_info.size)
+				blks_cnt = disk_info.size;
+
+			tmp_block_buf = malloc(blks_cnt * disk_info.blksz);
+
+			if (NULL == tmp_block_buf) {
+				printf("memory allocation failed..\n");
+				return -ENOMEM;
+			}
+
+			ret = mmc->block_dev.block_read(mmc_host.dev_num,
+					disk_info.start, blks_cnt,
+					tmp_block_buf);
+			memcpy(enetaddr, tmp_block_buf, length);
+			free(tmp_block_buf);
 		}
 
 		if (ret < 0)
@@ -811,24 +832,64 @@ void ipq_fdt_fixup_mtdparts(void *blob, struct node_info *ni)
 int ipq_fdt_fixup_socinfo(void *blob)
 {
 	uint32_t cpu_type;
-	int nodeoff, ret;
+	int ret;
 
 	ret = ipq_smem_get_socinfo_cpu_type(&cpu_type);
 	if (ret) {
 		printf("ipq: fdt fixup cannot get socinfo\n");
 		return ret;
 	}
-	nodeoff = fdt_node_offset_by_compatible(blob, -1, "qcom,ipq8064");
 
-	if (nodeoff < 0) {
-		printf("ipq: fdt fixup cannot find compatible node\n");
-		return nodeoff;
-	}
-	ret = fdt_setprop(blob, nodeoff, "cpu_type",
+	/* Add "cpu_type" to root node of the devicetree*/
+	ret = fdt_setprop(blob, 0, "cpu_type",
 				&cpu_type, sizeof(cpu_type));
 	if (ret)
 		printf("%s: cannot set cpu type %d\n", __func__, ret);
 	return ret;
+}
+
+int ipq_get_tz_version(char *buf, int size)
+{
+	int ret;
+
+	ret = scm_call(SCM_SVC_INFO, TZBSP_BUILD_VER_QUERY_CMD, NULL,
+			0, buf, BUILD_ID_LEN);
+	if(ret) {
+		printf("ipq: fdt fixup cannot get TZ build ID\n");
+		return ret;
+	}
+
+	snprintf(buf, size, "%s\n", buf);
+	return 0;
+}
+
+void ipq_fdt_fixup_version(void *blob)
+{
+	int nodeoff;
+	int ret;
+	char version[BUILD_ID_LEN + 1];
+
+	nodeoff = fdt_path_offset(blob, "/");
+	if (nodeoff < 0) {
+		debug("ipq: fdt fixup unable to find root node\n");
+		return;
+	}
+
+	if(!ipq_smem_get_boot_version(version, sizeof(version))) {
+		debug("BOOT Build Version: %s\n", version);
+		ret = fdt_setprop(blob, nodeoff, "boot_version",
+				version, strlen(version));
+		if (ret)
+			debug("%s: unable to set Boot version\n", __func__);
+	}
+
+	if(!ipq_get_tz_version(version, sizeof(version))) {
+		debug("TZ Build Version: %s\n", version);
+		ret = fdt_setprop(blob, nodeoff, "tz_version",
+				version, strlen(version));
+		if (ret)
+			debug("%s: unable to set TZ version\n", __func__);
+	}
 }
 
 /*
@@ -856,6 +917,8 @@ void ft_board_setup(void *blob, bd_t *bd)
 		{ "s25fl256s1", MTD_DEV_TYPE_NAND, 1 },
 		{ NULL, 0, -1 },
 	};
+
+	ipq_fdt_fixup_version(blob);
 
 	if (sfi->flash_type == SMEM_BOOT_NAND_FLASH) {
 		mtdparts = "mtdparts=nand0";
@@ -887,6 +950,10 @@ void ft_board_setup(void *blob, bd_t *bd)
 	setenv("mtdparts", mtdparts);
 
 	ipq_fdt_fixup_mtdparts(blob, nodes);
+	if (0 != ipq_fdt_fixup_socinfo(blob))
+		printf("ipq: fdt fixup failed for socinfo\n");
+
+	fdt_fixup_ethernet(blob);
 #endif
 }
 #endif /* CONFIG_OF_BOARD_SETUP */
@@ -989,6 +1056,35 @@ static void ipq_pcie_config_controller(int id)
 
 }
 
+static void ipq_wifi_pci_power_enable(void)
+{
+	unsigned int i;
+	gpio_func_data_t	*gpio_data;
+
+	for (i=0; i < gboard_param->wifi_pcie_power_gpio_cnt; i++) {
+		gpio_data = gboard_param->wifi_pcie_power_gpio[i];
+		if (gpio_data->gpio != -1) {
+			gpio_tlmm_config(gpio_data->gpio, gpio_data->func,
+					gpio_data->out,	gpio_data->pull,
+					gpio_data->drvstr, gpio_data->oe);
+			ipq_pci_gpio_set(gpio_data->gpio, 1);
+		}
+	}
+}
+
+static void ipq_wifi_pci_power_disable(void)
+{
+	unsigned int i;
+	gpio_func_data_t	*gpio_data;
+
+	for (i=0; i < gboard_param->wifi_pcie_power_gpio_cnt; i++) {
+		gpio_data = gboard_param->wifi_pcie_power_gpio[i];
+		if (gpio_data->gpio != -1) {
+			ipq_pci_gpio_set(gpio_data->gpio, 0);
+		}
+	}
+}
+
 void board_pci_init()
 {
 	int i,j;
@@ -997,6 +1093,7 @@ void board_pci_init()
 	uint32_t val;
 
 	ipq_pci_gpio_fixup();
+	ipq_wifi_pci_power_enable();
 
 	for (i = 0; i < PCI_MAX_DEVICES; i++) {
 		cfg = &gboard_param->pcie_cfg[i];
@@ -1098,5 +1195,6 @@ void board_pci_deinit()
 		pcie_clock_shutdown(cfg->pci_clks);
 	}
 
+	ipq_wifi_pci_power_disable();
 }
 #endif /* CONFIG_IPQ806X_PCI */

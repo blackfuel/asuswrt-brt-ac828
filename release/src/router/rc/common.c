@@ -43,6 +43,7 @@
 #include <wlutils.h>
 #include <dirent.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <shared.h>
 
 #ifdef RTCONFIG_RALINK
@@ -54,6 +55,7 @@
 #endif
 
 #include <mtd.h>
+#include <limits.h>
 
 void update_lan_status(int);
 
@@ -120,34 +122,31 @@ char *conv_mac2(char *mac, char *buf)
 	return(buf);
 }
 
-
 /* convert mac address format from XXXXXXXXXXXX to XX:XX:XX:XX:XX:XX */
 char *mac_conv(char *mac_name, int idx, char *buf)
 {
-	char *mac, name[32];
+	char mac[32], name[32];
 	int i, j;
 
-	if (idx!=-1)	
-		sprintf(name, "%s%d", mac_name, idx);
-	else sprintf(name, "%s", mac_name);
-
-	mac = nvram_safe_get(name);
-
-	if (strlen(mac)==0) 
-	{
-		buf[0] = 0;
-	}
+	if(idx != -1)
+		snprintf(name, sizeof(name), "%s%d", mac_name, idx);
 	else
-	{
-		j=0;	
-		for (i=0; i<12; i++)
-		{		
-			if (i!=0&&i%2==0) buf[j++] = ':';
+		snprintf(name, sizeof(name), "%s", mac_name);
+
+	snprintf(mac, sizeof(mac), "%s", nvram_safe_get(name));
+
+	if(strlen(mac) <= 0 || strlen(mac) != 12)
+		buf[0] = 0;
+	else{
+		for(i = 0, j = 0; i < 12; ++i){
+			if(i != 0 && i%2 == 0)
+				buf[j++] = ':';
+
 			buf[j++] = mac[i];
 		}
+
 		buf[j] = 0;	// oleg patch
 	}
-	//buf[j] = 0;
 
 	_dprintf("mac: %s\n", buf);
 
@@ -158,24 +157,22 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 /* convert mac address format from XX:XX:XX:XX:XX:XX to XXXXXXXXXXXX */
 char *mac_conv2(char *mac_name, int idx, char *buf)
 {
-	char *mac, name[32];
+	char mac[32], name[32];
 	int i, j;
 
-	if(idx != -1)	
-		sprintf(name, "%s%d", mac_name, idx);
+	if(idx != -1)
+		snprintf(name, sizeof(name), "%s%d", mac_name, idx);
 	else
-		sprintf(name, "%s", mac_name);
+		snprintf(name, sizeof(name), "%s", mac_name);
 
-	mac = nvram_safe_get(name);
+	snprintf(mac, sizeof(mac), "%s", nvram_safe_get(name));
 
-	if(strlen(mac) == 0 || strlen(mac) != 17)
+	if(strlen(mac) <= 0 || strlen(mac) != 17)
 		buf[0] = 0;
 	else{
 		for(i = 0, j = 0; i < 17; ++i){
-			if(i%3 != 2){
-				buf[j] = mac[i];
-				++j;
-			}
+			if(i%3 != 2)
+				buf[j++] = mac[i];
 
 			buf[j] = 0;
 		}
@@ -288,30 +285,6 @@ void usage_exit(const char *cmd, const char *help)
 {
 	fprintf(stderr, "Usage: %s %s\n", cmd, help);
 	exit(1);
-}
-
-#if 0 // replaced by #define in rc.h
-int modprobe(const char *mod)
-{
-#if 1
-	return eval("modprobe", "-s", (char *)mod);
-#else
-	int r = eval("modprobe", "-s", (char *)mod);
-	cprintf("modprobe %s = %d\n", mod, r);
-	return r;
-#endif
-}
-#endif // 0
-
-int modprobe_r(const char *mod)
-{
-#if 1
-	return eval("modprobe", "-r", (char *)mod);
-#else
-	int r = eval("modprobe", "-r", (char *)mod);
-	cprintf("modprobe -r %s = %d\n", mod, r);
-	return r;
-#endif
 }
 
 #ifndef ct_modprobe
@@ -486,7 +459,7 @@ User scripts -- no directories are searched.  One parameter.
 void run_nvscript(const char *nv, const char *arg1, int wtime)
 {
 	FILE *f;
-	char *script;
+	char script[PATH_MAX];
 	char s[PATH_MAX + 1];
 	char *argv[] = { s, (char *)arg1, NULL };
 	int check_dirs = 1;
@@ -495,10 +468,10 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 		strcpy(s, nv);
 	}
 	else {
-		script = nvram_get(nv);
+		snprintf(script, sizeof(script), "%s", nvram_safe_get(nv));
 
-		if ((script) && (*script != 0)) {
-			sprintf(s, "/tmp/%s.sh", nv);
+		if(strlen(script) > 0){
+			snprintf(s, sizeof(s), "/tmp/%s.sh", nv);
 			if ((f = fopen(s, "w")) != NULL) {
 				fputs("#!/bin/sh\n", f);
 				fputs(script, f);
@@ -513,7 +486,7 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 			}
 		}
 
-		sprintf(s, ".%s", nv);
+		snprintf(s, sizeof(s), ".%s", nv);
 		if (strncmp("sch_c", nv, 5) == 0) {
 			check_dirs = 0;
 		}
@@ -602,15 +575,15 @@ void setup_ftp_conntrack(int port)
 void setup_udp_timeout(int connflag)
 {
 	unsigned int v[10];
-	const char *p;
+	char p[32];
 	char buf[70];
 
 	if (connflag
 #ifdef RTCONFIG_WIRELESSREPEATER
-			&& nvram_get_int("sw_mode")!=SW_MODE_REPEATER
+			&& sw_mode()!=SW_MODE_REPEATER
 #endif
 	) {
-		p = nvram_safe_get("ct_udp_timeout");
+		snprintf(p, sizeof(p), "%s", nvram_safe_get("ct_udp_timeout"));
 		if (sscanf(p, "%u%u", &v[0], &v[1]) == 2) {
 			write_udp_timeout(NULL, v[0]);
 			write_udp_timeout("stream", v[1]);
@@ -618,7 +591,7 @@ void setup_udp_timeout(int connflag)
 		else {
 			v[0] = read_udp_timeout(NULL);
 			v[1] = read_udp_timeout("stream");
-			sprintf(buf, "%u %u", v[0], v[1]);
+			snprintf(buf, sizeof(buf), "%u %u", v[0], v[1]);
 			nvram_set("ct_udp_timeout", buf);
 		}
 	}
@@ -661,16 +634,16 @@ int scan_icmp_unreplied_conntrack()
 void setup_ct_timeout(int connflag)
 {
 	unsigned int v[10];
-	const char *p;
+	char p[32];
 	char buf[70];
 	int i;
 
 	if (connflag
 #ifdef RTCONFIG_WIRELESSREPEATER
-			&& nvram_get_int("sw_mode")!=SW_MODE_REPEATER
+			&& sw_mode()!=SW_MODE_REPEATER
 #endif
 	) {
-		p = nvram_safe_get("ct_timeout");
+		snprintf(p, sizeof(p), "%s", nvram_safe_get("ct_timeout"));
 		if (sscanf(p, "%u%u", &v[0], &v[1]) == 2) {
 //			write_ct_timeout("generic", NULL, v[0]);
 			write_ct_timeout("icmp", NULL, v[1]);
@@ -679,7 +652,7 @@ void setup_ct_timeout(int connflag)
 			v[0] = read_ct_timeout("generic", NULL);
 			v[1] = read_ct_timeout("icmp", NULL);
 
-			sprintf(buf, "%u %u", v[0], v[1]);
+			snprintf(buf, sizeof(buf), "%u %u", v[0], v[1]);
 			nvram_set("ct_timeout", buf);
 		}
 	}
@@ -699,11 +672,15 @@ void setup_ct_timeout(int connflag)
 void setup_conntrack(void)
 {
 	unsigned int v[10];
-	const char *p;
+	char p[32];
 	char buf[70];
 	int i;
 
-	p = nvram_safe_get("ct_tcp_timeout");
+#ifdef RTCONFIG_CONCURRENTREPEATER
+	return;		/* don't need it for concurrent repeater */
+#endif
+
+	snprintf(p, sizeof(p), "%s", nvram_safe_get("ct_tcp_timeout"));
 	if (sscanf(p, "%u%u%u%u%u%u%u%u%u%u",
 		&v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]) == 10) {	// lightly verify
 		write_tcp_timeout("established", v[1]);
@@ -724,14 +701,14 @@ void setup_conntrack(void)
 		v[6] = read_tcp_timeout("close");
 		v[7] = read_tcp_timeout("close_wait");
 		v[8] = read_tcp_timeout("last_ack");
-		sprintf(buf, "0 %u %u %u %u %u %u %u %u 0",
+		snprintf(buf, sizeof(buf), "0 %u %u %u %u %u %u %u %u 0",
 			v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]);
 		nvram_set("ct_tcp_timeout", buf);
 	}
 
 	setup_udp_timeout(FALSE);
 
-	p = nvram_safe_get("ct_timeout");
+	snprintf(p, sizeof(p), "%s", nvram_safe_get("ct_timeout"));
 	if (sscanf(p, "%u%u", &v[0], &v[1]) == 2) {
 //		write_ct_timeout("generic", NULL, v[0]);
 		write_ct_timeout("icmp", NULL, v[1]);
@@ -739,12 +716,12 @@ void setup_conntrack(void)
 	else {
 		v[0] = read_ct_timeout("generic", NULL);
 		v[1] = read_ct_timeout("icmp", NULL);
-		sprintf(buf, "%u %u", v[0], v[1]);
+		snprintf(buf, sizeof(buf), "%u %u", v[0], v[1]);
 		nvram_set("ct_timeout", buf);
 	}
 
 #ifdef LINUX26
-	p = nvram_safe_get("ct_hashsize");
+	snprintf(p, sizeof(p), "%s", nvram_safe_get("ct_hashsize"));
 	i = atoi(p);
 	if (i >= 127) {
 		f_write_string("/sys/module/nf_conntrack/parameters/hashsize", p, 0, 0);
@@ -755,7 +732,7 @@ void setup_conntrack(void)
 	}
 #endif
 #ifdef LINUX26
-	p = nvram_safe_get("ct_max");
+	snprintf(p, sizeof(p), "%s", nvram_safe_get("ct_max"));
 	i = atoi(p);
 	if (i >= 128) {
 		f_write_string("/proc/sys/net/nf_conntrack_max", p, 0, 0);
@@ -764,7 +741,7 @@ void setup_conntrack(void)
 		if (atoi(buf) > 0) nvram_set("ct_max", buf);
 	}
 #else
-	p = nvram_safe_get("ct_max");
+	snprintf(p, sizeof(p), "%s", nvram_safe_get("ct_max"));
 	i = atoi(p);
 	if (i >= 128) {
 		f_write_string("/proc/sys/net/ipv4/netfilter/ip_conntrack_max", p, 0, 0);
@@ -804,7 +781,7 @@ void setup_conntrack(void)
 	{
 		char ports[32];
 
-		sprintf(ports, "ports=21,%d", i);
+		snprintf(ports, sizeof(ports), "ports=21,%d", i);
 		ct_modprobe("ftp", ports);
 	}
 	else 
@@ -847,12 +824,28 @@ void setup_pt_conntrack(void)
 	}
 
 #ifdef LINUX26
+#if defined(BRTAC828)
+	if (!nvram_match("fw_pt_sip", "0")) {
+		if (nvram_get_int("fw_pt_sip_mode") == 1) {
+			ct_modprobe_r("sip");
+			ct_modprobe("cisco_sip");
+		} else {
+			ct_modprobe_r("cisco_sip");
+			ct_modprobe("sip");
+		}
+	}
+	else {
+		ct_modprobe_r("sip");
+		ct_modprobe_r("cisco_sip");
+	}
+#else
 	if (!nvram_match("fw_pt_sip", "0")) {
 		ct_modprobe("sip");
 	}
 	else {
 		ct_modprobe_r("sip");
 	}
+#endif
 #endif
 }
 
@@ -864,6 +857,9 @@ void remove_conntrack(void)
 	ct_modprobe_r("h323");
 #ifdef LINUX26
 	ct_modprobe_r("sip");
+#if defined(BRTAC828)
+	ct_modprobe_r("cisco_sip");
+#endif
 #endif
 }
 
@@ -891,7 +887,7 @@ void set_mac(const char *ifname, const char *nvname, int plus)
 	struct ifreq ifr;
 	int up;
 	int j;
-	char *et_hwaddr = NULL;
+	char et_hwaddr[32];
 
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
 		_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
@@ -912,32 +908,16 @@ void set_mac(const char *ifname, const char *nvname, int plus)
 	else {
 		_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
 	}
-#ifdef RTCONFIG_RGMII_BRCM5301X
-	et_hwaddr = nvram_safe_get("lan_hwaddr");
-#elif defined(RTCONFIG_GMAC3)
-	if (nvram_match("gmac3_enable", "1"))
-		et_hwaddr = nvram_safe_get("et2macaddr");
-	else
-		et_hwaddr = nvram_safe_get("et0macaddr");
-#else
-	et_hwaddr = get_lan_hwaddr();
-#endif
+
+	snprintf(et_hwaddr, sizeof(et_hwaddr), "%s", get_lan_hwaddr());
 
 	if (!ether_atoe(nvram_safe_get(nvname), (unsigned char *)&ifr.ifr_hwaddr.sa_data)) {
 		if (!ether_atoe(et_hwaddr, (unsigned char *)&ifr.ifr_hwaddr.sa_data)) {
 
 			// goofy et0macaddr, make something up
-#ifdef RTCONFIG_RGMII_BRCM5301X 
-			nvram_set("lan_hwaddr", "00:01:23:45:67:89");
-#elif defined(RTCONFIG_GMAC3)
-			if (nvram_match("gmac3_enable", "1"))
-				nvram_set("et2macaddr", "00:01:23:45:67:89");
-			else
-				nvram_set("et0macaddr", "00:01:23:45:67:89");
-#else
 			nvram_set("lan_hwaddr", "00:01:23:45:67:89");
 			nvram_set(get_lan_mac_name(), "00:01:23:45:67:89");
-#endif
+
 			ifr.ifr_hwaddr.sa_data[0] = 0;
 			ifr.ifr_hwaddr.sa_data[1] = 0x01;
 			ifr.ifr_hwaddr.sa_data[2] = 0x23;
@@ -1040,20 +1020,14 @@ void killall_tk(const char *name)
 	}
 }
 
-void kill_pidfile_tk(const char *pidfile)
+void kill_pid_tk(pid_t pid)
 {
-	FILE *fp;
-	char buf[256];
-	pid_t pid = 0;
 	int n;
 
-	if ((fp = fopen(pidfile, "r")) != NULL) {
-		if (fgets(buf, sizeof(buf), fp) != NULL)
-			pid = strtoul(buf, NULL, 0);
-		fclose(fp);
-	}
+	if (pid <= 1 && pid >= -1)
+		return;
 
-	if (pid > 1 && kill(pid, SIGTERM) == 0) {
+	if (kill(pid, SIGTERM) == 0) {
 		n = 10;
 		while ((kill(pid, 0) == 0) && (n-- > 0)) {
 			_dprintf("%s: waiting pid=%d n=%d\n", __FUNCTION__, pid, n);
@@ -1066,6 +1040,36 @@ void kill_pidfile_tk(const char *pidfile)
 				usleep(100 * 1000);
 			}
 		}
+	}
+}
+
+void kill_pidfile_tk(const char *pidfile)
+{
+	FILE *fp;
+	char buf[256];
+	pid_t pid = 0;
+
+	if ((fp = fopen(pidfile, "r")) != NULL) {
+		if (fgets(buf, sizeof(buf), fp) != NULL)
+			pid = strtoul(buf, NULL, 0);
+		fclose(fp);
+		kill_pid_tk(pid);
+	}
+}
+
+void kill_pidfile_tk_g(const char *pidfile)
+{
+	FILE *fp;
+	char buf[256];
+	pid_t pid = 0;
+	pid_t pgid;
+
+	if ((fp = fopen(pidfile, "r")) != NULL) {
+		if (fgets(buf, sizeof(buf), fp) != NULL)
+			pid = strtoul(buf, NULL, 0);
+		fclose(fp);
+		pgid = getpgid(pid);
+		kill_pid_tk(-pgid);
 	}
 }
 
@@ -1134,13 +1138,145 @@ int gettzoffset(char *tzstr, char *tzstr1, int size1)
 }
 #endif
 
+
+#ifdef HND_ROUTER
+#define LOCALTIME_FILE "/etc/localtime"
+#define ZONEINFO_PATH "/rom/usr/share/zoneinfo/"
+typedef struct zoneinfo {
+	char *tz_name;
+	char *timezone;
+}zoneinfo_t;
+
+const zoneinfo_t tz_list[] = {
+	{"UTC12",	"Etc/GMT+12"},		// (GMT-12:00) Eniwetok, Kwajalein
+	{"UTC11",	"US/Samoa"},		// (GMT-11:00) Midway Island, Samoa
+	{"UTC10",	"US/Hawaii"},		// (GMT-10:00) Hawaii
+       	{"NAST9DST",	"US/Alaska"},		// (GMT-09:00) Alaska
+        {"PST8DST",	"US/Pacific"},		// (GMT-08:00) Pacific Time (US & Canada)
+        {"MST7DST_1",	"US/Mountain"},		// (GMT-07:00) Mountain Time (US & Canada)
+        {"MST7_2",	"US/Arizona"},		// (GMT-07:00) Arizona
+	{"MST7DST_3",	"America/Chihuahua"},	// (GMT-07:00) Chihuahua, La Paz, Mazatlan
+        {"CST6_2",	"Canada/Saskatchewan"},	// (GMT-06:00) Saskatchewan
+        {"CST6DST_3",	"Mexico/General"},	// (GMT-06:00) Guadalajara, Mexico City
+        {"CST6DST_3_1",	"America/Monterrey"},	// (GMT-06:00) Monterrey
+        {"UTC6DST",	"US/Central"},		// (GMT-06:00) Central Time (US & Canada)
+        {"EST5DST",	"US/Eastern"},		// (GMT-05:00) Eastern Time (US & Canada)
+        {"UTC5_1",	"US/East-Indiana"},	// (GMT-05:00) Indiana (East)    US Eastern
+       	{"UTC5_2",	"America/Bogota"},	// (GMT-05:00) Bogota, Lima, Quito   SA Pacific
+	{"AST4DST",     "Canada/Atlantic"},     // (GMT-04:00) Atlantic Time (Canada)
+	{"UTC4_1",      "America/Manaus"},      // (GMT-04:00) La Paz
+	{"UTC4_2",	"America/Caracas"},	// (GMT-04:00) Caracas
+        {"UTC4DST_2",	"America/Santiago"},	// (GMT-04:00) Santiago
+        {"NST3.30DST",	"Canada/Newfoundland"},	// (GMT-03:30) Newfoundland
+        {"EBST3",	"America/Araguaina"},	// (GMT-03:00) Brasilia //EBST3DST_1
+		{"UTC3",	"America/Araguaina"},	// (GMT-03:00) Buenos Aires, Georgetown
+        {"EBST3DST_2",	"America/Godthab"},	// (GMT-03:00) Greenland
+        {"UTC2",	"Atlantic/South_Georgia"},	// (GMT-02:00) South Georgia
+        {"EUT1DST",     "Atlantic/Azores"},	// (GMT-01:00) Azores
+        {"UTC1",        "Atlantic/Cape_Verde"},	// (GMT-01:00) Cape Verde Is.
+        {"GMT0",        "GMT"},			// (GMT+00:00) Greenwich Mean Time
+        {"GMT0DST_1",   "Europe/Dublin"},	// (GMT+00:00) Dublin, Edinburg, Lisbon, London
+        {"GMT0DST_2",   "Africa/Casablanca"},	// (GMT+00:00) Casablanca
+        {"GMT0_2",      "Africa/Monrovia"},	// (GMT+00:00) Monrovia
+        {"UTC-1DST_1",  "Europe/Belgrade"},	// (GMT+01:00) Belgrade, Bratislava, Budapest
+        {"UTC-1DST_1_1","Europe/Ljubljana"},	// (GMT+01:00) Ljubljana, Prague
+        {"UTC-1_2",     "Europe/Sarajevo"},	// (GMT+01:00) Sarajevo, Skopje
+        {"UTC-1DST_2",  "Europe/Warsaw"},	// (GMT+01:00) Warsaw, Zagreb
+	{"MET-1DST",    "Europe/Copenhagen"},	// (GMT+01:00) Copenhagen, Stockholm, Oslo
+        {"MET-1DST_1",  "Europe/Madrid"},	// (GMT+01:00) Madrid, Paris
+        {"MEZ-1DST",    "Europe/Amsterdam"},	// (GMT+01:00) Amsterdam, Berlin, Brussels
+        {"MEZ-1DST_1",  "Europe/Rome"},		// (GMT+01:00) Rome, Vienna, Bern
+        {"UTC-1_3",     "Africa/Lagos"},	// (GMT+01:00) West Central Africa
+        {"UTC-2DST",    "Europe/Vilnius"},	// (GMT+02:00) Vilnus, Bucharest, sofija
+        {"UTC-2DST_3",  "Europe/Helsinki"},	// (GMT+02:00) Helsiki
+        {"EST-2",	"Africa/Cairo"},	// (GMT+02:00) Cairo
+        {"UTC-2DST_4",  "Europe/Riga"},		// (GMT+02:00) Riga, Tallinn
+        {"UTC-2DST_2",  "Europe/Athens"},	// (GMT+02:00) Athens
+        {"IST-2DST",    "Asia/Jerusalem"},	// (GMT+02:00) Jerusalem
+        {"EET-2DST",    "Europe/Kiev"},		// (GMT+02:00) Kiev
+        {"UTC-2_1",     "Europe/Kaliningrad"},	// (GMT+02:00) Kaliningrad
+        {"SAST-2",      "Africa/Harare"},	// (GMT+02:00) Harare
+        {"UTC-3_1",     "Asia/Kuwait"},		// (GMT+03:00) Kuwait, Riyadh
+        {"UTC-3_2",     "Africa/Nairobi"},	// (GMT+03:00) Nairobi
+        {"UTC-3_3",     "Europe/Minsk"},	// (GMT+03:00) Minsk
+        {"UTC-3_4",     "Europe/Moscow"},	// (GMT+03:00) Moscow, St. Petersburg        
+        {"IST-3",       "Asia/Baghdad"},	// (GMT+03:00) Baghdad
+        {"UTC-3_6",     "Asia/Istanbul"},	// (GMT+03:00) Istanbul
+        {"UTC-3.30DST", "Asia/Tehran"},		// (GMT+03:00) Tehran        
+        {"UTC-4_1",     "Asia/Muscat"},		// (GMT+04:00) Abu Dhabi, Muscat
+        {"UTC-4_5",     "Europe/Samara"},	// (GMT+04:00) Izhevsk, Samara
+		{"UTC-4_7",     "Europe/Volgograd"},	// (GMT+03:00) Volgograd	//UTC-3_5
+		{"UTC-4_4",     "Asia/Tbilisi"},	// (GMT+04:00) Tbilisi, Yerevan
+        {"UTC-4_6",	"Asia/Baku"},		// (GMT+04:00) Baku
+        {"UTC-4.30",    "Asia/Kabul"},		// (GMT+04:30) Kabul
+        {"UTC-5",       "Asia/Karachi"},	// (GMT+05:00) Islamabad, Karachi, Tashkent
+        {"UTC-5_1",     "Asia/Yekaterinburg"},	// (GMT+05:00) Yekaterinburg
+        {"UTC-5.30_2",  "Asia/Kolkata"},	// (GMT+05:00) Kolkata, Chennai
+        {"UTC-5.30_1",  "Asia/Calcutta"},	// (GMT+05:30) Mumbai, New Delhi
+        {"UTC-5.30",    "Asia/Calcutta"},	// (GMT+05:30) Sri Jayawardenepura
+	{"UTC-5.45",    "Asia/Kathmandu"},	// (GMT+05:45) Kathmandu
+        {"RFT-6",       "Asia/Almaty"},		// (GMT+06:00) Almaty
+        {"UTC-6",       "Asia/Dhaka"},		// (GMT+06:00) Astana, Dhaka
+        {"UTC-6_2",     "Asia/Novosibirsk"},	// (GMT+06:00) Novosibirsk
+        {"UTC-6.30",    "Asia/Yangon"},		// (GMT+06:30) Yangon
+        {"UTC-7",       "Asia/Bangkok"},	// (GMT+07:00) Bangkok, Hanoi, Jakarta
+        {"UTC-7_2",     "Asia/Krasnoyarsk"},	// (GMT+07:00) Krasnoyarsk
+        {"CST-8",       "Asia/Shanghai"},	// (GMT+08:00) Beijing, Hong Kong 
+        {"CST-8_1",     "Asia/Chongqing"},	// (GMT+08:00) Chongqing, Urumqi
+        {"SST-8",       "Asia/Kuala_Lumpur"},	// (GMT+08:00) Kuala_Lumpur, Singapore
+        {"CCT-8",       "Asia/Taipei"},		// (GMT+08:00) Taipei
+        {"WAS-8",       "Australia/Perth"},	// (GMT+08:00) Perth
+        {"UTC-8",       "Asia/Irkutsk"},	// (GMT+08:00) Ulaan Baatar
+        {"UTC-8_1",     "Asia/Irkutsk"},	// (GMT+08:00) Irkutsk
+        {"UTC-9_1",     "Asia/Seoul"},		// (GMT+09:00) Seoul
+        {"UTC-9_3",     "Asia/Yakutsk"},	// (GMT+09:00) Yakutsk
+        {"JST",         "Asia/Tokyo"},		// (GMT+09:00) Osaka, Sapporo, Tokyo
+        {"CST-9.30",    "Australia/Darwin"},	// (GMT+09:30) Darwin
+        {"UTC-9.30DST", "Australia/Adelaide"},	// (GMT+09:30) Adelaide
+        {"UTC-10DST_1", "Australia/Canberra"},	// (GMT+10:00) Canberra, Melbourne, Sydney
+        {"UTC-10_2",    "Australia/Brisbane"},	// (GMT+10:00) Brisbane"
+        {"UTC-10_4",    "Asia/Vladivostok"},	// (GMT+10:00) Vladivostok
+        {"UTC-11_4",    "Asia/Magadan"},	// (GMT+10:00) Asia/Magadan
+        {"TST-10TDT",   "Australia/Hobart"},	// (GMT+10:00) Australia/Hobart
+        {"UTC-10_6",    "Pacific/Guam"},	// (GMT+10:00) Guam, Port Moresby
+        {"UTC-11",      "Pacific/Noumea"},	// (GMT+11:00) Solomon Is.
+        {"UTC-11_1",    "Pacific/Noumea"},	// (GMT+11:00) New Caledonia
+        {"UTC-11_3",    "Asia/Srednekolymsk"},	// (GMT+11:00) Chokurdakh, Srednekolymsk
+        {"UTC-12",      "Pacific/Fiji"},	// (GMT+12:00) Fiji, Marshall IS.
+        {"UTC-12_2",	"Asia/Anadyr"},		// (GMT+12:00) Anadyr, Petropavlovsk-Kamchatsky
+        {"NZST-12DST",  "Pacific/Auckland"},	// (GMT+12:00) Auckland, Wellington
+        {"UTC-13",      "Pacific/Tongatapu"},	// (GMT+13:00) Nuku'alofa
+	{ NULL }
+};
+#endif
+
 void time_zone_x_mapping(void)
 {
 	FILE *fp;
 	char tmpstr[32];
 	char *ptr;
 
-	/* pre mapping */
+#ifdef HND_ROUTER
+	int idx;
+	char cmd[128];
+	const zoneinfo_t *pzlist = tz_list;
+
+	if(pzlist) {
+		for (idx = 0; pzlist[idx].tz_name; idx++) {
+			if (nvram_match("time_zone", pzlist[idx].tz_name)) {
+				snprintf(cmd, sizeof(cmd), "ln -s %s%s %s",
+						ZONEINFO_PATH,
+						pzlist[idx].timezone,
+						LOCALTIME_FILE);
+				unlink(LOCALTIME_FILE);
+				system(cmd);
+				break;
+			}
+		}
+	}
+#endif
+
+	/* pre mapping because time_zone area changed*/
 	if (nvram_match("time_zone", "KST-9KDT"))
 		nvram_set("time_zone", "UCT-9_1");
 	else if (nvram_match("time_zone", "RFT-9RFTDST"))
@@ -1164,7 +1300,35 @@ void time_zone_x_mapping(void)
 	else if (nvram_match("time_zone", "UTC-11_2"))		/*Vladivostok*/
 		nvram_set("time_zone", "UTC-10_4");
 	else if (nvram_match("time_zone", "UTC-12_1"))          /*Magadan*/
-		nvram_set("time_zone", "UTC-10_5");
+		nvram_set("time_zone", "UTC-10_6");
+	else if (nvram_match("time_zone", "UTC4.30"))		/*Caracas*/
+                nvram_set("time_zone", "UTC4_2");
+	else if (nvram_match("time_zone", "NORO2DST")){           /*South Georgia*/
+                nvram_set("time_zone", "UTC2");
+		nvram_set("time_zone_dst", "0");
+	}
+	else if (nvram_match("time_zone", "UTC-1_2")){           /*Sarajevo, Skopje*/
+                nvram_set("time_zone", "UTC-1DST_1_2");
+                nvram_set("time_zone_dst", "1");
+        }
+	else if (nvram_match("time_zone", "EST-2DST")){		/*Cairo*/
+		nvram_set("time_zone", "EST-2");
+		nvram_set("time_zone_dst", "0");
+	}
+	else if (nvram_match("time_zone", "UTC-4DST_2")){	/*Baku*/
+		nvram_set("time_zone", "UTC-4_6");
+		nvram_set("time_zone_dst", "0");
+	}
+	else if (nvram_match("time_zone", "UTC-10_5")){		/*Magadan*/
+		nvram_set("time_zone", "UTC-11_4");
+	}
+	else if (nvram_match("time_zone", "EBST3DST_1")){	/*Brasilia*/
+		nvram_set("time_zone", "EBST3");
+		nvram_set("time_zone_dst", "0");
+	}
+	else if (nvram_match("time_zone", "UTC-3_5")){	/*Volgograd*/
+		nvram_set("time_zone", "UTC-4_7");
+	}
 
 	snprintf(tmpstr, sizeof(tmpstr), "%s", nvram_safe_get("time_zone"));
 	/* replace . with : */
@@ -1204,7 +1368,7 @@ void
 setup_timezone(void)
 {
 #ifndef RC_BUILDTIME
-#define RC_BUILDTIME	1438387200	// Aug 1 00:00:00 GMT 2015
+#define RC_BUILDTIME	1525496688	// May  5 05:04:48 GMT 2018
 #endif
 	time_t now;
 	struct tm gm, local;
@@ -1235,89 +1399,6 @@ setup_timezone(void)
 	}
 
 	settimeofday(tvp, &tz);
-}
-
-int
-is_invalid_char_for_hostname(char c)
-{
-	int ret = 0;
-
-	if (c < 0x20)
-		ret = 1;
-#if 0
-	else if (c >= 0x21 && c <= 0x2c)	/* !"#$%&'()*+, */
-		ret = 1;
-#else	/* allow '+' */
-	else if (c >= 0x21 && c <= 0x2a)	/* !"#$%&'()* */
-		ret = 1;
-	else if (c == 0x2c)			/* , */
-		ret = 1;
-#endif
-	else if (c >= 0x2e && c <= 0x2f)	/* ./ */
-		ret = 1;
-	else if (c >= 0x3a && c <= 0x40)	/* :;<=>?@ */
-		ret = 1;
-#if 0
-	else if (c >= 0x5b && c <= 0x60)	/* [\]^_ */
-		ret = 1;
-#else	/* allow '_' */
-	else if (c >= 0x5b && c <= 0x5e)	/* [\]^ */
-		ret = 1;
-	else if (c == 0x60)			/* ` */
-		ret = 1;
-#endif
-	else if (c >= 0x7b)			/* {|}~ DEL */
-		ret = 1;
-#if 0
-	printf("%c (0x%02x) is %svalid for hostname\n", c, c, (ret == 0) ? "  " : "in");
-#endif
-	return ret;
-}
-
-int
-is_valid_hostname(const char *name)
-{
-	int len, i;
-
-	if (!name)
-		return 0;
-
-	len = strlen(name);
-	for (i = 0; i < len ; i++) {
-		if (is_invalid_char_for_hostname(name[i])) {
-			len = 0;
-			break;
-		}
-	}
-#if 0
-	printf("%s is %svalid for hostname\n", name, len ? "" : "in");
-#endif
-	return len;
-}
-
-int
-is_valid_domainname(const char *name)
-{
-	int len, i;
-	unsigned char c;
-
-	if (!name)
-		return 0;
-
-	len = strlen(name);
-	for (i = 0; i < len; i++) {
-		c = name[i];
-		if (((c | 0x20) < 'a' || (c | 0x20) > 'z') &&
-		    ((c < '0' || c > '9')) &&
-		    (c != '.' && c != '-' && c != '_')) {
-			len = 0;
-			break;
-		}
-	}
-#if 0
-	printf("%s is %svalid for domainname\n", name, len ? "" : "in");
-#endif
-	return len;
 }
 
 int get_meminfo_item(const char *name)
@@ -1358,7 +1439,7 @@ void restart_lfp()
 }
 #endif
 
-#ifdef CONFIG_BCMWL5
+#if defined(CONFIG_BCMWL5) || defined(RTCONFIG_WIRELESSREPEATER)
 int setup_dnsmq(int mode)
 {
 	char v[32];
@@ -1373,6 +1454,7 @@ int setup_dnsmq(int mode)
 	else {
 		eval("ebtables", "-F");
 		eval("ebtables", "-t", "broute", "-F");
+		if (is_ure(nvram_get_int("wlc_band")))
 		eval("ebtables", "-I", "FORWARD", "-i", nvram_safe_get(wlc_nvname("ifname")), "-j", "DROP");
 	}	
 	
@@ -1385,7 +1467,7 @@ int setup_dnsmq(int mode)
 		if (!is_psta(nvram_get_int("wlc_band")) && !is_psr(nvram_get_int("wlc_band")))
 #endif
 		{
-			snprintf(tmp, sizeof(tmp), "%s:%d", nvram_safe_get("lan_ipaddr"), /*nvram_get_int("http_lanport") ? :*/ 80);
+			snprintf(tmp, sizeof(tmp), "%s:%d", nvram_safe_get("lan_ipaddr"), nvram_get_int("http_lanport") ? : 80);
 			eval("iptables", "-t", "nat", "-I", "PREROUTING", "-p", "tcp", "-d", "10.0.0.1", "--dport", "80",
 				"-j", "DNAT", "--to-destination", tmp);
 		}
@@ -1459,8 +1541,58 @@ int mssid_mac_validate(const char *macaddr)
 		mac_binary[4],
 		mac_binary[5]);
 	macvalue = strtoll(macbuf, (char **) NULL, 16);
+#if defined(RTCONFIG_CONCURRENTREPEATER)
+	if (macvalue % 2)
+#else
 	if (macvalue % 4)
+#endif
 		return 0;
 	else
 		return 1;
 }
+
+int rand_seed_by_time(void)
+{
+	time_t atime;
+	static unsigned long rand_base = 0;
+
+	time(&atime);
+	srand(((unsigned long)atime + rand_base++) % ULONG_MAX);
+
+	return rand();
+}
+
+#if defined(RTCONFIG_QCA)
+char *get_wpa_supplicant_pidfile(const char *ifname, char *buf, int size)
+{
+	if(ifname == NULL || buf == NULL || size < 24)
+		return "/var/run/wifi-sta0.pid";
+
+	snprintf(buf, size, "/var/run/wifi-%s.pid", ifname);
+	return buf;
+}
+
+void kill_wifi_wpa_supplicant(int unit)
+{
+	int band, end;
+	char buf[32], *pidfile;
+
+	if (unit > MAX_NR_WL_IF)
+		return;
+	else if (unit < 0) {
+		band = 0;
+		end = MAX_NR_WL_IF;
+	}
+	else {
+		band = end = unit;
+	}
+	for(; band < end; band++) {
+		const char *ifname = get_staifname(band);
+		pidfile = get_wpa_supplicant_pidfile(ifname, buf, sizeof(buf));
+		kill_pidfile_tk(pidfile);
+		unlink(pidfile);
+		doSystem("ifconfig %s down", ifname);
+	}
+}
+#endif	/* RTCONFIG_QCA */
+

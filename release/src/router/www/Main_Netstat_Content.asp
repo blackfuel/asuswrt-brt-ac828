@@ -191,11 +191,11 @@ function validForm(){
 }
 </script>
 </head>
-<body onload="init();">
+<body onload="init();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
-<form method="GET" name="form" action="/apply.cgi" target="hidden_frame"> 
+<form method="POST" name="form" action="/apply.cgi" target="hidden_frame">
 <input type="hidden" name="current_page" value="Main_Netstat_Content.asp">
 <input type="hidden" name="next_page" value="Main_Netstat_Content.asp">
 <input type="hidden" name="group_id" value="">
@@ -225,7 +225,7 @@ function validForm(){
 								<td bgcolor="#4D595D" colspan="3" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#Network_Tools#> - Netstat</div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div class="formfontdesc" id="cmdDesc"><#NetworkTools_Info#></div>
 									<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
 										<tr>

@@ -20,7 +20,7 @@
 function showclock(){
 	JS_timeObj.setTime(systime_millsec);
 	systime_millsec += 1000;
-	JS_timeObj2 = JS_timeObj.toString();	
+	JS_timeObj2 = JS_timeObj.toString();
 	JS_timeObj2 = JS_timeObj2.substring(0,3) + ", " +
 	              JS_timeObj2.substring(4,10) + "  " +
 				  checkTime(JS_timeObj.getHours()) + ":" +
@@ -37,7 +37,7 @@ function showclock(){
 }
 
 function showbootTime(){
-	Days = Math.floor(boottime / (60*60*24));	
+	Days = Math.floor(boottime / (60*60*24));
 	Hours = Math.floor((boottime / 3600) % 24);
 	Minutes = Math.floor(boottime % 3600 / 60);
 	Seconds = Math.floor(boottime % 60);
@@ -69,7 +69,7 @@ function initial(){
 	showclock();
 	showbootTime();
 	showDST();
-	document.getElementById('textarea').scrollTop = 9999999;//make Scroll_y bottom	
+	document.getElementById('textarea').scrollTop = 9999999;//make Scroll_y bottom
 	setTimeout("get_log_data();", 5000);
 }
 
@@ -100,7 +100,7 @@ function get_log_data(){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -135,7 +135,7 @@ function get_log_data(){
 								<td bgcolor="#4D595D" colspan="3" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#System_Log#> - <#menu5_7_2#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div class="formfontdesc"><#GeneralLog_title#></div>
 									<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
 										<tr>
@@ -165,7 +165,7 @@ function get_log_data(){
 										</tr>
 									</table>
 									<div style="margin-top:8px">
-										<textarea cols="63" rows="27" wrap="off" readonly="readonly" id="textarea" style="width:99%; font-family:'Courier New', Courier, mono; font-size:11px;background:#475A5F;color:#FFFFFF;"><% nvram_dump("syslog.log",""); %></textarea>
+										<textarea cols="63" rows="27" wrap="off" readonly="readonly" id="textarea" class="textarea_ssh_table" style="width:99%; font-family:'Courier New', Courier, mono; font-size:11px;"><% nvram_dump("syslog.log",""); %></textarea>
 									</div>
 									<div>
 									<table class="apply_gen">

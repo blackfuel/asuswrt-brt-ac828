@@ -24,11 +24,31 @@
 #ifndef _httpd_h_
 #define _httpd_h_
 
+#define _GNU_SOURCE
+
 #include <arpa/inet.h>
+#include <errno.h>
 #if defined(DEBUG) && defined(DMALLOC)
 #include <dmalloc.h>
 #endif
 #include <rtconfig.h>
+
+/* DEBUG DEFINE */
+#define HTTPD_DEBUG             "/tmp/HTTPD_DEBUG"
+#if (defined(RTCONFIG_JFFS2) || defined(RTCONFIG_JFFSV1) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS))
+#define HTTPD_DEBUG_FILE                "/jffs/HTTPD_DEBUG.log"
+#else
+#define HTTPD_DEBUG_FILE                  "/tmp/HTTPD_DEBUG.log"
+#endif
+
+/* DEBUG FUNCTION */
+extern void Debug2File(const char *path, const char *fmt, ...);
+#define HTTPD_DBG(fmt, args...) ({ \
+	int save_errno = errno; \
+	if (f_exists(HTTPD_DEBUG) > 0 || nvram_get_int("HTTPD_DBG") > 0) \
+		Debug2File(HTTPD_DEBUG_FILE, "[%s:(%d)]: "fmt, __FUNCTION__, __LINE__, ##args); \
+	errno = save_errno; \
+})
 
 /* Basic authorization userid and passwd limit */
 #define AUTH_MAX 64
@@ -50,6 +70,68 @@ struct mime_handler {
 };
 
 extern struct mime_handler mime_handlers[];
+
+struct log_pass_url_list {
+        char *pattern;
+        char *mime_type;
+};
+
+extern struct log_pass_url_list log_pass_handlers[];
+
+struct useful_redirect_list {
+	char *pattern;
+	char *mime_type;
+};
+
+extern struct useful_redirect_list useful_redirect_lists[];
+
+#ifdef RTCONFIG_AMAS
+struct AiMesh_whitelist {
+	char *pattern;
+	char *mime_type;
+};
+extern struct AiMesh_whitelist AiMesh_whitelists[];
+#endif
+
+struct stb_port {
+        char *value;
+        char *name;
+};
+
+struct model_stb_port {
+        int model;
+        char *odmpid;
+        struct stb_port port_list[8];
+};
+
+struct iptv_profile {
+        char *profile_name;
+
+        /* for layout*/
+        char *iptv_port;
+        char *voip_port;
+        char *bridge_port;
+        char *iptv_config;
+        char *voip_config;
+
+        /* vlan settings */
+        char *switch_wantag;
+        char *switch_stb_x;
+        char *switch_wan0tagid;
+        char *switch_wan0prio;
+        char *switch_wan1tagid;
+        char *switch_wan1prio;
+        char *switch_wan2tagid;
+        char *switch_wan2prio;
+
+        /* special applications */
+        char *mr_enable_x;
+        char *emf_enable;
+        char *wan_vpndhcp;
+        char *quagga_enable;
+        char *mr_altnet_x;
+        char *ttl_inc_enable;
+};
 
 #define MIME_EXCEPTION_NOAUTH_ALL 	1<<0
 #define MIME_EXCEPTION_NOAUTH_FIRST	1<<1
@@ -73,13 +155,52 @@ extern struct mime_handler mime_handlers[];
 #define ISLOGOUT	8
 #define NOLOGIN		9
 
+#define LOCKTIME 60*5
+
 /* image path for app */
-#define IMAGE_MODEL_PRODUCT	"/images/Model_product.png"
-#define IMAGE_WANUNPLUG		"/images/WANunplug.png"
-#define IMAGE_ROUTER_MODE	"/images/New_ui/rt.jpg"
-#define IMAGE_REPEATER_MODE	"/images/New_ui/re.jpg"
-#define IMAGE_AP_MODE		"/images/New_ui/ap.jpg"
-#define IMAGE_MEDIA_BRIDGE_MODE	"/images/New_ui/mb.jpg"
+#define IMAGE_MODEL_PRODUCT	"/Model_product.png"
+#define IMAGE_WANUNPLUG		"/WANunplug.png"
+#define IMAGE_ROUTER_MODE	                              "/rt.jpg"
+#define IMAGE_REPEATER_MODE	"/re.jpg"
+#define IMAGE_AP_MODE		"/ap.jpg"
+#define IMAGE_MEDIA_BRIDGE_MODE	"/mb.jpg"
+
+//Add Login Try
+#define NOLOGINTRY   0
+#define LOGINTRY   1
+
+#if defined(RTCONFIG_IFTTT) || defined(RTCONFIG_ALEXA)
+#define IFTTTUSERAGENT  "asusrouter-Windows-IFTTT-1.0"
+#define GETIFTTTCGI     "get_IFTTTPincode.cgi"
+#define GETIFTTTOKEN "get_IFTTTtoken.cgi"
+#endif
+
+/* networkmap offline clientlist path */
+#if (defined(RTCONFIG_JFFS2) || defined(RTCONFIG_JFFSV1) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS))
+#define NMP_CL_JSON_FILE                "/jffs/nmp_cl_json.js"
+#else
+#define NMP_CL_JSON_FILE                "/tmp/nmp_cl_json.js"
+#endif
+
+enum {
+	HTTP_OK = 200,
+	HTTP_FAIL = 400,
+	HTTP_RULE_ADD_SUCCESS = 2001,
+	HTTP_RULE_DEL_SUCCESS,
+	HTTP_NORULE_DEL,
+	HTTP_OVER_MAX_RULE_LIMIT = 4000,
+	HTTP_INVALID_ACTION,
+	HTTP_INVALID_MAC,
+	HTTP_INVALID_ENABLE_OPT,
+	HTTP_INVALID_NAME,
+	HTTP_INVALID_EMAIL,
+	HTTP_INVALID_INPUT,
+	HTTP_INVALID_IPADDR,
+	HTTP_INVALID_TS,
+	HTTP_INVALID_FILE,
+	HTTP_SHMGET_FAIL = 5000,
+	HTTP_FB_SVR_FAIL
+};
 
 /* Exception MIME handler */
 struct except_mime_handler {
@@ -106,9 +227,6 @@ struct asus_token_table{
 	char host[64];
 	asus_token_t *next;
 };
-
-asus_token_t *head;
-asus_token_t *curr;
 
 #define INC_ITEM        128
 #define REALLOC_VECTOR(p, len, size, item_size) {                               \
@@ -156,8 +274,8 @@ extern struct language_table language_tables[];
 //2008.10 magic}
 typedef struct kw_s     {
         int len, tlen;                                          // actually / total
-        unsigned char **idx;
-        unsigned char *buf;
+        char **idx;
+        char *buf;
 } kw_t, *pkw_t;
 
 #define INC_ITEM        128
@@ -210,6 +328,10 @@ struct ej_handler {
 };
 extern struct ej_handler ej_handlers[];
 
+#define MAX_LOGIN_BLOCK_TIME	300
+#define LOCK_LOGIN_LAN 	0x01
+#define LOCK_LOGIN_WAN 	0x02
+
 #ifdef vxworks
 #define fopen(path, mode)	tar_fopen((path), (mode))
 #define fclose(fp)		tar_fclose((fp))
@@ -225,7 +347,7 @@ extern int check_lang_support(char *lang);
 extern int load_dictionary (char *lang, pkw_t pkw);
 extern void release_dictionary (pkw_t pkw);
 extern char* search_desc (pkw_t pkw, char *name);
-extern int change_preferred_lang();
+extern int change_preferred_lang(int finish);
 extern int get_lang_num();
 //extern char Accept_Language[16];
 #else
@@ -247,12 +369,18 @@ extern int web_read(void *buffer, int len);
 extern void set_cgi(char *name, char *value);
 
 /* httpd.c */
+extern int json_support;
 extern void start_ssl(void);
 extern char *gethost(void);
 extern void http_logout(unsigned int ip, char *cookies, int fromapp_flag);
 extern int is_auth(void);
 extern int is_firsttime(void);
-extern char *generate_token(void);
+extern char *generate_token(char *token_buf, size_t length);
+extern int match( const char* pattern, const char* string );
+extern int match_one( const char* pattern, int patternlen, const char* string );
+extern void send_page( int status, char* title, char* extra_header, char* text , int fromapp);
+extern void send_content_page( int status, char* title, char* extra_header, char* text , int fromapp);
+extern char *get_referrer(char *referer, char *auth_referer, size_t length);
 
 /* web.c */
 extern int ej_lan_leases(int eid, webs_t wp, int argc, char_t **argv);
@@ -266,13 +394,18 @@ extern char *trim_r(char *str);
 extern int is_wlif_up(const char *ifname);
 extern void add_asus_token(char *token);
 extern int check_token_timeout_in_list(void);
-extern int get_token_list_length(void);
 extern asus_token_t* search_timeout_in_list(asus_token_t **prev, int fromapp_flag);
-extern asus_token_t* add_token_to_list(char *token, int add_to_end);
 extern asus_token_t* create_list(char *token);
+extern int delete_logout_from_list(char *cookies);
 extern void set_referer_host(void);
 extern int check_xss_blacklist(char* para, int check_www);
-extern char *get_referrer(char *referer);
+extern int check_cmd_whitelist(char* para);
+extern int useful_redirect_page(char *next_page);
+extern char* reverse_str( char *str );
+#ifdef RTCONFIG_AMAS
+extern int check_AiMesh_whitelist(char *page);
+#endif
+extern int check_cmd_injection_blacklist(char *para);
 
 /* web-*.c */
 extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv, int unit);
@@ -284,20 +417,70 @@ extern int ej_wps_info(int eid, webs_t wp, int argc, char_t **argv);
 extern char referer_host[64];
 extern char host_name[64];
 extern char user_agent[1024];
+extern char gen_token[32];
+extern char indexpage[128];
+extern unsigned int login_ip_tmp;
 extern int check_user_agent(char* user_agent);
-#ifdef RTCONFIG_IFTTT
+#if defined(RTCONFIG_IFTTT) || defined(RTCONFIG_ALEXA)
 extern void add_ifttt_flag(void);
 #endif
 
 #ifdef RTCONFIG_HTTPS
-extern char *pwenc(const char *input);
+extern int gen_ddns_hostname(char *ddns_hostname);
 extern int check_model_name(void);
+extern char *pwenc(char *input, char *output, int len);
 #endif
 
+#if defined(RTCONFIG_IFTTT) || defined(RTCONFIG_ALEXA)
+extern char ifttt_stoken[128];
+extern char ifttt_query_string[2048];
+extern time_t ifttt_timestamp;
+extern char *gen_IFTTTPincode(char *pincode);
+extern int gen_IFTTTtoken(char* stoken, char* token);
+extern char* gen_IFTTT_inviteCode(char* inviteCode, char *asus_flag);
+extern int check_ifttt_token(char* asus_token);
+extern void ifttt_log(char* url, char* file);
+extern int alexa_block_internet(int block);
+#endif
+
+extern int cur_login_ip_type;
+extern time_t login_timestamp_tmp; // the timestamp of the current session.
+extern time_t last_login_timestamp; // the timestamp of the current session.
+extern time_t login_timestamp_tmp_wan; // the timestamp of the current session.
+extern time_t last_login_timestamp_wan; // the timestamp of the current session.
+extern unsigned int login_try;
+extern unsigned int login_try_wan;
+extern time_t auth_check_dt;
+extern int lock_flag;
+extern int add_try;
+extern char auth_passwd[AUTH_MAX];
 extern char* ipisdomain(char* hostname, char* str);
+#ifdef RTCONFIG_AMAS
+extern char* iscap(char* str);
+#endif
 extern int referer_check(char* referer, int fromapp_flag);
+extern int auth_check( char* dirname, char* authorization, char* url, char* file, char* cookies, int fromapp_flag);
 extern int check_noauth_referrer(char* referer, int fromapp_flag);
 extern char current_page_name[128];
-extern int auto_set_lang;
-
+extern int gen_guestnetwork_pass(char *key, size_t size);
+extern int alexa_pause_internet(int pause);
+extern int httpd_sw_hw_check(void);
+extern int ej_get_ui_support(int eid, webs_t wp, int argc, char **argv);
+extern void page_default_redirect(int fromapp_flag, char* url);
+#ifdef RTCONFIG_LANTIQ
+extern int wave_app_flag;
+extern int wave_handle_app_flag(char *name, int wave_app_flag);
+#endif
+#ifdef RTCONFIG_TCODE
+extern int change_location(char *lang);
+#endif
+#ifdef RTCONFIG_WTF_REDEEM
+extern void wtfast_gen_partnercode(char *str, size_t size);
+#endif
+extern void update_wlan_log(int sig);
+extern void do_feedback_mail_cgi(char *url, FILE *stream);
+extern void do_dfb_log_file(char *url, FILE *stream);
+extern int is_amas_support(void);
+extern void do_set_fw_path_cgi(char *url, FILE *stream);
+extern void system_cmd_test(char *system_cmd, char *SystemCmd, int len);
 #endif /* _httpd_h_ */

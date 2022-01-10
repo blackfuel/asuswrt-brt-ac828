@@ -81,7 +81,7 @@ function setScenerion(mode){
 		parent.document.QKform.sw_mode.value = 3;
 		$("#Senario").attr("src", "/images/New_ui/ap.jpg");
 		$("#Senario").attr("style", "height:auto");
-		$("#mode_desc").html("<#OP_AP_desc#><br><span style=\"color:#FC0\"><#deviceDiscorvy3#></span>");		
+		$("#mode_desc").html("<#OP_AP_desc#>");		
 		document.form.sw_mode_radio[2].focus();
 		document.form.sw_mode_radio[2].checked = true;
 	}
@@ -99,6 +99,11 @@ function setScenerion(mode){
 		parent.localAP_support = false;		
 		$("#Senario").attr("src", "/images/New_ui/mb.jpg");
 		$("#Senario").attr("style", "height:170px");
+
+		if(!band5g_11ac_support || no_vht_support){			
+			pstaDesc = replaceAll(pstaDesc, " 802\.11ac","");
+			pstaDesc = replaceAll(pstaDesc, " 802\.11AC","");
+		}
 		$("#mode_desc").html(pstaDesc);
 		document.form.sw_mode_radio[3].focus();
 		document.form.sw_mode_radio[3].checked = true;
@@ -166,13 +171,12 @@ function submitenter(myfield,e){
 					<td align="left">
 						<div class="description_down"><#OP_desc1#></div>
 					</td>
-					<!--td align="right">
-						<img onclick="parent.gotoIndex();" style="cursor:pointer;" align="right" title="Go to Home" src="/images/backtohome.png" onMouseOver="this.src='/images/backtohomeclick.png'" onMouseOut="this.src='/images/backtohome.png'">
-					</td-->
 				</tr>
 			</table>
 		</div>
-		<div style="margin:5px;" id="splitLine"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
+		<div style="margin:5px;" id="splitLine">
+			<div style="width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
+		</div>
 </div>
 
 <div style="width:95%; margin:0 auto; padding-bottom:3px;" id="field_general">

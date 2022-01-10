@@ -1,5 +1,5 @@
 
-AC_INIT([iptables], [1.4.12.1])
+AC_INIT([iptables], [1.4.12.2])
 
 # See libtool.info "Libtool's versioning system"
 libxtables_vcurrent=7
@@ -89,10 +89,10 @@ regular_CPPFLAGS="${largefile_cppflags} -D_REENTRANT \
 	-DXTABLES_LIBDIR=\\\"\${xtlibdir}\\\" -DXTABLES_INTERNAL";
 kinclude_CPPFLAGS="";
 if [[ -n "$kbuilddir" ]]; then
-	kinclude_CPPFLAGS="$kinclude_CPPFLAGS -I$kbuilddir/include";
+	kinclude_CPPFLAGS="$kinclude_CPPFLAGS -I$kbuilddir/include/uapi -I$kbuilddir/include";
 fi;
 if [[ -n "$ksourcedir" ]]; then
-	kinclude_CPPFLAGS="$kinclude_CPPFLAGS -I$ksourcedir/include";
+	kinclude_CPPFLAGS="$kinclude_CPPFLAGS -I$ksourcedir/include/uapi -I$ksourcedir/include";
 fi;
 pkgdatadir='${datadir}/xtables';
 
@@ -112,6 +112,8 @@ AC_SUBST([libxtables_vmajor])
 AC_CONFIG_FILES([Makefile extensions/GNUmakefile include/Makefile
 	iptables/Makefile iptables/xtables.pc
 	libipq/Makefile libipq/libipq.pc
-	libiptc/Makefile libiptc/libiptc.pc utils/Makefile
+	libiptc/Makefile libiptc/libiptc.pc
+	libiptc/libip4tc.pc libiptc/libip6tc.pc
+	libxtables/Makefile utils/Makefile
 	include/xtables.h include/iptables/internal.h])
 AC_OUTPUT

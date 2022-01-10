@@ -6,12 +6,7 @@ DSTDIR = $(INSTALLDIR)/lib/modules/$(LINUX_KERNEL)/kernel/fs
 
 ifeq ($(RTCONFIG_RALINK),y)
 # Ralink/MTK platform
-
-ifeq ($(CONFIG_LINUX30),y)
-SRCFILE = ralink_3.0.0
-else
-SRCFILE = ralink_2.6.2219
-endif
+SRCFILE = ralink
 
 else ifeq ($(RTCONFIG_QCA),y)
 # QCA platform
@@ -19,11 +14,24 @@ ifeq ($(RTCONFIG_SOC_QCA9557),y)
 SRCFILE = $(if $(RT4GAC55U),qca_4gac55u,qca)
 else ifeq ($(RTCONFIG_SOC_IPQ8064),y)
 SRCFILE = qca_ipq806x
-TNSA_SMBD = $(SRCFILE)/tnsa/smbd
+TNSA_SMBD = $(if $(RTCONFIG_SAMBA36X),,$(SRCFILE)/tnsa/smbd)
+else ifeq ($(RTCONFIG_SOC_IPQ8074),y)
+SRCFILE = qca_ipq807x
+else ifeq ($(RTCONFIG_SOC_IPQ40XX),y)
+SRCFILE = qca_ipq40xx
 else
 $(error Tuxera driver is not available)
 endif
 
+else ifeq ($(RTCONFIG_REALTEK),y)
+# Realtek platform
+SRCFILE = realtek
+DSTDIR = $(INSTALLDIR)/lib/modules/3.10.24/kernel/fs
+
+else ifeq ($(RTCONFIG_ALPINE),y)
+SRCFILE = alpine_gt_ac9600
+else ifeq ($(RTCONFIG_LANTIQ),y)
+SRCFILE = lantiq_grx350
 else
 # Broadcom platform
 
@@ -45,7 +53,13 @@ SRCFILE = broadcom_arm
 endif # ARMCPUSMP
 endif # RTCONFIG_BCM_7114
 endif # RTCONFIG_BCM7
+
+ifeq ($(RTCONFIG_HND_ROUTER),y)
+SRCFILE = broadcom_arm_hnd
+DSTDIR = $(INSTALLDIR)/lib/modules/4.1.27/kernel/fs
+else
 DSTDIR = $(INSTALLDIR)/lib/modules/2.6.36.4brcmarm/kernel/fs
+endif
 else # RTCONFIG_BCMARM
 SRCFILE = broadcom
 DSTDIR = $(INSTALLDIR)/lib/modules/2.6.22.19/kernel/fs
@@ -102,13 +116,13 @@ endif
 endif
 ifeq ($(or $(RTCONFIG_TFAT),$(RTCONFIG_TUXERA_NTFS),$(RTCONFIG_TUXERA_HFS)),y)
 	install  -m 0644 -D $(SRCFILE)/VERSION-INFO $(INSTALLDIR)/rom/Tuxera-VERSION-INFO
-ifeq ($(and $(RTCONFIG_BCMARM),$(RTCONFIG_SAMBA3)),y)
+#ifeq ($(and $(RTCONFIG_BCMARM),$(RTCONFIG_SAMBA3)),y)
 #	install -D $(SRCFILE)/samba/lib/libstdc++.so.6.0.14 $(INSTALLDIR)/usr/lib/libstdc++.so.6.0.14
 #	cd $(INSTALLDIR)/usr/lib && ln -sf libstdc++.so.6.0.14 libstdc++.so.6 && ln -sf libstdc++.so.6.0.14 libstdc++.so
-ifeq ($(RTCONFIG_BCM_7114),y)
-	install -D $(SRCFILE)/samba/smbd $(INSTALLDIR)/usr/bin/smbd
-endif
-endif
+#ifeq ($(RTCONFIG_BCM_7114),y)
+#	install -D $(SRCFILE)/samba/smbd $(INSTALLDIR)/usr/bin/smbd
+#endif
+#endif
 endif
 ifneq ($(TNSA_SMBD),)
 	# NOTE: Destination path of smbd is different from Broadcom platform!

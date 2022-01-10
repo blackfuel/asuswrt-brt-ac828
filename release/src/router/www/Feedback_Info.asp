@@ -18,19 +18,35 @@
 <script type="text/javascript" src="/general.js"></script>
 <script type="text/javascript" src="/popup.js"></script>
 <script type="text/javascript" src="/help.js"></script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <script>
-var fb_state = "<% nvram_get("fb_state"); %>";
-	
+var fb_state = httpApi.nvramGet(["fb_state"], true).fb_state;
+
+var firmver = httpApi.nvramGet(["firmver"], true).firmver;
+var buildno = httpApi.nvramGet(["buildno"], true).buildno;
+var extendno = httpApi.nvramGet(["extendno"], true).extendno;
+var fb_split_files = Number(httpApi.nvramGet(["fb_split_files"], true).fb_split_files);
+
+var FWString = '';
+FWString = firmver+"."+buildno;
+FWString += "_"+extendno;
+
+
 function initial(){
 	show_menu();
 	check_info();
+	$("#bind_google")
+		.attr('target','_self')
+		.attr("href", "Advanced_Feedback.asp?provider=google&reload=1")
+		.attr("style", "text-decoration:underline;color:#FFCC00;");
 }
 
 function check_info(){
 	//0:initial  1:Success  2.Failed  3.Limit?  4.dla
 	if(wan_diag_state == "4"){	
 		document.getElementById("fb_send_debug_log").style.display = "";
-		document.getElementById("Email_subject").href = "mailto:xdsl_feedback@asus.com?Subject="+based_modelid;
+		document.getElementById("Email_subject").href = "mailto:broadband_feedback@asus.com?Subject="+based_modelid;
 		get_debug_log_info();
 	}
 	else{
@@ -47,10 +63,69 @@ function check_info(){
 	if(dsl_support && fb_state == "2"){
 		document.getElementById("fb_fail_dsl").style.display = "";
 		document.getElementById("fb_fail_textarea").style.display = "";
+		show_dbg_files(fb_split_files, "dsl");
 	}
 	else if(fb_state == "2"){
 		document.getElementById("fb_fail_router").style.display = "";
 		document.getElementById("fb_fail_textarea").style.display = "";
+		show_dbg_files(fb_split_files, "rt");
+	}
+}
+
+function show_dbg_files(seg, type){
+	if(type == "dsl"){
+
+		switch(seg){
+
+			case 1:
+				document.getElementById("dbg_dsl_file").style.display = "";
+				break;
+			case 2:
+				document.getElementById("dbg_dsl_seg_a").style.display = "";
+				document.getElementById("dbg_dsl_seg_b").style.display = "";
+				break;
+			case 3:
+				document.getElementById("dbg_dsl_seg_a").style.display = "";
+				document.getElementById("dbg_dsl_seg_b").style.display = "";
+				document.getElementById("dbg_dsl_seg_c").style.display = "";
+				break;
+			case 4:
+				document.getElementById("dbg_dsl_seg_a").style.display = "";
+				document.getElementById("dbg_dsl_seg_b").style.display = "";
+				document.getElementById("dbg_dsl_seg_c").style.display = "";
+				document.getElementById("dbg_dsl_seg_d").style.display = "";
+				break;
+			default:
+				document.getElementById("dbg_dsl_file").style.display = "";
+				break;
+		}
+	}
+	else{
+
+		switch(seg){
+
+			case 1:
+				document.getElementById("dbg_rt_file").style.display = "";
+				break;
+			case 2:
+				document.getElementById("dbg_rt_seg_a").style.display = "";
+				document.getElementById("dbg_rt_seg_b").style.display = "";
+				break;
+			case 3:
+				document.getElementById("dbg_rt_seg_a").style.display = "";
+				document.getElementById("dbg_rt_seg_b").style.display = "";
+				document.getElementById("dbg_rt_seg_c").style.display = "";
+				break;
+			case 4:
+				document.getElementById("dbg_rt_seg_a").style.display = "";
+				document.getElementById("dbg_rt_seg_b").style.display = "";
+				document.getElementById("dbg_rt_seg_c").style.display = "";
+				document.getElementById("dbg_rt_seg_d").style.display = "";
+				break;
+			default:
+				document.getElementById("dbg_rt_file").style.display = "";
+				break;
+		}
 	}
 }
 
@@ -60,7 +135,7 @@ function get_debug_log_info(){
 	desc += "----------------------------------------------------------------------\n";
 
 	desc += "Model: "+based_modelid+"\n";
-	desc += "Firmware Version: <% nvram_get("firmver"); %>.<% nvram_get("buildno"); %>_<% nvram_get("extendno"); %>\n";
+	desc += "Firmware Version: "+FWString+"\n";
 	desc += "Inner Version: <% nvram_get("innerver"); %>\n";
 	desc += "DSL Firmware Version: <% nvram_get("dsllog_fwver"); %>\n";
 	desc += "DSL Driver Version:  <% nvram_get("dsllog_drvver"); %>\n\n";
@@ -68,7 +143,7 @@ function get_debug_log_info(){
 	desc += "PIN Code: <% nvram_get("secret_code"); %>\n";
 	desc += "MAC Address: <% nvram_get("lan_hwaddr"); %>\n\n";
 
-	desc += "Diagnostic debug log capture duration: <% nvram_get("dslx_diag_duration"); %>\n";
+	desc += "<#feedback_capturing_duration#>: <% nvram_get("dslx_diag_duration"); %>\n";
 	desc += "DSL connection: <% nvram_get("fb_availability"); %>\n";
 
 	document.uiForm.fb_send_debug_log_content.value = desc;
@@ -83,6 +158,33 @@ function reset_diag_state(){
 	document.diagform.dslx_diag_state.value = 0;	
 	document.diagform.submit();
 	setTimeout("location.href='TCC.log.gz';", 300);
+}
+
+function get_feedback_tarball(){
+	setTimeout("location.href='fb_data.tgz.gz';", 300);
+}
+
+function get_split_feedback(seg){
+	switch(seg) {
+		case 1:
+			setTimeout("location.href='fb_data.tgz.gz';", 300);
+			break;
+		case "a":
+	setTimeout("location.href='fb_data.tgz.gz.part.a';", 300);
+			break;
+		case "b":
+	setTimeout("location.href='fb_data.tgz.gz.part.b';", 300);
+			break;
+		case "c":
+	setTimeout("location.href='fb_data.tgz.gz.part.c';", 300);
+			break;
+		case "d":
+	setTimeout("location.href='fb_data.tgz.gz.part.d';", 300);
+			break;
+		default:
+			setTimeout("location.href='fb_data.tgz.gz';", 300);
+			break;
+	}
 }
 
 </script>
@@ -103,7 +205,7 @@ function reset_diag_state(){
 </style>	
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 
 <div id="Loading" class="popup_bg"></div>
@@ -134,7 +236,7 @@ function reset_diag_state(){
 <td bgcolor="#4D595D" valign="top">
 <div>&nbsp;</div>
 		  <div class="formfonttitle"><#menu5_6#> - <#menu_feedback#></div>
-<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 
 <div id="fb_success_dsl_0" style="display:none;">
 	<br>
@@ -152,30 +254,45 @@ function reset_diag_state(){
 
 <div id="fb_fail_dsl" style="display:none;" class="feedback_info_1">
 	<#feedback_fail0#>
+	<br><br>
+	<#feedback_fail1#> : ( <a href="mailto:broadband_feedback@asus.com?Subject=<%nvram_get("productid");%>" target="_top" style="color:#FFCC00;">broadband_feedback@asus.com </a>) <#feedback_fail2#>
 	<br>
-	<#feedback_fail1#> : ( <a href="mailto:xdsl_feedback@asus.com?Subject=<%nvram_get("productid");%>" target="_top" style="color:#FFCC00;">xdsl_feedback@asus.com </a>) <#feedback_fail2#>
+	<#feedback_fail3#> :
 	<br>
+	<ul>
+		<li id="dbg_dsl_file" style="display:none;"><span onClick="get_split_feedback(1);" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">debug file</span></li>
+		<li id="dbg_dsl_seg_a" style="display:none;"><span onClick="get_split_feedback('a');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_a</span></li>
+		<li id="dbg_dsl_seg_b" style="display:none;"><span onClick="get_split_feedback('b');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_b</span></li>
+		<li id="dbg_dsl_seg_c" style="display:none;"><span onClick="get_split_feedback('c');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_c</span></li>
+		<li id="dbg_dsl_seg_d" style="display:none;"><span onClick="get_split_feedback('d');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_d</span></li>
+	</ul>
 </div>
 
 <div id="fb_fail_router" style="display:none;" class="feedback_info_1">
 	<#feedback_fail0#>
-	<br>
+	<br><br>
 	<#feedback_fail1#> : ( <a href="mailto:router_feedback@asus.com?Subject=<%nvram_get("productid");%>" target="_top" style="color:#FFCC00;">router_feedback@asus.com </a>) <#feedback_fail2#>
+	&nbsp;<#feedback_fail_BindGoogle#>
 	<br>
+	<#feedback_fail3#> :
+	<br>
+	<ul>
+		<li id="dbg_rt_file" style="display:none;"><span onClick="get_split_feedback(1);" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">debug file</span></li>
+		<li id="dbg_rt_seg_a" style="display:none;"><span onClick="get_split_feedback('a');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_a</span></li>
+		<li id="dbg_rt_seg_b" style="display:none;"><span onClick="get_split_feedback('b');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_b</span></li>
+		<li id="dbg_rt_seg_c" style="display:none;"><span onClick="get_split_feedback('c');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_c</span></li>
+		<li id="dbg_rt_seg_d" style="display:none;"><span onClick="get_split_feedback('d');" style="text-decoration: underline; color:#FFCC00; cursor:pointer;">get_split_feedback_d</span></li>
+	</ul>
 </div>
 
 <div id="fb_fail_textarea" style="display:none;">
-	<textarea name="fb_fail_content" cols="70" rows="10" style="width:99%; font-family:'Courier New', Courier, mono; font-size:13px;background:#475A5F;color:#FFFFFF;" readonly><% nvram_dump("fb_fail_content", ""); %></textarea>
+	<textarea name="fb_fail_content" cols="70" rows="10" style="width:90%;margin-left:25px;font-family:'Courier New', Courier, mono; font-size:13px;background:#475A5F;color:#FFFFFF;" readonly><% nvram_dump("fb_fail_content", ""); %></textarea>
 	<br>
 </div>
 
 <div id="fb_success_dsl_1" style="display:none;">
 	<br>
 	<div class="feedback_info_1">We are working hard to improve the firmware of <#Web_Title2#> and your feedback is very important to us. We will use your feedbacks and comments to strive to improve your ASUS experience.</div>
-	<br>
-	<br>
-	<div class="feedback_info_1">To get help from other users, you could post your question in the <a href="http://vip.asus.com/forum/topic.aspx?board_id=11&SLanguage=en-us" style="color:#FFCC00;" target="_blank">ASUS VIP Forum</a>.</div>
-	<br>
 	<br>	
 </div>
 
@@ -191,12 +308,12 @@ function reset_diag_state(){
 <div id="fb_send_debug_log" style="display:none;">
 	<br>
 	<br>
-	<div class="feedback_info_0">Diagnostic DSL debug log capture completed.</div>
+	<div class="feedback_info_0">The debug log of diagnostic DSL captured.</div>
 	<br>
 	<br>
-	<div class="feedback_info_1">Please send us an email directly ( <a id="Email_subject" href="" target="_top" style="color:#FFCC00;">xdsl_feedback@asus.com</a> ). Simply copy from following text area and paste as mail content. <br><div onClick="reset_diag_state();" style="text-decoration: underline; font-family:Lucida Console; cursor:pointer;">Click here to download the debug log and add as mail attachment.</div></div>
+	<div class="feedback_info_1">Please send us an email directly ( <a id="Email_subject" href="" target="_top" style="color:#FFCC00;">broadband_feedback@asus.com</a> ). Simply copy from following text area and paste as mail content. <br><div onClick="reset_diag_state();" style="text-decoration: underline; font-family:Lucida Console; cursor:pointer;">Click here to download the debug log and add as mail attachment.</div></div>
 	<br>
-	<textarea name="fb_send_debug_log_content" cols="70" rows="15" style="width:99%; font-family:'Courier New', Courier, mono; font-size:13px;background:#475A5F;color:#FFFFFF;" readonly></textarea>
+	<textarea name="fb_send_debug_log_content" cols="70" rows="15" style="width:90%; margin-left:25px; font-family:'Courier New', Courier, mono; font-size:13px;background:#475A5F;color:#FFFFFF;" readonly></textarea>
 	<br>	
 </div>
 

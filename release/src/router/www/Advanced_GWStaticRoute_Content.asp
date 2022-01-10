@@ -45,7 +45,7 @@ function applyRule(){
 
 	document.form.sr_rulelist.value = tmp_value;
 
-	if(based_modelid == "MAP-AC1300" || based_modelid == "MAP-AC2200" || based_modelid == "VZW-AC1300" || based_modelid == "MAP-AC1750")
+	if(based_modelid == "MAP-AC1300" || based_modelid == "MAP-AC2200" || based_modelid == "VZW-AC1300" || based_modelid == "MAP-AC1750" || based_modelid == "RT-AC92U")
 		alert("By applying new LAN settings, please reboot all Lyras connected to main Lyra manually.");
 	showLoading();
 	document.form.submit();
@@ -261,7 +261,7 @@ function Ctrl_LANIPList(obj){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 
 <div id="Loading" class="popup_bg"></div>
@@ -302,7 +302,7 @@ function Ctrl_LANIPList(obj){
 		  <td bgcolor="#4D595D" valign="top"  >
 		  <div>&nbsp;</div>
 		  <div class="formfonttitle"><#menu5_2#> - <#menu5_2_3#></div>
-		  <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+		  <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
       <div class="formfontdesc"><#RouterConfig_GWStaticEnable_sectiondesc#></div>
 		  
 			<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">				

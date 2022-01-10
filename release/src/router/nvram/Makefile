@@ -1,6 +1,11 @@
 include ../common.mak
 
+ifeq ($(RTCONFIG_REALTEK),y)
+CFLAGS  += -I. -Wall -fPIC $(EXTRACFLAGS) -lgcc_s -lc
+CFLAGS  += -I$(LINUXDIR)/include/nvram
+else
 CFLAGS  += -I. -I$(SRCBASE)/include -Wall -fPIC $(EXTRACFLAGS)
+endif
 #CFLAGS += -g -DDEBUG
 CFLAGS  += -s
 ifeq ($(CONFIG_RTR_OPTIMIZE_SIZE),y)
@@ -16,7 +21,12 @@ ifeq ($(STATIC),1)
 CFLAGS += -static
 endif
 
+# NVRAM_FILE
 all: libnvram.so libnvram.a nvram
+
+prebuilt:
+	@echo " [nvram] move sysdesp into nvram"
+	@cp sysdeps/* ./ -f
 
 libnvram.so: nvram_linux.o nvram_convert.o
 	@echo " [nvram] CC $@"

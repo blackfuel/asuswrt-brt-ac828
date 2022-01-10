@@ -60,25 +60,28 @@ function parse_LanToLanRoute_to_object(){
 		subnet_rulelist_ext_array[i-1] = [subnet_rulelist_ext_col[0], subnet_rulelist_ext_col[1]];
 	}
 
-	for(var i = 0; i < subnet_rulelist_ext_array.length; i++){
+	for(var i = 1; i < subnet_rulelist_row.length; i++){
+		var subnet_rulelist_col = subnet_rulelist_row[i].split('>');
 		var LanToLanRoute_object = new Object();
 
-		LanToLanRoute_object["subnet"] = subnet_rulelist_ext_array[i][0] + "/" + netmask_to_bits(get_netmask(subnet_rulelist_ext_array[i][0]));
-		if(subnet_rulelist_ext_array[i][1].length > 1){
-			var gateway_array = subnet_rulelist_ext_array[i][1].split(',');
-			var lanTolanRoute_tmp = [];
+		LanToLanRoute_object["subnet"] = subnet_rulelist_col[0] + "/" + netmask_to_bits(subnet_rulelist_col[1]);
+		LanToLanRoute_object["LanToLanRoute"] = [];
 
-			for(var j = 0; j < gateway_array.length - 1; j++){
-				var route_string = "";
+		for(var j = 0; j < subnet_rulelist_ext_array.length; j++){
+			if((subnet_rulelist_ext_array[j][0] == subnet_rulelist_col[0]) && (subnet_rulelist_ext_array[j][1].length > 1)){
+				var gateway_array = subnet_rulelist_ext_array[j][1].split(',');
+				var lanTolanRoute_tmp = [];
 
-				route_string = gateway_array[j] + "/" + netmask_to_bits(get_netmask(gateway_array[j]));
-				lanTolanRoute_tmp.push(route_string);
+				for(var k = 0; k < gateway_array.length - 1; k++){
+					var route_string = "";
+
+					route_string = gateway_array[k] + "/" + netmask_to_bits(get_netmask(gateway_array[k]));
+					lanTolanRoute_tmp.push(route_string);
+				}
+
+				LanToLanRoute_object["LanToLanRoute"] = lanTolanRoute_tmp;
 			}
-
-			LanToLanRoute_object["LanToLanRoute"] = lanTolanRoute_tmp;
 		}
-		else
-			LanToLanRoute_object["LanToLanRoute"] = [];
 
 		LanToLanRoute_array.push(LanToLanRoute_object);
 	}

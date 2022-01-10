@@ -36,6 +36,7 @@
 #include "compiler.h"
 
 #ifdef USE_HOSTCC
+#include <sys/types.h>
 
 /* new uImage format support enabled on host */
 #define CONFIG_FIT		1

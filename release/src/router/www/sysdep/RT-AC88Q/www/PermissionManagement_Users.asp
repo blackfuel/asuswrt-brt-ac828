@@ -204,7 +204,7 @@ function add_account(flag, target){
 		return false;
 	}
 
-	var alert_str = validator.hostName(document.getElementById("account_name"));
+	var alert_str = validator.account_name(document.getElementById("account_name"));
 
 	if(alert_str != ""){
 		alert(alert_str);
@@ -522,7 +522,7 @@ function enable_group_all(obj){
 								<td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#Permission_Management#> - <#Permission_Management_Users#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin: 10px 0 10px 5px" class="splitLine"></div>
 									<div style="margin-top:20px ;" class="formfontdesc"><#PM_Users_desc#></div>
 									<div>
 										<div style="display:flex">

@@ -23,6 +23,7 @@
 <script type="text/javascript" src="disk_functions.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
 <script type="text/javascript" src="/Captive_Portal_template.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <script>
 var disk_flag = true;
 var splash_image_base64 = "";
@@ -82,6 +83,12 @@ function initial(){
 		captivePortalShowAndHide(0);
 		$("#apply_button").val('<#CTL_Apply_Enable#>');
 	}
+
+	var series = productid.split("-")[0].toUpperCase();
+	if(series == "BRT")
+		httpApi.faqURL("1034971", function(url){document.getElementById("faq").href=url;});
+	else
+		$(".brt_series").remove();
 }
 function captivePortalShowAndHide(_flag) {
 	if(_flag == 1) {
@@ -487,8 +494,8 @@ function gen_splash_page() {
 		code += "<div class='splash_image_hint'><#FreeWiFi_RecommendResolution#>: 1152 x 864 px or above</div>";/*untranslated*/
 		if(isSupportFileReader() && isSupportCanvas()) {
 			code += "<div class='splash_preview'>";
-			code += "<input class='button_gen' onclick='splash_upload_image();' type='button' value='<#btn_Background#>'/>";
-			code += "<input class='button_gen' onclick='preview_splash_page();' type='button' value='<#btn_Preview#>'/>";
+			code += "<input class='button_gen' onclick='splash_upload_image();' type='button' value='<#btn_Background#>' style='margin: 0 5px'/>";
+			code += "<input class='button_gen' onclick='preview_splash_page();' type='button' value='<#btn_Preview#>' style='margin: 0 5px'/>";
 			code += "</div>";
 			code += "<input type='file' name='splash_upload_file' id='splash_upload_file' class='splash_upload_file' onchange='previewSplashImage(this);'/>";
 		}
@@ -1077,9 +1084,9 @@ function save_splash_page_content() {
 		html_landing += "<meta http-equiv='Expires' content='-1'>\n";
 		html_landing += "<title>" + decodeURIComponent(brand_name) + "</title>\n";
 		html_landing += "<link rel='stylesheet' type='text/css' href='FreeUam.css'>\n";
-		html_landing += "<script type='text/javascript' src='jquery-1.7.1.min.js'><\/script>\n";
-		html_landing += "<script type='text/javascript' src='uam.js'><\/script>\n";
-		html_landing += "<script type='text/javascript'>\n";
+		html_landing += "<_INCLUDE_JQUERY_>\n";
+		html_landing += "<_INCLUDE_UAM_>\n";
+		html_landing += "<_TAG_START_>\n";
 		if(terms_service_status) {
 			html_landing += "var htmlEnDeCode = (function() {\n";
 			html_landing += "var charToEntityRegex,\n";
@@ -1330,7 +1337,7 @@ function save_splash_page_content() {
 		html_landing += "for (var i in mobile) if (userAgentString.indexOf(mobile[i]) > 0) return true;\n";
 		html_landing += "return false;\n";
 		html_landing += "}\n";
-		html_landing += "<\/script>\n";
+		html_landing += "<_TAG_END_>\n";
 		html_landing += "</head>\n";
 		html_landing += "<body onload='initial();' id='splash_body' class='splash_body'>\n";
 		if(terms_service_status) {
@@ -1714,7 +1721,7 @@ var third_party_wl_used = new Array();
 function create_third_party_wl_used() {
 	var _enable_flag = "";
 	var _third_party_wl_used = new Array();
-	for(var i = 1; i <= multissid_support; i += 1) {
+	for(var i = 1; i <= multissid_count; i += 1) {
 		_third_party_wl_used[i] = "not_used";
 	}
 
@@ -1773,7 +1780,7 @@ function change_wl_input_status(_idx) {
 function find_empty_gn_group() {
 	var _empty_wl_idx = "";
 	var _empty_flag = false;
-	var _gn_count = multissid_support;
+	var _gn_count = multissid_count;
 	for(_gn_count; _gn_count > 0; _gn_count -= 1) {
 		_empty_flag = (gn_array_2g[(_gn_count - 1)][0] == "0") ? true : false;
 		if(!_empty_flag)
@@ -1823,7 +1830,7 @@ function check_gn_if_status(_subunit, _gn_array) {
 
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="full_screen_bg" class="full_screen_bg" onselectstart="return false;"></div>
 <div id="guestnetwork_wl" class="guestnetwork_wl"></div>
 <div id='folderTree_panel' class='landing_folder_content'>
@@ -1881,11 +1888,14 @@ function check_gn_if_status(_subunit, _gn_array) {
 								<td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#Guest_Network#> - Free Wi-Fi<!--untranslated--></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div class="cp_page_intro_icon"></div>
 									<div style='float:left;width:80%;'>
 									<div class="cp_page_intro_txt" style="color:#FC0;"><#FreeWiFi_desc1#></div>
 									<div class="cp_page_intro_txt"><#FreeWiFi_desc2#></div>
+									<div class="cp_page_intro_txt brt_series">
+										<#FAQ_Find#> : <a id="faq" href="" target="_blank" style="font-weight:bolder;text-decoration:underline;" href="" target="_blank">GO</a>
+									</div>
 									<div align="center" class="left" style="float:left;margin-left:20px;margin-top:10px;cursor:pointer;" id="radio_captive_portal_enable"></div>
 									<div class="iphone_switch_container" style="height:32px; width:74px; position: relative; overflow: hidden;"></div>
 									<script type="text/javascript">
@@ -1907,7 +1917,7 @@ function check_gn_if_status(_subunit, _gn_array) {
 									</script>
 									</div>
 									<div style="clear:both;"></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div id="captive_portal_content" class="captive_portal_content"></div>
 									<div class='apply_content'>
 										<input id='apply_button' class='button_gen' onclick='apply();' type='button' value=''/>
@@ -1929,7 +1939,7 @@ function check_gn_if_status(_subunit, _gn_array) {
 <form method="post" name="splash_page_form" action="splash_page.cgi" target="hidden_frame_save" enctype="multipart/form-data">
 <input type="hidden" name="current_page" value="Captive_Portal.asp">
 <input type="hidden" name="next_page" value="Captive_Portal.asp">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="splash_page_id" value="">
 <input type="hidden" name="splash_page_attribute" value="">

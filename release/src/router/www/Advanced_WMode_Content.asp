@@ -61,6 +61,7 @@
 <script language="JavaScript" type="text/javascript" src="/popup.js"></script>
 <script language="JavaScript" type="text/javascript" src="/validator.js"></script>
 <script language="JavaScript" type="text/JavaScript" src="/js/jquery.js"></script>
+<script language="JavaScript" type="text/JavaScript" src="/js/httpApi.js"></script>
 <script>
 <% wl_get_parameter(); %>
 
@@ -72,6 +73,12 @@ function initial(){
 	show_menu();
 
 	regen_band(document.form.wl_unit);
+	if(lantiq_support){
+		checkWLReady();
+		var mode_desc = ["<#WLANConfig11b_x_APMode_option2#>"];
+		var mode_value = ["2"];
+		add_options_x2(document.form.wl_mode_x, mode_desc, mode_value, "2");
+	}
 
 	if(based_modelid == "RT-AC87U" && document.form.wl_unit[1].selected == true){
 		document.getElementById("wds_mode_field").style.display = "none";
@@ -79,7 +86,6 @@ function initial(){
 	}
 
 	change_wireless_bridge(document.form.wl_mode_x.value);	
-
 	if((sw_mode == 2 || sw_mode == 4) && '<% nvram_get("wl_unit"); %>' == '<% nvram_get("wlc_band"); %>'){
 		for(var i=5; i>=3; i--)
 			document.getElementById("MainTable1").deleteRow(i);
@@ -89,6 +95,20 @@ function initial(){
 		document.getElementById("repeaterModeHint").style.display = "";
 		document.getElementById("wl_wdslist_Block").style.display = "none";
 		document.getElementById("submitBtn").style.display = "none";
+	}
+	else if (based_modelid == "RT-AD7200" && '<% nvram_get("wl_unit"); %>' == '3') {
+		document.getElementById("wl_2g_mac").style.display = "none";
+		document.getElementById("wl_5g_mac").style.display = "none";
+		document.getElementById("wl_5g_mac_2").style.display = "none";
+		document.getElementById("wds_mode_field").style.display = "none";
+		document.getElementById("wds_wdsapply_field").style.display = "none";
+		document.getElementById("wl_wdslist_Block").style.display = "none";
+		document.getElementById("submitBtn").style.display = "none";
+		document.getElementById("wds_list_title_field").style.display = "none";
+		document.getElementById("wds_list_add_delete_field").style.display = "none";
+		document.getElementById("wds_list_add_field").style.display = "none";
+		document.getElementById("repeaterModeHint_desc").innerHTML = "<#CTL_nonsupported#>";
+		document.getElementById("repeaterModeHint").style.display = "";
 	}
 	else{
 		show_wl_wdslist();
@@ -103,6 +123,15 @@ function initial(){
 		document.getElementById("wl_5g_mac_2").style.display = "";
 		document.getElementById("wl_5g_mac_th1").innerHTML = "5GHz-1 MAC";
 	}
+
+	$("#redirect_to_setup")
+		.attr('target','_self')
+		.attr("href", "Advanced_Wireless_Content.asp")
+		.attr("style", "text-decoration:underline;color:#FFCC00;");
+	$("#redirect_to_FAQ")
+		.attr('target','_blank')
+		.attr("style", "text-decoration:underline;color:#FFCC00;cursor: pointer;");
+	httpApi.faqURL("1039910", function(url){document.getElementById("redirect_to_FAQ").href=url;});
 
 	wl_bwch_hint();
 	setTimeout("wds_scan();", 500);
@@ -155,7 +184,7 @@ function addRow(obj, upper){
 		obj.focus();
 		obj.select();
 		return false;
-	}else if (!check_macaddr(obj, check_hwaddr_flag(obj))){
+	}else if (!check_macaddr(obj, check_hwaddr_flag(obj, 'inner'))){
 		obj.focus();
 		obj.select();		
 		return false;
@@ -178,6 +207,11 @@ function addRow(obj, upper){
 }
 
 function applyRule(){
+	if(lantiq_support && wave_ready != 1){
+		alert("Please wait a minute for wireless ready");
+		return false;
+	}
+	
 	var rule_num = document.getElementById('wl_wdslist_table').rows.length;
 	var item_num = document.getElementById('wl_wdslist_table').rows[0].cells.length;
 	var tmp_value = "";
@@ -200,17 +234,13 @@ function applyRule(){
 		inputRCtrl2(document.form.wl_wdsapply_x, 1);
 	}
 	
-	if(document.form.wl_mode_x.value == "1"){
-		document.form.wl_wdsapply_x.value = "1";
-	}
-		
 	if(wl6_support){
 		document.form.action_wait.value = 8;
 	}
 	else{
 		document.form.action_wait.value = 3;
 	}
-		
+
 	showLoading();	
 	document.form.submit();
 }
@@ -341,10 +371,29 @@ function wl_bwch_hint(){
 	}
 }
 
+function checkWLReady(){
+	$.ajax({
+	    url: '/ajax_wl_ready.asp',
+	    dataType: 'script',	
+	    error: function(xhr) {
+			setTimeout("checkWLReady();", 1000);
+	    },
+	    success: function(response){
+	    	if(wave_ready != 1){
+	    		$("#lantiq_ready").show();
+	    		setTimeout("checkWLReady();", 1000);
+	    	}
+	    	else{
+	    		$("#lantiq_ready").hide();
+	    	}
+			
+	    }
+  	});
+}
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -390,9 +439,12 @@ function wl_bwch_hint(){
 								<td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#menu5_1#> - <#menu5_1_3#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div class="formfontdesc"><#WLANConfig11b_display1_sectiondesc#></div>
-									<div class="formfontdesc" style="color:#FFCC00;"><#ADSL_FW_note#><#WLANConfig11b_display2_sectiondesc#></div>
+									<div class="formfontdesc" style="color:#FFCC00;"><#ADSL_FW_note#></div>
+									<div class="formfontdesc" style="color:#FFCC00;margin-left:28px;">
+										<#WLANConfig11b_display2_sectiondesc#>&nbsp;<#WLANConfig11b_display21_sectiondesc#><br><#Setup_note#>
+									</div>
 									<div class="formfontdesc"><#WLANConfig11b_display3_sectiondesc#>
 										<ol>
 											<li><#WLANConfig11b_display31_sectiondesc#></li>
@@ -402,14 +454,15 @@ function wl_bwch_hint(){
 										</ol>					
 									</div>
 									<div id="wl_bw_hint" style="font-size:13px;font-family: Arial, Helvetica, sans-serif;color:#FC0;margin-left:28px;"><#WLANConfig11b_display41_sectiondesc#></div>
-									<div id="wl_ch_hint" style="font-size:13px;font-family: Arial, Helvetica, sans-serif;color:#FC0;margin-left:28px;"><#WLANConfig11b_display42_sectiondesc#></div>	
+									<div id="wl_ch_hint" style="font-size:13px;font-family: Arial, Helvetica, sans-serif;color:#FC0;margin-left:28px;"><#WLANConfig11b_display42_sectiondesc#></div>
+									<div id="lantiq_ready" style="display:none;color:#FC0;margin-left:5px;font-size:13px;">Wireless is setting...</div>
 									<table id="MainTable1" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 										<thead>
 										<tr>
 											<td colspan="2"><#t2BC#></td>
 										</tr>
 										</thead>		  
-										<tr>
+										<tr id="wl_2g_mac">
 											<th>2.4GHz MAC</th>
 											<td>
 												<input type="text" maxlength="17" class="input_20_table" id="wl0_hwaddr" name="wl0_hwaddr" value="<% nvram_get("wl0_hwaddr"); %>" readonly autocorrect="off" autocapitalize="off">
@@ -437,7 +490,7 @@ function wl_bwch_hint(){
 											</td>
 										</tr>
 										<tr id="repeaterModeHint" style="display:none;">
-											<td colspan="2" style="color:#FFCC00;height:30px;" align="center"><#page_not_support_mode_hint#></td>
+											<td id="repeaterModeHint_desc" colspan="2" style="color:#FFCC00;height:30px;" align="center"><#page_not_support_mode_hint#></td>
 										</tr>			
 										<tr id="wds_mode_field">
 											<th align="right">
@@ -452,7 +505,7 @@ function wl_bwch_hint(){
 												</select>
 											</td>
 										</tr>
-										<tr>
+										<tr id=wds_wdsapply_field>
 											<th align="right">
 												<a class="hintstyle" href="javascript:void(0);"  onClick="openHint(1,3);">
 												<#WLANConfig11b_x_BRApply_itemname#>
@@ -466,15 +519,15 @@ function wl_bwch_hint(){
 									</table>	
 									<table id="MainTable2" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable_table">
 										<thead>
-										<tr>
+										<tr id="wds_list_title_field">
 											<td colspan="4"><#WLANConfig11b_RBRList_groupitemdesc#>&nbsp;(<#List_limit#>&nbsp;4)</td>
 										</tr>
 										</thead>		
-										<tr>
+										<tr id="wds_list_add_delete_field">
 											<th width="80%"><a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,10);"><#WLANConfig11b_RBRList_groupitemdesc#></th>
 											<th class="edit_table" width="20%"><#list_add_delete#></th>		
 										</tr>
-										<tr>
+										<tr id="wds_list_add_field">
 											<td width="80%">
 												<input type="text" style="margin-left:220px;float:left;" maxlength="17" class="input_macaddr_table" name="wl_wdslist_0" onKeyPress="return validator.isHWAddr(this,event)" autocorrect="off" autocapitalize="off">
 												<img style="float:left;" id="pull_arrow" height="14px;" src="/images/arrow-down.gif" onclick="pullLANIPList(this);" title="<#select_AP#>" onmouseover="over_var=1;" onmouseout="over_var=0;">

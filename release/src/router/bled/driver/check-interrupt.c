@@ -28,7 +28,11 @@
 #include <linux/time.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+#include "../kernel_stat.h"
+#else
 #include <linux/kernel_stat.h>
+#endif
 #include "../bled_defs.h"
 #include "check.h"
 
@@ -86,7 +90,7 @@ unsigned int interrupt_check_traffic(struct bled_priv *bp)
 		diff += d;
 		if (unlikely(bp->flags & BLED_FLAGS_DBG_CHECK_FUNC)) {
 			prn_bl_v("GPIO#%d: interrupt %u, d %10lu (%10lu,%10lu)\n",
-				bp->gpio_nr, intrs->interrupt, d, intrs->last_nr_interrupts, s);
+				bp->gpio_nr[0], intrs->interrupt, d, intrs->last_nr_interrupts, s);
 		}
 
 		intrs->last_nr_interrupts = s;

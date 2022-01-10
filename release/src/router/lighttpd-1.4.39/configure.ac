@@ -107,7 +107,7 @@ AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdlib.h string.h \
 sys/socket.h sys/time.h unistd.h sys/sendfile.h sys/uio.h \
 getopt.h sys/epoll.h sys/select.h poll.h sys/poll.h sys/devpoll.h sys/filio.h \
-sys/mman.h sys/event.h port.h pwd.h \
+sys/mman.h sys/event.h port.h pwd.h sys/syslimits.h \
 sys/resource.h sys/un.h syslog.h sys/prctl.h uuid/uuid.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
@@ -295,14 +295,14 @@ AC_ARG_WITH(attr, AC_HELP_STRING([--with-attr],[enable extended attribute suppor
 AC_MSG_RESULT($withval)
 if test "$WITH_ATTR" != "no"; then
   # libattr (linux only?)
-  AC_CHECK_LIB(attr, attr_get, [
-    AC_CHECK_HEADERS([attr/attributes.h],[
-      ATTR_LIB=-lattr
-      AC_DEFINE([HAVE_XATTR], [1], [libattr])
-      AC_DEFINE([HAVE_ATTR_ATTRIBUTES_H], [1])
-    ])
-  ])
-  AC_SUBST(ATTR_LIB)
+ AC_CHECK_LIB(attr, attr_get, [
+	AC_CHECK_HEADERS([attr/attributes.h],[
+		ATTR_LIB=-lattr
+		AC_DEFINE([HAVE_XATTR], [1], [libattr])
+		AC_DEFINE([HAVE_ATTR_ATTRIBUTES_H], [1])
+	])
+ ])
+ AC_SUBST(ATTR_LIB)
 
   # (Free)BSD extattr
   AC_CHECK_FUNC([extattr_get_file], [
@@ -385,8 +385,8 @@ AC_ARG_WITH(kerberos5,
 )
 
 if test "x$use_openssl" = "xyes"; then
-    if test "x$use_kerberos" != "xyes"; then
-        CPPFLAGS="$CPPFLAGS -DOPENSSL_NO_KRB5"
+    if test "x$use_kerberos" = "xyes"; then
+        AC_DEFINE([USE_OPENSSL_KERBEROS], [1], [with kerberos])
     fi
 
     AC_CHECK_HEADERS([openssl/ssl.h])
@@ -481,7 +481,7 @@ if test "$WITH_FAM" != "no"; then
   LIBS=$FAM_LIBS
   AC_CHECK_FUNCS([FAMNoExists])
   LIBS=$OLD_LIBS
-
+  
   if test x$FAM_LIBS = x; then
      AC_MSG_ERROR([fam/gamin-headers and/or libs where not found, install them or build with --without-fam])
   fi
@@ -493,29 +493,29 @@ AC_ARG_WITH(webdav-props, AC_HELP_STRING([--with-webdav-props],[properties in mo
 AC_MSG_RESULT([$WITH_WEBDAV_PROPS])
 
 if test "$WITH_WEBDAV_PROPS" != "no"; then
-  PKG_CHECK_MODULES(XML, libxml-2.0, [
+ PKG_CHECK_MODULES(XML, libxml-2.0, [
     AC_DEFINE([HAVE_LIBXML2], [1], [libxml2])
     AC_DEFINE([HAVE_LIBXML_H], [1], [libxml.h])
-  ])
-  PKG_CHECK_MODULES(SQLITE, sqlite3, [
+ ])
+ PKG_CHECK_MODULES(SQLITE, sqlite3, [
     AC_DEFINE([HAVE_SQLITE3], [1], [libsqlite3])
     AC_DEFINE([HAVE_SQLITE3_H], [1], [sqlite3.h])
-  ])
+ ])
 
-  AC_MSG_CHECKING(for locks in mod_webdav)
-  AC_ARG_WITH(webdav-locks, AC_HELP_STRING([--with-webdav-locks],[locks in mod_webdav]),
-  [WITH_WEBDAV_LOCKS=$withval],[WITH_WEBDAV_LOCKS=no])
-  AC_MSG_RESULT([$WITH_WEBDAV_LOCKS])
+ AC_MSG_CHECKING(for locks in mod_webdav)
+ AC_ARG_WITH(webdav-locks, AC_HELP_STRING([--with-webdav-locks],[locks in mod_webdav]),
+ [WITH_WEBDAV_LOCKS=$withval],[WITH_WEBDAV_LOCKS=no])
+ AC_MSG_RESULT([$WITH_WEBDAV_LOCKS])
 
-  if test "$WITH_WEBDAV_LOCKS" != "no"; then
-    AC_CHECK_LIB(uuid, uuid_unparse, [
-      AC_CHECK_HEADERS([uuid/uuid.h],[
-        UUID_LIBS=-luuid
-        AC_DEFINE([HAVE_UUID], [1], [libuuid])
-        AC_DEFINE([HAVE_UUID_H], [1], [uuid/uuid.h is available])
-      ])
-    ])
-  fi
+ if test "$WITH_WEBDAV_LOCKS" != "no"; then
+   AC_CHECK_LIB(uuid, uuid_unparse, [
+         AC_CHECK_HEADERS([uuid/uuid.h],[
+                 UUID_LIBS=-luuid
+                 AC_DEFINE([HAVE_UUID], [1], [libuuid])
+		 AC_DEFINE([HAVE_UUID_H], [1], [uuid/uuid.h is available])
+         ])
+ ])
+ fi
 fi
 AC_SUBST(UUID_LIBS)
 
@@ -597,18 +597,18 @@ if test "$WITH_LUA" != "no"; then
  dnl first check for lua5.1 (debian and others), then lua-5.1 (freebsd), then $WITH_LUA (defaults to lua)
  dnl check "lua" last now that lua5.2 is out
  PKG_CHECK_MODULES(LUA, lua5.1 >= 5.1, [
-  AC_DEFINE([HAVE_LUA], [1], [liblua])
-  AC_DEFINE([HAVE_LUA_H], [1], [lua.h])
+   AC_DEFINE([HAVE_LUA], [1], [liblua])
+   AC_DEFINE([HAVE_LUA_H], [1], [lua.h])
  ],[
   PKG_CHECK_MODULES(LUA, lua-5.1 >= 5.1, [
    AC_DEFINE([HAVE_LUA], [1], [liblua])
    AC_DEFINE([HAVE_LUA_H], [1], [lua.h])
-  ],[
+ ],[
    PKG_CHECK_MODULES(LUA, $WITH_LUA >= 5.1, [
-    AC_DEFINE([HAVE_LUA], [1], [liblua])
-    AC_DEFINE([HAVE_LUA_H], [1], [lua.h])
-   ])
-  ])
+   AC_DEFINE([HAVE_LUA], [1], [liblua])
+   AC_DEFINE([HAVE_LUA_H], [1], [lua.h])
+ ])
+ ])
  ])
 
  AC_SUBST(LUA_CFLAGS)
@@ -757,6 +757,11 @@ AC_CHECK_LIB(fcgi, FCGI_Accept, [
 
 AM_CONDITIONAL(CHECK_WITH_FASTCGI, test "x$fastcgi_found" = xyes)
 
+source_found=no
+if test -f src/mod_smbdav.c; then
+  source_found=yes
+fi
+AM_CONDITIONAL(NO_GPL_COMPILING, test "$source_found" = yes)
 
 dnl check for extra compiler options (warning options)
 if test "${GCC}" = "yes"; then
@@ -884,6 +889,7 @@ else
 	disable_feature="$disable_feature $features"
 fi
 
+
 features="webdav-properties"
 if test "x$XML_LIBS" \!= x -a "x$SQLITE_LIBS" \!= x; then
 	enable_feature="$enable_feature $features"
@@ -898,6 +904,19 @@ else
 	disable_feature="$disable_feature $features"
 fi
 
+features="smbdav-properties"
+if test "x$XML_LIBS" \!= x -a "x$SQLITE_LIBS" \!= x; then
+	enable_feature="$enable_feature $features"
+else
+	disable_feature="$disable_feature $features"
+fi
+
+features="smbdav-locks"
+if test "x$UUID_LIBS" \!= x; then
+	enable_feature="$enable_feature $features"
+else
+	disable_feature="$disable_feature $features"
+fi
 
 dnl output
 

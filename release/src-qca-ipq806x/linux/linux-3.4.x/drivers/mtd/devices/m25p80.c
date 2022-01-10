@@ -1055,7 +1055,7 @@ static int __devinit m25p_probe(struct spi_device *spi)
 	/* Looking for rootfilesystem offset */
 	u.rfs_offset_net_endian = 0;
 	for (i = 0; i < (MAX_VER*2); ++i, ++hw) {
-		if (hw->major != ROOTFS_OFFSET_MAGIC)
+		if (hw->major != ROOTFS_OFFSET_MAGIC || (hw + 1)->minor & 0x3)
 			continue;
 		u.p[1] = hw->minor;
 		hw++;

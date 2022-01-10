@@ -1,6 +1,7 @@
 #ifndef __RTSTATE_H__
 #define __RTSTATE_H__
 #include <rtconfig.h>
+#include <bcmnvram.h>
 
 enum {
 	SW_MODE_NONE=0,
@@ -13,7 +14,9 @@ enum {
 enum wan_unit_e {
 	WAN_UNIT_NONE=-1,
 	WAN_UNIT_FIRST=0,
+#if defined(RTCONFIG_DUALWAN) || defined(RTCONFIG_USB_MODEM)
 	WAN_UNIT_SECOND,
+#endif
 	WAN_UNIT_MAX
 };
 
@@ -117,7 +120,7 @@ enum {
 	LAN_STOPPED_REASON_SYSTEM_ERR
 };
 
-#if defined(CONFIG_BCMWL5) || (defined(RTCONFIG_RALINK) && defined(RTCONFIG_WIRELESSREPEATER)) || defined(RTCONFIG_QCA)
+#if defined(CONFIG_BCMWL5) || defined(RTCONFIG_RALINK) || defined(RTCONFIG_QCA) || defined(RTCONFIG_REALTEK) || defined(RTCONFIG_ALPINE) || defined(RTCONFIG_LANTIQ)
 enum { 
 	WLC_STATE_INITIALIZING=0,
 	WLC_STATE_CONNECTING,
@@ -125,19 +128,20 @@ enum {
 	WLC_STATE_STOPPED
 };
 
-enum { 
+enum {
 	WLC_STOPPED_REASON_NONE=0,
 	WLC_STOPPED_REASON_NO_SIGNAL,
 	WLC_STOPPED_REASON_AUTH_FAIL,
 	WLC_STOPPED_REASON_MANUAL
 };
 
-enum { 
-	WLCSCAN_STATE_INITIALIZING=0,
+enum {
+	WLCSCAN_STATE_STOPPED=0,
+	WLCSCAN_STATE_INITIALIZING,
 	WLCSCAN_STATE_2G,
 	WLCSCAN_STATE_5G,
+	WLCSCAN_STATE_5G_2,
 	WLCSCAN_STATE_FINISHED,
-	WLCSCAN_STATE_STOPPED
 };
 #endif
 
@@ -154,10 +158,22 @@ enum {
 	FW_UPLOADING_ERROR,
 	FW_WRITING,
 	FW_WRITING_ERROR,
-	FW_WRITE_SUCCESS
+	FW_WRITE_SUCCESS,
+	FW_TRX_CHECK_ERROR
 };
 
 #ifdef RTCONFIG_USB
+#if defined(RTCONFIG_ALPINE) || defined(RTCONFIG_LANTIQ)
+#define USB_XHCI_PORT_1 "2-1"
+#define USB_XHCI_PORT_2 "2-2"
+#define USB_EHCI_PORT_1 "1-1"
+#define USB_EHCI_PORT_2 "1-2"
+#define USB_OHCI_PORT_1 "3-1"
+#define USB_OHCI_PORT_2 "3-2"
+#define USB_EHCI_PORT_3 "1-3"
+#define USB_OHCI_PORT_3 "3-3"
+#endif
+
 enum {
 	USB_HOST_NONE=0,
 	USB_HOST_OHCI,
@@ -249,6 +265,15 @@ enum {
 	DISKMON_FORMAT
 };
 
+#ifdef RTCONFIG_ASUSCTRL
+enum {
+	ASUSCTRL_DFS_BAND2 = 1,
+	ASUSCTRL_DFS_BAND3,
+	ASUSCTRL_CHG_PWR,
+	ASUSCTRL_MAX
+};
+#endif
+
 #define DISKMON_FREQ_DISABLE 0
 #define DISKMON_FREQ_MONTH 1
 #define DISKMON_FREQ_WEEK 2
@@ -258,7 +283,11 @@ enum {
 #define DISKMON_DAY_HOUR 24
 #define DISKMON_HOUR_SEC 3600
 
+#if defined(RT4GAC55U) || defined(RT4GAC68U)
+#define MAX_USB_PORT 2
+#else
 #define MAX_USB_PORT 3
+#endif
 #define MAX_USB_HUB_PORT 6
 #define MAX_USB_DISK_NUM 8
 #define MAX_USB_PART_NUM 16
@@ -274,22 +303,22 @@ enum {
 #define WANSCAP_5G	0x10
 #define WANSCAP_USB	0x20
 #define WANSCAP_WAN2	0x40
+#define WANSCAP_SFPP	0x80	/* SFP+ */
 
 // the following definition is for wans_dualwan
-#define WANS_DUALWAN_IF_NONE  0
-#define WANS_DUALWAN_IF_DSL   1
-#define WANS_DUALWAN_IF_WAN   2
-#define WANS_DUALWAN_IF_LAN   3
-#define WANS_DUALWAN_IF_USB   4
-#define WANS_DUALWAN_IF_2G    5
-#define WANS_DUALWAN_IF_5G    6
-#define WANS_DUALWAN_IF_WAN2  7
-#ifdef RTCONFIG_USB_MULTIMODEM
-#define WANS_DUALWAN_IF_USB2  8
-#endif
+#define WANS_DUALWAN_IF_NONE    0
+#define WANS_DUALWAN_IF_DSL     1
+#define WANS_DUALWAN_IF_WAN     2
+#define WANS_DUALWAN_IF_LAN     3
+#define WANS_DUALWAN_IF_USB     4
+#define WANS_DUALWAN_IF_2G      5
+#define WANS_DUALWAN_IF_5G      6
+#define WANS_DUALWAN_IF_WAN2	7
+#define WANS_DUALWAN_IF_USB2    8
+#define WANS_DUALWAN_IF_SFPP	9
 
 // the following definition is for free_caches()
-#define FREE_MEM_NONE  "0"
+#define FREE_MEM_NONE  "0"	/* kernel < v2.6.39 */
 #define FREE_MEM_PAGE  "1"
 #define FREE_MEM_INODE "2"
 #define FREE_MEM_ALL   "3"
@@ -313,11 +342,18 @@ extern int is_nat_enabled(void);
 // todo: multiple wan
 
 extern int wan_primary_ifunit(void);
+#ifdef RTCONFIG_REALTEK
+/* The fuction is avoiding watchdog segfault on RP-AC68U.
+ * This is a workaround solution.
+**/
+extern int rtk_wan_primary_ifunit(void);
+#endif
 extern int wan_primary_ifunit_ipv6(void);
 extern int get_wan_state(int unit);
 extern int get_wan_sbstate(int unit);
 extern int get_wan_auxstate(int unit);
 extern char *link_wan_nvname(int unit, char *buf, int size);
+extern int is_internet_connect(int unit);
 extern int is_wan_connect(int unit);
 extern int is_phy_connect(int unit);
 extern int is_ip_conflict(int unit);
@@ -326,6 +362,7 @@ extern char *get_wan_ifname(int unit);
 #ifdef RTCONFIG_IPV6
 extern char *get_wan6_ifname(int unit);
 #endif
+extern int get_ports_status(unsigned int port_status);
 extern int get_wanports_status(int wan_unit);
 extern char *get_usb_ehci_port(int port);
 extern char *get_usb_ohci_port(int port);
@@ -337,11 +374,18 @@ extern void add_wanscap_support(char *feature);
 extern int get_wans_dualwan(void);
 extern int get_dualwan_by_unit(int unit);
 extern int get_wanunit_by_type(int wan_type);
+extern char *get_wantype_str_by_unit(int unit);
 extern int get_dualwan_primary(void);
 extern int get_dualwan_secondary(void);
 #else
-static inline int get_wanunit_by_type(int wan_type) { return WAN_UNIT_FIRST; }
+static inline int get_wanunit_by_type(int wan_type){
+#ifdef RTCONFIG_USB_MODEM
+	if(wan_type == WANS_DUALWAN_IF_USB)
+		return WAN_UNIT_SECOND;
+	else
 #endif
+		return WAN_UNIT_FIRST;
+}
 #endif
 
 char *usb_modem_prefix(int modem_unit, char *prefix, int size);
@@ -349,3 +393,7 @@ extern int get_modemunit_by_dev(const char *dev);
 extern int get_modemunit_by_node(const char *usb_node);
 extern int get_modemunit_by_type(int wan_type);
 extern int get_wantype_by_modemunit(int modem_unit);
+
+extern char *get_userdns_r(const char *prefix, char *buf, size_t buflen);
+
+#endif	/* !__RTSTATE_H__ */

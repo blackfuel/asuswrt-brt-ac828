@@ -1,4 +1,98 @@
-﻿2016-02-18: 2.1.0.104
+﻿2018:01-08: 2.1.0.126
+==> SDK : 1. [bug fix] ANT : deadlock issue when 477 error received at make_call.
+          2. [bug fix] ANT : crash issue when make_call/hangup frequently.
+
+2018:01-05: 2.1.0.125
+==> SDK : 1. [bug fix] ANT : Fix crash issue when natnl_read_tnl_info called.
+          2. [bug fix] ANT : Fix deadlock issue.
+          3. [bug fix] ANT : Try to fix crash issue when make call.
+
+2018:01-04: 2.1.0.124
+==> SDK : 1 [bug fix] ANT : Fix numerous crash issues.
+
+2017-11-15: 2.1.0.123
+==> SDK : 1. [update] ANT : Fill the status of tnl_info by pjsua_call_make_call if call->last_code is 0.
+          2. [bug fix] ANT : The issue that making call is always failed on windows platform.
+
+2017-08-21: 2.1.0.122
+==> SDK : 1. Update (ANT). Disable sctp for all platforms.
+          2. BugFix (ANT). Fix crash issue when trigger natnl_make_call before natnl_lib_init called.
+
+2017-07-21: 2.1.0.121
+==> SDK : 1. BugFix (ANT). Fix the deadlock issue that app deinit lib when tunnel is UDP and netwowk is down.
+
+2017-07-19: 2.1.0.120
+==> SDK : 1. BugFix (ANT). Fix the memory leak issue.
+
+2017-07-04: 2.1.0.119
+==> SDK : 1. Update (ANT). Add one day timer for connecting to default SIP.
+          2. Update (ANT). Modify header file to meet iOS compiler.
+          3. Update (ANT). Enlarge the length limit of im mssage from 1024 bytes to 13000 bytes.
+          4. Update (ANT). Random a interval in 5~10 mins when all sip connect fail for next round.
+          5. Update (ANT). Fix init failed issue on RT-AC88U.
+          6. Adding (ANT). Add last_status and last_status_text for natnl_tnl_info structure.
+          7. Adding (ANT). Add stun_last_status and stun_status_text for natnl_tnl_info and natnl_tnl_event structures.
+          8. Adding (ANT). Add turn_last_status and turn_status_text for natnl_tnl_info and natnl_tnl_event structures.
+
+2017-06-06: 2.1.0.118
+==> SDK : 1. Update (ANT). Modify sip retry count to 6 and interval to 0~60 seconds.
+
+2017-06-01: 2.1.0.117
+==> SDK : 1. BugFix(ANT). BugFix(ANT). Fix crash issue when all network interfaces down and TUNNEL TIMEOUT occur.
+
+2017-05-10: 2.1.0.116
+==> SDK : 1. Update (ANT). Try to fine tune the sending throughput for AiCam sdcard video replay.
+
+2017-05-09: 2.1.0.115
+==> SDK : 1. Update (ANT). Try to fine tune the sending throughput for AiCam sdcard video replay.
+
+2017-04-26: 2.1.0.114
+==> SDK : 1. Adding (ANT). caller_device_pwd for class CallInfo on Android platform.
+          2. Update (ANT). Create natnl_no_ctl_recv_thread and natnl_no_ctl_send_thread dynamically.
+          3. BugFix (ANT). Fix memory leak issue.
+          4. BugFix (ANT). Fix crash issue when udt closing.
+          5. BugFix (ANT). The memory leak issue of thread terminate.
+
+2016-12-26: 2.1.0.113
+==> SDK : 1. Adding (ANT). Add tnl_build_spent_sec to natnl_tnl_event and natnl_tnl_info.
+          2. Adding (ANT). Add IM IPC(signal+shared memory) related API (Present, only support UAS is linux platform.) natnl_send_instant_msg_to_remote_process (API name for Android : NatSendIMToRemoteProcess).
+          3. Update (ANT). Modify send buffer from 1460*8 to 1460*64.
+          4. Update (ANT). Remove libumem for iOS.
+          5. Update (ANT). Fix sctp debug output issue.
+          6. Update (ANT). Impletement a workaround for SCTP byte order issue on big endian platform.
+          7. Update (ANT). Don't enable turn if use_turn is assigned but turn server list is empty.
+          8. BugFix (ANT). Fix assertion issue of all turn servers connection failed.
+
+2016-08-11: 2.1.0.112
+==> SDK : 1. Update (ANT). Fix the issue that stack canary protection isn't enabled.
+
+2016-08-02: 2.1.0.111
+==> SDK : 1. Adding (ANT). Suppoert Windows UWP.
+
+2016-07-22: 2.1.0.110
+==> SDK : 1. Bug Fix (ANT). Crash issue on iOS when environment is IPv6.
+          2. Bug Fix (ANT). Adjust internal flow to avoid infinite initialized loop.
+
+2016-06-02: 2.1.0.108
+==> SDK : 1. Adding (ANT). Add natnl_retry_count structure to provide app retry count for every phase of tunnel build process. And retry_count to natnl_tnl_event and natnl_tnl_info.
+         2. Update (ANT). Default to disable tunnel data transfer on router unless the related flag is set.
+
+2016-05-04: 2.1.0.107
+==> SDK : 1. Bug Fix (ANT). DTLS handshake failed issue when the timing of ice negotiation complete of UAS is later than UAC's.
+          2. Bug Fix (ANT). The following steps will cause crash or hang. init -> make_call -> deinit -> init -> make_call.
+          3. Update (ANT). OpenSSL-1.0.2h.
+          4. Update (ANT). Default to use TLSv1.2 and DTLSv1.2. But it is still compatible with TLS and DTLS old version.
+
+2016-04-14: 2.1.0.106
+==> SDK : 1. Bug Fix (ANT). Fixed receive buffer size to avoid unlimited allocate memory.
+          2. Bug Fix (ANT). Fixed the issue which rtsp udp streaming doesn't work.
+
+2016-03-24: 2.1.0.105
+==> SDK : 1. Update (ANT). Extends the waiting timeout of receiving data to 60*100 usecs.
+          2. Update (OpenSSL). Update to 1.0.1s.
+          3. Update (ANT). Update iOS SDK to 9.3.
+
+2016-02-18: 2.1.0.104
 ==> SDK : 1. Adding (ANT). Add --disable-console-log option.
           2. Bug Fix (ANT). im_ports bug. This may causes incorrect im data.
           3. Bug Fix (ANT). log rotation may not work when log_append is on.

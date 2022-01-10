@@ -1410,7 +1410,10 @@ function saveSubnetSettings(){
 
 		handleSubnetRulelist();
 		update_subnet_rulelist();
-		update_LanToLanRoute_array(gateway_netmask);
+		parse_LanToLanRoute_to_object();
+		get_LanToLanRoute(gateway_netmask);
+		generate_LanToLanRoute_options();
+		show_LanToLanRoute_list();
 		hide_subnet_edit();
 		generate_sunbet_options(document.form.subnet_list);
 		for(var i = 0; i < document.form.subnet_list.length; i++){
@@ -1741,7 +1744,7 @@ function del_LanToLanRoute(r){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="hiddenMask" class="popup_bg">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center">
@@ -1788,7 +1791,7 @@ function del_LanToLanRoute(r){
 		<tr>
 			<td align="left">
 			<span class="formfonttitle"><#TBVLAN_EditSubnetProfile#></span>
-			<div style="width:630px; height:15px;overflow:hidden;position:relative;top:5px;"><img src="images/New_ui/export/line_export.png"></div>
+			<div style="width:630px; height:2px;overflow:hidden;position:relative;top:5px;" class="splitLine"></div>
 			<div style="margin-left:5px;"><#TBVLAN_Subnet_desc#></div>
 			</td>
 		</tr>
@@ -1954,7 +1957,7 @@ function del_LanToLanRoute(r){
 						<td bgcolor="#4D595D" valign="top"  >
 							<div>&nbsp;</div>
 							<div class="formfonttitle">VLAN - <#TBVLAN_Title#></div>
-							<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+							<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 							<div class="formfontdesc"><#VLAN_desc#></div>
 							<table width="98%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable" style="margin-top:20px;">
 							<thead>

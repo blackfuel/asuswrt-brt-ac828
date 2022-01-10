@@ -82,7 +82,7 @@ function refresh_signals(){
 </script>
 </head>
 
-<body onload="initial();">
+<body onload="initial();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
@@ -114,8 +114,8 @@ function refresh_signals(){
 								<tr>
 								  <td bgcolor="#4D595D" height="100px">
 									  <div>&nbsp;</div>
-									  <div class="formfonttitle"><#Menu_TrafficManager#> - Spectrum</div>
-									  <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									  <div class="formfonttitle"><#Menu_TrafficManager#> - <#Spectrum_title#></div>
+									  <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									  <div class="formfontdesc"><#Spectrum_desc#></div>
 										<span id="signals_update" style="margin-left:5px;margin-top:10px;color:#FFCC00;display:none;"></span>
 									</td>

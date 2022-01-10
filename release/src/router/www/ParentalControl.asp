@@ -198,7 +198,7 @@ function register_event(){
 
 function initial(){
 	show_menu();
-	if(based_modelid == "GT-AC5300"){
+	if(based_modelid == "GT-AC5300" || based_modelid == "GT-AC9600" || based_modelid == "RT-AC1200" || based_modelid == "RT-AC1200_V2" || based_modelid == "RT-AC1200GU"){
 		$("#nat_desc").hide();
 	}
 
@@ -211,11 +211,6 @@ function initial(){
 		document.getElementById('switch_menu').style.display = "";
 	}
 	document.getElementById('disable_NAT').href = "Advanced_SwitchCtrl_Content.asp?af=ctf_disable_force";	//this id is include in string : #ParentalCtrl_disable_NAT#
-
-	/* MODELDEP */
-	if(based_modelid == "RT-AC65U"){
-		document.getElementById('switch_menu').style.display = "none";
-	}
 
 	show_footer();
 	init_array(array);
@@ -275,26 +270,41 @@ function hideClients_Block(){
 
 function gen_mainTable(){
 	var code = "";
+	var clientListEventData = [];
 	code +='<table width="100%" border="1" cellspacing="0" cellpadding="4" align="center" class="FormTable_table" id="mainTable_table">';
 	code +='<thead><tr><td colspan="4"><#ConnectedClient#>&nbsp;(<#List_limit#>&nbsp;16)</td></tr></thead>';
-	code +='<tr><th width="10%" height="30px" title="<#select_all#>"><input id="selAll" type=\"checkbox\" onclick=\"selectAll(this, 0);\" value=\"\"/></th>';
-	code +='<th width="50%"><#Client_Name#> (<#PPPConnection_x_MacAddressForISP_itemname#>)</th>';
+	code += '<tr><th width="15%" height="30px" title="<#select_all#>">';
+	code += '<select id="selAll" class="input_option" onchange="selectAll();">';
+	code += '<option value=""><#select_all#></option>';
+	code += '<option value="0"><#btn_disable#></option>';
+	code += '<option value="1"><#diskUtility_time#></option>';
+	code += '<option value="2"><#Block#></option>';
+	code += '</select>';
+	code += '</th>';
+	code += '<th width="45%"><#Client_Name#> (<#PPPConnection_x_MacAddressForISP_itemname#>)</th>';
 	code +='<th width="20%"><#ParentalCtrl_time#></th>';
 	code +='<th width="20%"><#list_add_delete#></th></tr>';
 
-	code +='<tr><td style="border-bottom:2px solid #000;" title="<#WLANConfig11b_WirelessCtrl_button1name#>/<#btn_disable#>"><input type=\"checkbox\" id="newrule_Enable" checked></td>';
+	code += '<tr><td style="border-bottom:2px solid #000;">';
+	code += '<select id="newrule_Enable" class="input_option">';
+	code += '<option value="0"><#btn_disable#></option>';
+	code += '<option value="1" selected><#diskUtility_time#></option>';
+	code += '<option value="2"><#Block#></option>';
+	code += '</select>';
+	code += '</td>';
 	code +='<td style="border-bottom:2px solid #000;"><input type="text" maxlength="17" style="margin-left:0px;width:255px;" class="input_20_table" name="PC_mac" onKeyPress="return validator.isHWAddr(this,event)" onClick="hideClients_Block();" autocorrect="off" autocapitalize="off" placeholder="ex: <% nvram_get("lan_hwaddr"); %>">';
 	code +='<img id="pull_arrow" height="14px;" src="/images/arrow-down.gif" style="position:absolute;" onclick="pullLANIPList(this);" title="<#select_client#>">';
-	code +='<div id="ClientList_Block_PC" style="margin:0 0 0 52px" class="clientlist_dropdown"></div></td>';
+	code +='<div id="ClientList_Block_PC" style="margin:0 0 0 32px" class="clientlist_dropdown"></div></td>';
 	code +='<td style="border-bottom:2px solid #000;">--</td>';
-	code +='<td style="border-bottom:2px solid #000;"><input class="url_btn" type="button" onClick="addRow_main(16)" value=""></td></tr>';
+	code +='<td style="border-bottom:2px solid #000;"><input class="add_btn" type="button" onClick="addRow_main(16)" value=""></td></tr>';
 	if(MULTIFILTER_DEVICENAME == "" && MULTIFILTER_MAC == "")
-		code +='<tr><td style="color:#FFCC00;" colspan="4"><#IPConnection_VSList_Norule#></td>';
+		code += '<tr><td style="color:#FFCC00;" colspan="4"><#IPConnection_VSList_Norule#></td></tr>';
 	else{
 		//user icon
 		var userIconBase64 = "NoIcon";
 		var clientName, deviceType, deviceVender; 
 		for(var i=0; i<MULTIFILTER_DEVICENAME_row.length; i++){
+			var clientIconID = "clientIcon_" + MULTIFILTER_MAC_row[i].replace(/\:/g, "");
 			if(clientList[MULTIFILTER_MAC_row[i]]) {
 				clientName = (clientList[MULTIFILTER_MAC_row[i]].nickName == "") ? clientList[MULTIFILTER_MAC_row[i]].name : clientList[MULTIFILTER_MAC_row[i]].nickName;
 				deviceType = clientList[MULTIFILTER_MAC_row[i]].type;
@@ -305,31 +315,37 @@ function gen_mainTable(){
 				deviceType = 0;
 				deviceVender = "";
 			}
-			code +='<tr id="row'+i+'">';
-			code +='<td title="'+ MULTIFILTER_ENABLE_row[i] +'"><input type=\"checkbox\" onclick=\"genEnableArray_main('+i+',this);\" '+genChecked(MULTIFILTER_ENABLE_row[i])+'/></td>';
-			code +='<td title="'+clientName+'">';
+			code += '<tr id="row'+i+'">';
+			code += '<td>';
+			code += '<select class="input_option eachrule" onchange="genEnableArray_main('+i+',this);">';
+			code += '<option value="0" ' + ((MULTIFILTER_ENABLE_row[i] == 0) ? "selected" : "") + '><#btn_disable#></option>';
+			code += '<option value="1" ' + ((MULTIFILTER_ENABLE_row[i] == 1) ? "selected" : "") + '><#diskUtility_time#></option>';
+			code += '<option value="2" ' + ((MULTIFILTER_ENABLE_row[i] == 2) ? "selected" : "") + '><#Block#></option>';
+			code += '</select>';
+			code += '</td>';
+			code += '<td title="'+clientName+'">';
 		
 			code += '<table width="100%"><tr><td style="width:35%;border:0;float:right;padding-right:30px;">';
 			if(clientList[MULTIFILTER_MAC_row[i]] == undefined) {
-				code += '<div class="clientIcon type0" onClick="popClientListEditTable(\'' + MULTIFILTER_MAC_row[i] + '\', this, \'' + clientName + '\', \'\', \'ParentalControl\')"></div>';
+				code += '<div id="' + clientIconID + '" class="clientIcon type0"></div>';
 			}
 			else {
 				if(usericon_support) {
 					userIconBase64 = getUploadIcon(MULTIFILTER_MAC_row[i].replace(/\:/g, ""));
 				}
 				if(userIconBase64 != "NoIcon") {
-					code += '<div style="text-align:center;" onClick="popClientListEditTable(\'' + MULTIFILTER_MAC_row[i] + '\', this, \'' + clientName + '\', \'\', \'ParentalControl\')"><img class="imgUserIcon_card" src="' + userIconBase64 + '"></div>';
+					code += '<div id="' + clientIconID + '" style="text-align:center;"><img class="imgUserIcon_card" src="' + userIconBase64 + '"></div>';
 				}
 				else if(deviceType != "0" || deviceVender == "") {
-					code += '<div class="clientIcon type' + deviceType + '" onClick="popClientListEditTable(\'' + MULTIFILTER_MAC_row[i] + '\', this, \'' + clientName + '\', \'\', \'ParentalControl\')"></div>';
+					code += '<div id="' + clientIconID + '" class="clientIcon type' + deviceType + '"></div>';
 				}
 				else if(deviceVender != "" ) {
 					var venderIconClassName = getVenderIconClassName(deviceVender.toLowerCase());
 					if(venderIconClassName != "" && !downsize_4m_support) {
-						code += '<div class="venderIcon ' + venderIconClassName + '" onClick="popClientListEditTable(\'' + MULTIFILTER_MAC_row[i] + '\', this, \'' + clientName + '\', \'\', \'ParentalControl\')"></div>';
+						code += '<div id="' + clientIconID + '" class="venderIcon ' + venderIconClassName + '"></div>';
 					}
 					else {
-						code += '<div class="clientIcon type' + deviceType + '" onClick="popClientListEditTable(\'' + MULTIFILTER_MAC_row[i] + '\', this, \'' + clientName + '\', \'\', \'ParentalControl\')"></div>';
+						code += '<div id="' + clientIconID + '" class="clientIcon type' + deviceType + '"></div>';
 					}
 				}
 			}
@@ -337,16 +353,25 @@ function gen_mainTable(){
 			code += '<div>' + clientName + '</div>';
 			code += '<div>' + MULTIFILTER_MAC_row[i] + '</div>';
 			code += '</td></tr></table>';
-			code +='</td>';
+			code += '</td>';
 
-			code +='<td><input class=\"service_btn\" type=\"button\" onclick=\"gen_lantowanTable('+i+');" value=\"\"/></td>';
-			code +='<td><input class=\"remove_btn\" type=\"button\" onclick=\"deleteRow_main(this, \''+MULTIFILTER_MAC_row[i]+'\');\" value=\"\"/></td>';
+			code += '<td><input class=\"edit_btn\" type=\"button\" onclick=\"gen_lantowanTable('+i+');" value=\"\"/></td>';
+			code += '<td><input class=\"remove_btn\" type=\"button\" onclick=\"deleteRow_main(this, \''+MULTIFILTER_MAC_row[i]+'\');\" value=\"\"/></td></tr>';
+			if(validator.mac_addr(MULTIFILTER_MAC_row[i]))
+				clientListEventData.push({"mac" : MULTIFILTER_MAC_row[i], "name" : clientName, "ip" : "", "callBack" : "ParentalControl"});
 		}
 	}
- 	code +='</tr></table>';
+	code += '</table>';
 
 	document.getElementById("mainTable").style.display = "";
 	document.getElementById("mainTable").innerHTML = code;
+	for(var i = 0; i < clientListEventData.length; i += 1) {
+		var clientIconID = "clientIcon_" + clientListEventData[i].mac.replace(/\:/g, "");
+		var clientIconObj = $("#mainTable").children("#mainTable_table").find("#" + clientIconID + "")[0];
+		var paramData = JSON.parse(JSON.stringify(clientListEventData[i]));
+		paramData["obj"] = clientIconObj;
+		$("#mainTable").children("#mainTable_table").find("#" + clientIconID + "").click(paramData, popClientListEditTable);
+	}
 	$("#mainTable").fadeIn();
 	document.getElementById("ctrlBtn").innerHTML = '<input class="button_gen" type="button" onClick="applyRule(1);" value="<#CTL_apply#>">';
 
@@ -354,26 +379,10 @@ function gen_mainTable(){
 	showclock();
 }
 
-function selectAll(obj, tab){
-	var tag_name= document.getElementsByTagName('input');	
-	var tag = 0;
-
-	for(var i=0;i<tag_name.length;i++){
-		if(tag_name[i].type == "checkbox"){
-			if(tab == 1){
-				tag++;
-				if(tag > 7)
-					tag_name[i].checked = obj.checked;
-			}
-			else
-				tag_name[i].checked = obj.checked;
-		}
-	}
-
-	if(obj.checked)
-		MULTIFILTER_ENABLE = MULTIFILTER_ENABLE.replace(/0/g, "1");
-	else	
-		MULTIFILTER_ENABLE = MULTIFILTER_ENABLE.replace(/1/g, "0");
+function selectAll(){
+	$(".eachrule").val($("#selAll").val());
+	MULTIFILTER_ENABLE = MULTIFILTER_ENABLE.replace(/[012]/g, $("#selAll").val());
+	$("#selAll").val("");
 }
 
 
@@ -403,13 +412,6 @@ function applyRule(_on){
 
 	showLoading();	
 	document.form.submit();
-}
-
-function genChecked(_flag){
-	if(_flag == 1)
-		return "checked";
-	else
-		return "";
 }
 
 function count_time(){		// To count system time
@@ -517,24 +519,24 @@ function gen_lantowanTable(client){
 	redraw_selected_time(MULTIFILTER_MACFILTER_DAYTIME_col);
 	
 	var code_temp = "";
-	code_temp = '<table style="width:350px;margin-left:-200px;"><tr>';
-	code_temp += "<td><div style=\"width:95px;font-family:Arial,sans-serif,Helvetica;font-size:18px;\"><#Clock_Format#></div></td>";
+	code_temp = '<table><tr>';
+	code_temp += "<td><div style=\"font-family:Arial,sans-serif,Helvetica;font-size:18px;margin:0px 5px 0 10px\"><#Clock_Format#></div></td>";
 	code_temp += '<td><div>';
 	code_temp += '<select id="clock_type_select" class="input_option" onchange="change_clock_type(this.value);">';
 	code_temp += '<option value="0" >12-hour</option>';
 	code_temp += '<option value="1" >24-hour</option>';
 	code_temp += '</select>';
 	code_temp += '</div></td>';
-	code_temp += '<td><div align="left" style="font-family:Arial,sans-serif,Helvetica;font-size:18px;margin:0px 5px 0px 30px;">Allow</div></td>';
+	code_temp += '<td><div align="left" style="font-family:Arial,sans-serif,Helvetica;font-size:18px;margin:0px 5px 0 10px"><#ParentalCtrl_allow#></div></td>';
 	code_temp += '<td><div style="width:90px;height:20px;background:#9CB2BA;"></div></td>';
-	code_temp += '<td><div align="left" style="font-family:Arial,sans-serif,Helvetica;font-size:18px;margin:0px 5px 0px 30px;">Deny</div></td>';
-	code_temp += '<td><div style="width:90px;height:20px;border:solid 1px #000"></div></td>';
+	code_temp += '<td><div align="left" style="font-family:Arial,sans-serif,Helvetica;font-size:18px;margin:0px 5px 0 10px"><#ParentalCtrl_deny#></div></td>';
+	code_temp += '<td><div style="width:90px;height:20px;border: 1px solid #000000;background:#475A5F;"></div></td>';
 	code_temp += '</tr></table>';
 	document.getElementById('hintBlock').innerHTML = code_temp;
 	document.getElementById('hintBlock').style.marginTop = "10px";
 	document.getElementById('hintBlock').style.display = "";
-	document.getElementById("ctrlBtn").innerHTML = '<input class="button_gen" type="button" onClick="cancel_lantowan('+client+');" value="<#CTL_Cancel#>">';
-	document.getElementById("ctrlBtn").innerHTML += '<input class="button_gen" type="button" onClick="saveto_lantowan('+client+');applyRule();" value="<#CTL_ok#>">';  
+	document.getElementById("ctrlBtn").innerHTML = '<input class="button_gen" type="button" onClick="cancel_lantowan('+client+');" value="<#CTL_Cancel#>" style="margin:0 10px;">';
+	document.getElementById("ctrlBtn").innerHTML += '<input class="button_gen" type="button" onClick="saveto_lantowan('+client+');applyRule();" value="<#CTL_ok#>" style="margin:0 10px;">';  
 	document.getElementById('clock_type_select')[clock_type].selected = true;		// set clock type by cookie
 	
 	document.getElementById("mainTable").style.display = "";
@@ -766,7 +768,7 @@ function addRow_main(upper){
 		return false;
 	}
 	
-	if(!check_macaddr(document.form.PC_mac, check_hwaddr_flag(document.form.PC_mac))){
+	if(!check_macaddr(document.form.PC_mac, check_hwaddr_flag(document.form.PC_mac, 'inner'))){
 		document.form.PC_mac.focus();
 		document.form.PC_mac.select();
 		return false;	
@@ -778,10 +780,7 @@ function addRow_main(upper){
 		MULTIFILTER_MAC += ">";
 	}
 
-	if(document.getElementById("newrule_Enable").checked)
-		MULTIFILTER_ENABLE += "1";
-	else
-		MULTIFILTER_ENABLE += "0";
+	MULTIFILTER_ENABLE += $("#newrule_Enable").val();
 
 	var clientObj = clientList[document.form.PC_mac.value.toUpperCase()];
 	var clientName = "New device";
@@ -913,24 +912,16 @@ function regen_lantowan(){
 }
 
 function genEnableArray_main(j, obj){
-        document.getElementById("selAll").checked = false;
-        MULTIFILTER_ENABLE_row = MULTIFILTER_ENABLE.split('>');
+	MULTIFILTER_ENABLE_row = MULTIFILTER_ENABLE.split('>');
 
-        if(obj.checked){
-                obj.parentNode.title = "1";
-                MULTIFILTER_ENABLE_row[j] = "1";
-        }
-        else{
-                obj.parentNode.title = "0";
-                MULTIFILTER_ENABLE_row[j] = "0";
-        }
+	MULTIFILTER_ENABLE_row[j] = obj.value;
 
-        MULTIFILTER_ENABLE = "";
-        for(i=0; i<MULTIFILTER_ENABLE_row.length; i++){
-                MULTIFILTER_ENABLE += MULTIFILTER_ENABLE_row[i];
-                if(i<MULTIFILTER_ENABLE_row.length-1)
-                        MULTIFILTER_ENABLE += ">";
-        }       
+	MULTIFILTER_ENABLE = "";
+	for(i=0; i<MULTIFILTER_ENABLE_row.length; i++){
+		MULTIFILTER_ENABLE += MULTIFILTER_ENABLE_row[i];
+		if(i<MULTIFILTER_ENABLE_row.length-1)
+			MULTIFILTER_ENABLE += ">";
+	}
 }
 
 function show_inner_tab(){
@@ -952,7 +943,7 @@ function show_inner_tab(){
 }
 </script></head>
 
-<body onload="initial();" onunload="unload_body();" onselectstart="return false;">
+<body onload="initial();" onunload="unload_body();" onselectstart="return false;" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -997,24 +988,24 @@ function show_inner_tab(){
 		<div style="margin-top:-5px;">
 			<table width="730px">
 				<tr>
-					<td align="left" >
+					<td align="left">
 						<div id="content_title" class="formfonttitle" style="width:400px"><#Parental_Control#></div>
 					</td>				
-					<td style="width:300px">
-						<div id="switch_menu" style="margin:-20px 0px 0px -20px;;display:none;">
+					<td>
+						<div id="switch_menu" style="margin:-20px 0px 0px -5px;display:none;">
 							<a href="AiProtection_WebProtector.asp">
-								<div style="width:173px;height:30px;border-top-left-radius:8px;border-bottom-left-radius:8px;" class="block_filter">
+								<div style="width:168px;height:30px;border-top-left-radius:8px;border-bottom-left-radius:8px;" class="block_filter">
 									<table class="block_filter_name_table"><tr><td style="line-height:13px;"><#AiProtection_filter#></td></tr></table>
 								</div>
 							</a>
-							<div style="width:172px;height:30px;margin:-32px 0px 0px 173px;border-top-right-radius:8px;border-bottom-right-radius:8px;" class="block_filter_pressed">
+							<div style="width:160px;height:30px;margin:-32px 0px 0px 168px;border-top-right-radius:8px;border-bottom-right-radius:8px;" class="block_filter_pressed">
 								<table class="block_filter_name_table_pressed"><tr><td style="line-height:13px;"><#Time_Scheduling#></td></tr></table>
 							</div>
 						</div>
 					<td>
 				</tr>
 			</table>
-			<div style="margin:0px 0px 10px 5px;"><img src="/images/New_ui/export/line_export.png"></div>
+			<div style="margin:0 0 10px 5px;" class="splitLine"></div>
 		</div>
 		<div id="PC_desc">
 			<table width="700px" style="margin-left:25px;">

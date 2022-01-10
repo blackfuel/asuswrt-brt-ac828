@@ -113,34 +113,10 @@
 #proceeding_img_text1{
 	position:absolute; z-index:101; font-size:11px; color:#000000; margin-left:175px; line-height:15px;
 }
-#proceeding_img1{
- 	height:14px;
-	background:#011846 url(/images/quotabar.gif);
-}
-
-.button_gen_dis{
-	font-weight: bolder;
-	text-shadow: 1px 1px 0px black;
-  background: transparent url(/images/New_ui/contentbt_normal.png) no-repeat scroll center top;
-  _background: transparent url(/images/New_ui/contentbt_normal_ie6.png) no-repeat scroll center top;
-  border:0;
-  color: #333333;
-	height:33px;
-	font-family:Verdana,Bold;
-	font-size:12px;
-  padding:0 .70em 0 .70em;  
- 	width:122px;
-  overflow:visible;  
-	/*cursor:pointer;*/
-	outline: none; /* for Firefox */
- 	hlbr:expression(this.onFocus=this.blur()); /* for IE */
-}
-
 </style>
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
 <script>
 var rescan = 0;
-
 
 var DEVICE_TYPE = ["", "<#Device_type_01_PC#>", "<#Device_type_02_RT#>", "<#Device_type_03_AP#>", "<#Device_type_04_NS#>", "<#Device_type_05_IC#>", "<#Device_type_06_OD#>", "Printer", "TV Game Console"];
 
@@ -376,7 +352,7 @@ function showclient_list(list){
 	document.getElementById("client_list_Block").style.display = "none";
 
 	if(direct_dut == 1)
-  		location.href = "index.asp";
+		location.href = '/';
 
 	if(document.getElementById('client_list_table').innerHTML == "<tbody></tbody>"){
 		code ='<tr><td style="color:#FFCC00;" colspan="4"><#IPConnection_VSList_Norule#></td></tr>'
@@ -435,7 +411,7 @@ function networkmap_update(){
 </script>
 </head>
 
-<body class="Levelfind" onload="load_body();">
+<body class="Levelfind" onload="load_body();" class="bg">
 <noscript>
 	<div class="popup_bg" style="visibility:visible; z-index:999;">
 		<div style="margin:200px auto; width:300px; background-color:#006699; color:#FFFFFF; line-height:150%; border:3px solid #FFF; padding:5px;"><#not_support_script#></p></div>
@@ -499,7 +475,7 @@ function networkmap_update(){
 													<div id="connHint" style="margin:8px auto; width:85%;"><span style="font-weight:bolder;" id="stassid">Web Assistant is now searching for ASUS networking devices, please wait... </span></div>
 													<div class="Bar_container1">
 														<span id="proceeding_img_text1" style="display:none;"></span>
-														<div id="proceeding_img1"></div>
+														<div id="proceeding_img1" class="quotabar" style="height:14px;"></div>
 													</div>
 												</td>
 											</tr>

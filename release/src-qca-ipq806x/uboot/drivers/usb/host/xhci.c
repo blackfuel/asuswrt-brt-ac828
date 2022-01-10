@@ -520,9 +520,6 @@ int xhci_check_maxpacket(struct usb_device *udev)
 	int max_packet_size;
 	int hw_max_packet_size;
 	int ret = 0;
-	struct usb_interface *ifdesc;
-
-	ifdesc = &udev->config.if_desc[0];
 
 	out_ctx = ctrl->devs[slot_id]->out_ctx;
 	xhci_inval_cache((uint32_t)out_ctx->bytes, out_ctx->size);

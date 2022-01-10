@@ -48,7 +48,7 @@ function show_apps(){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="hiddenMask" class="popup_bg">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center">
@@ -100,7 +100,7 @@ function show_apps(){
 			<td bgcolor="#4D595D" valign="top">
 				<div>&nbsp;</div>
 				<div class="formfonttitle">Plugin - IPKG List</div>
-	      <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+	      <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 	      <div class="formfontdesc">Check out a list of available packages,</div>
 			 	<div id="apps_table"></div>				
 			</td>

@@ -2459,7 +2459,7 @@ static inline void nf_reset(struct sk_buff *skb)
 	skb->nfct = NULL;
 #endif
 #ifdef CONFIG_IP_NF_LFP /* the only user */
-	/* skb->nfcache = 0; ? */
+	skb->nfcache = 0;
 #endif
 #ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
 	nf_conntrack_put_reasm(skb->nfct_reasm);

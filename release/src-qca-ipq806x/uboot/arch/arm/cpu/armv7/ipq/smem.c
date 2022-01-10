@@ -264,7 +264,7 @@ unsigned int get_partition_table_offset(void)
 	ret = smem_read_alloc_entry(SMEM_PARTITION_TABLE_OFFSET,
 				    &primary_mibib, sizeof(uint32_t));
 	if (ret != 0) {
-		printf("smem: SMEM_PARTITION_TABLE_OFFSET failed\n");
+		printf("smem: SMEM_PARTITION_TABLE_OFFSET not available\n");
 		primary_mibib = 0;
 	}
 
@@ -533,6 +533,24 @@ int ipq_smem_get_socinfo_version(uint32_t *version)
 	if (!smem_status) {
 		*version = socinfo.version;
 		debug("smem: socinfo - version = 0x%x\n",*version);
+	} else {
+		printf("smem: Get socinfo failed\n");
+	}
+
+	return smem_status;
+}
+
+int ipq_smem_get_boot_version(char *buf, int size)
+{
+	int smem_status;
+	struct ipq_socinfo socinfo;
+
+	smem_status = smem_read_alloc_entry(SMEM_HW_SW_BUILD_ID,
+				&socinfo, sizeof(struct ipq_socinfo));
+
+	if (!smem_status) {
+		snprintf(buf, size, "%s\n", socinfo.build_id);
+		debug("smem: boot - version = %s\n", buf);
 	} else {
 		printf("smem: Get socinfo failed\n");
 	}

@@ -16,7 +16,7 @@ body{
 	font-family: Arial;
 }
 .wrapper{
-	background:url(images/New_ui/login_bg.png) #283437 no-repeat;
+	background:url(images/New_ui/login_bg.png) #1F1F1F no-repeat;
 	background-size: 1280px 1076px;
 	background-position: center 0%;
 	margin: 0px; 
@@ -333,6 +333,7 @@ function show_information(){
 		code_suggestion = "<ul>";
 		code_suggestion += "<li><span><#block_PC_suggest1#></span></li>";
 		code_suggestion += "<li><span><#block_TS_suggest3#></span></li>";
+		code_suggestion += '<li><#AiProtection_parental_control_report_desc#><a href="https://global.sitesafety.trendmicro.com/index.php" target="_blank"><#AiProtection_parental_control_report_tm#></a></li>';
 		code_suggestion += "</ul>";
 		document.getElementById('tm_block').style.display = "none";
 		$("#go_btn").click(function(){
@@ -344,6 +345,7 @@ function show_information(){
 		code_title = "<div class='er_title' style='height:auto;'>Warning! The website contains malware. Visiting this site may harm your computer</div>"//untranslated string
 		code_suggestion = "<ul>";
 		code_suggestion += "<li>If you are a manager and consider to disable this protection, please go to Home Protection page for configuration.</li>";//untranslated string
+		code_suggestion += '<li><#AiProtection_sites_report_desc#><a href="https://global.sitesafety.trendmicro.com/index.php" target="_blank"><#AiProtection_sites_report_tm#></a></li>';
 		code_suggestion += "</ul>";
 		document.getElementById('tm_block').style.display = "";
 		$("#go_btn").click(function(){

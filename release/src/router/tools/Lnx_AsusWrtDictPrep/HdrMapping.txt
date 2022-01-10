@@ -14,10 +14,13 @@ NO=Norsk
 FI=Suomi
 DA=Dansk
 SV=Svensk
-BR=Portuguese(Brazil)
+BR=Português(Brazil)
 JP=日本語
 IT=Italiano
 UK=Український
 HU=Hungarian
 RO=Romanian
 KR=한국어
+NL=Nederlands
+SL=Slovenščina
+

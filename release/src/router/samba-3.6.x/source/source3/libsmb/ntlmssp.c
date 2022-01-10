@@ -162,36 +162,6 @@ NTSTATUS ntlmssp_set_domain(struct ntlmssp_state *ntlmssp_state, const char *dom
 	return NT_STATUS_OK;
 }
 
-bool ntlmssp_have_feature(struct ntlmssp_state *ntlmssp_state,
-			  uint32_t feature)
-{
-	if (feature & NTLMSSP_FEATURE_SIGN) {
-		if (ntlmssp_state->session_key.length == 0) {
-			return false;
-		}
-		if (ntlmssp_state->neg_flags & NTLMSSP_NEGOTIATE_SIGN) {
-			return true;
-		}
-	}
-
-	if (feature & NTLMSSP_FEATURE_SEAL) {
-		if (ntlmssp_state->session_key.length == 0) {
-			return false;
-		}
-		if (ntlmssp_state->neg_flags & NTLMSSP_NEGOTIATE_SEAL) {
-			return true;
-		}
-	}
-
-	if (feature & NTLMSSP_FEATURE_SESSION_KEY) {
-		if (ntlmssp_state->session_key.length > 0) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 /**
  * Request features for the NTLMSSP negotiation
  *
@@ -422,6 +392,7 @@ static NTSTATUS ntlmssp_client_initial(struct ntlmssp_state *ntlmssp_state,
 	}
 
 	if (ntlmssp_state->use_ntlmv2) {
+		ntlmssp_state->neg_flags |= NTLMSSP_NEGOTIATE_NTLM2;
 		ntlmssp_state->required_flags |= NTLMSSP_NEGOTIATE_NTLM2;
 		ntlmssp_state->allow_lm_key = false;
 	}

@@ -4,6 +4,8 @@
 
 #ifdef RTCONFIG_DUALWAN
 
+#define FLUSH_INTERVAL 30
+
 #if defined(RTAC88U)
 #define MODEL_PROTECT "RT-AC88U"
 #endif
@@ -14,10 +16,6 @@
 
 #if defined(RTAC5300)
 #define MODEL_PROTECT "RT-AC5300"
-#endif
-
-#if defined(RTAC5300R)
-#define MODEL_PROTECT "RT-AC5300R"
 #endif
 
 #if defined(RTAC87U)
@@ -53,7 +51,7 @@
 #endif
 
 #ifdef RTCONFIG_HW_DUALWAN
-int init_dualwan(int argc, char *argv[])
+void init_dualwan(int argc, char *argv[])
 {
 	int unit = 0;
 	int caps;
@@ -62,7 +60,7 @@ int init_dualwan(int argc, char *argv[])
 
 	caps = get_wans_dualwan();
 
-	if ( (caps & WANSCAP_WAN) && (caps & WANSCAP_LAN))
+	if ((caps & WANSCAP_WAN) && (caps & WANSCAP_LAN))
 		nvram_set("wandevs", WANDEVS_DUAL);
 	else
 		nvram_set("wandevs", WANDEVS_SING);
@@ -95,8 +93,9 @@ int init_dualwan(int argc, char *argv[])
 			else if (if_id == WANS_DUALWAN_IF_WAN) {
 				/* tag by IPTV */
 				if (nvram_get("switch_wantag") && !nvram_match("switch_wantag", "") && !nvram_match("switch_wantag", "none")) {
-					if (!nvram_match("switch_wan0tagid", "")) {
-						snprintf(wan_if, sizeof(wan_if), "vlan%s", nvram_safe_get("switch_wan0tagid"));
+					int wan_vid = nvram_get_int("switch_wan0tagid");
+					if (wan_vid) {
+						snprintf(wan_if, sizeof(wan_if), "vlan%d", wan_vid);
 						add_wan_phy(wan_if);
 					}
 					else
@@ -115,6 +114,10 @@ int init_dualwan(int argc, char *argv[])
 				add_wan_phy(WANIF_USB2);
 #endif
 #endif
+#ifdef RTCONFIG_USB_MULTIMODEM
+			else if (if_id == WANS_DUALWAN_IF_USB2)
+				add_wan_phy(WANIF_USB2);
+#endif
 		}
 	}
 #ifdef RTCONFIG_USB_MODEM
@@ -124,9 +127,8 @@ int init_dualwan(int argc, char *argv[])
 }
 #endif
 
-void dualwan_control(void)
+int dualwan_control(int argc, char *argv[])
 {
-	int sw_mode;
 	char dualwan_mode[8];
 	char dualwan_wans[16];
 	char wan0_proto[10];
@@ -138,7 +140,7 @@ void dualwan_control(void)
 	if (strcmp(cfe_nvram_safe_get("model"), MODEL_PROTECT) != 0){
 #endif
 		_dprintf("illegal, cannot enable DualWAN\n");
-		return;
+		return -1;
 	}
 
 	strlcpy(dualwan_mode, nvram_safe_get("wans_mode"), sizeof(dualwan_mode));
@@ -146,21 +148,22 @@ void dualwan_control(void)
 	strlcpy(wan0_proto, nvram_safe_get("wan0_proto"), sizeof(wan0_proto));
 	strlcpy(wan1_proto, nvram_safe_get("wan1_proto"), sizeof(wan1_proto));
 
-	sw_mode = nvram_get_int("sw_mode");
-
-	if(strcmp(dualwan_mode, "lb") != 0) return;
-	if(strcmp(dualwan_wans, "wan lan") != 0) return;
+	if(strcmp(dualwan_mode, "lb") != 0) goto EXIT;
+	if(strcmp(dualwan_wans, "wan lan") != 0) goto EXIT;
 	if(strcmp(wan0_proto, "pptp") == 0 ||
 		strcmp(wan1_proto, "l2tp") == 0)
-		return;
-	if (sw_mode != SW_MODE_ROUTER) return;
+		goto EXIT;
+	if (!is_router_mode()) goto EXIT;
 
 	while(1){
 		f_write_string("/proc/sys/net/ipv4/route/flush", "1", 0, 0);
 		f_write_string("/proc/sys/net/ipv4/route/flush", "1", 0, 0);
 		f_write_string("/proc/sys/net/ipv4/route/flush", "1", 0, 0);
-		sleep(1);
+		sleep(FLUSH_INTERVAL);
 	}
+
+EXIT:
+	return 0;
 }
 
 #endif

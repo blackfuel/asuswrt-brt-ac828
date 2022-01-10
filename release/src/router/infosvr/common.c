@@ -31,6 +31,7 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <sys/vfs.h>	/* get disk type */
 #include <sys/ioctl.h>
 #include <netinet/in.h>
@@ -47,6 +48,8 @@
 #include <asm/byteorder.h>
 
 char pdubuf_res[INFO_PDU_LENGTH];
+extern int getStorageStatus(STORAGE_INFO_T *st);
+extern void sendInfo(int sockfd, char *pdubuf, unsigned short cli_port);
 
 #ifdef BTN_SETUP
 
@@ -98,22 +101,7 @@ int bs_put_setting(PKT_SET_INFO_GW_QUICK *setting)
 }
 #endif
 
-int
-kill_pidfile_s(char *pidfile, int sig)	// copy from rc/common_ex.c
-{
-	FILE *fp = fopen(pidfile, "r");
-	char buf[256];
-	extern errno;
-
-	if (fp && fgets(buf, sizeof(buf), fp)) {
-		pid_t pid = strtoul(buf, NULL, 0);
-		fclose(fp);
-		return kill(pid, sig);
-  	} else
-		return errno;
-}
-
-extern char ssid_g[];
+extern char ssid_g[32];
 extern char netmask_g[];
 extern char productid_g[];
 extern char firmver_g[];
@@ -123,7 +111,7 @@ int
 get_ftype(char *type)	/* get disk type */
 {
 	struct statfs fsbuf;
-	long f_type;
+	unsigned int f_type;
 	double free_size;
 	char *mass_path = nvram_safe_get("usb_mnt_first_path");
 	//if (!mass_path)
@@ -171,8 +159,8 @@ char *processPacket(int sockfd, char *pdubuf, unsigned short cli_port)
     int fail = 0;
     pid_t pid;
     DIR *dir;
-    int fd, ret, bytes;
-    unsigned char tmp_buf[15];	// /proc/XXXXXX
+    int fd, ret, bytes=0;
+    char tmp_buf[15];	// /proc/XXXXXX
     WS_INFO_T *wsinfo;
 #endif
 //#ifdef WL700G
@@ -181,9 +169,7 @@ char *processPacket(int sockfd, char *pdubuf, unsigned short cli_port)
 //    int i;
     char ftype[8], prinfo[128];	/* get disk type */
     int free_space;
-#if defined(RTCONFIG_WIRELESSREPEATER) || defined(RTCONFIG_PROXYSTA)
-    char tmp[100], prefix[] = "wlXXXXXXXXXXXXXX";
-#endif
+
     unsigned short send_port = cli_port;
 
     phdr = (IBOX_COMM_PKT_HDR *)pdubuf;  
@@ -257,31 +243,12 @@ char *processPacket(int sockfd, char *pdubuf, unsigned short cli_port)
 					sprintf(ginfo->PrinterInfo, "%s %s", nvram_safe_get("u2ec_mfg"), nvram_safe_get("u2ec_device"));
 			}
 #endif
-#ifdef RTCONFIG_WIRELESSREPEATER
-			if (nvram_get_int("sw_mode") == SW_MODE_REPEATER)
-			{
-				snprintf(prefix, sizeof(prefix), "wl%d.1_", nvram_get_int("wlc_band"));
-				strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), 32);
-			}
-			else
-#endif
-#ifdef RTCONFIG_BCMWL6
-#ifdef RTCONFIG_PROXYSTA
-			if (is_psta(nvram_get_int("wlc_band")) || is_psr(nvram_get_int("wlc_band")))
-			{
-				snprintf(prefix, sizeof(prefix), "wl%d_", nvram_get_int("wlc_band"));
-				strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), 32);
-			}
-			else
-#endif
-#endif
-		     strncpy(ssid_g, nvram_safe_get("wl0_ssid"), 32);
-		     strcpy(ginfo->SSID, ssid_g);
+		     get_discovery_ssid(ssid_g, sizeof(ssid_g));
 		     strcpy(ginfo->NetMask, get_lan_netmask());
 		     strcpy(ginfo->ProductID, productid_g);	// disable for tmp
 		     strcpy(ginfo->FirmwareVersion, firmver_g);	// disable for tmp
 		     memcpy(ginfo->MacAddress, mac, 6);
-		     ginfo->sw_mode = nvram_get_int("sw_mode");
+		     ginfo->sw_mode = get_sw_mode();
 #ifdef WCLIENT
 		     ginfo->OperationMode = OPERATION_MODE_WB;
 		     ginfo->Regulation = 0xff;
@@ -327,32 +294,13 @@ char *processPacket(int sockfd, char *pdubuf, unsigned short cli_port)
 					sprintf(ginfo->PrinterInfo, "%s %s", nvram_safe_get("u2ec_mfg"), nvram_safe_get("u2ec_device"));
 			}
 #endif
-#ifdef RTCONFIG_WIRELESSREPEATER
-			if (nvram_get_int("sw_mode") == SW_MODE_REPEATER)
-			{
-				snprintf(prefix, sizeof(prefix), "wl%d.1_", nvram_get_int("wlc_band"));
-				strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), 32);
-			}
-			else
-#endif
-#ifdef RTCONFIG_BCMWL6
-#ifdef RTCONFIG_PROXYSTA
-			if (is_psta(nvram_get_int("wlc_band")) || is_psr(nvram_get_int("wlc_band")))
-			{
-				snprintf(prefix, sizeof(prefix), "wl%d_", nvram_get_int("wlc_band"));
-				strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), 32);
-			}
-			else
-#endif
-#endif
-		     strncpy(ssid_g, nvram_safe_get("wl0_ssid"), 32);
+		     get_discovery_ssid(ssid_g, sizeof(ssid_g));
    		     strcpy(ginfo->SSID, ssid_g);
 		     strcpy(ginfo->NetMask, get_lan_netmask());
 		     strcpy(ginfo->ProductID, productid_g);	// disable for tmp
 		     strcpy(ginfo->FirmwareVersion, firmver_g); // disable for tmp
 		     memcpy(ginfo->MacAddress, mac, 6);
-		     ginfo->sw_mode = nvram_get_int("sw_mode");
-
+		     ginfo->sw_mode = get_sw_mode();
 #ifdef WAVESERVER    // eric++
 	     	     // search /tmp/waveserver and get information
 	     	     wsinfo = (WS_INFO_T*) (pdubuf_res + sizeof (IBOX_COMM_PKT_RES) + sizeof (PKT_GET_INFO));

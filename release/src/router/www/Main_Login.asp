@@ -11,7 +11,7 @@
 <title>ASUS Login</title>
 <style>
 body{
-	font-family: Arial;
+	font-family: Arial, MS UI Gothic, MS P Gothic, sans-serif;
 }
 .wrapper{
 	background:url(images/New_ui/login_bg.png) #283437 no-repeat;
@@ -212,38 +212,40 @@ function tryParseJSON (jsonString){
 };
 
 var login_info =  tryParseJSON('<% login_error_info(); %>');
-var remaining_time = 60 - login_info.lock_time;
+var isIE8 = navigator.userAgent.search("MSIE 8") > -1; 
+var isIE9 = navigator.userAgent.search("MSIE 9") > -1; 
+var remaining_time = login_info.lock_time;
+var remaining_time_min;
+var remaining_time_sec;
+var remaining_time_show;
 var countdownid, rtime_obj;
 var redirect_page = login_info.page;
-var cloud_file = '<% get_parameter("file"); %>';
 var isRouterMode = ('<% nvram_get("sw_mode"); %>' == '1') ? true : false;
 
 var header_info = [<% get_header_info(); %>][0];
 var ROUTERHOSTNAME = '<% nvram_get("local_domain"); %>';
-var domainNameUrl = ((header_info.host.split(":").length==2)?"https":"http")+"://"+header_info.host.replace(header_info.host.split(":")[0], ROUTERHOSTNAME);
+var domainNameUrl = header_info.protocol+"://"+ROUTERHOSTNAME+":"+header_info.port;
 var chdom = function(){window.location.href=domainNameUrl};
 (function(){
 	if(ROUTERHOSTNAME !== header_info.host && ROUTERHOSTNAME != "" && isRouterMode){
 		setTimeout(function(){
-			var s=document.createElement("script");s.type="text/javascript";s.src=domainNameUrl+"/chdom.json?hostname="+header_info.host.split(":")[0];var h=document.getElementsByTagName("script")[0];h.parentNode.insertBefore(s,h);
+			var s=document.createElement("script");s.type="text/javascript";s.src=domainNameUrl+"/chdom.json?hostname="+header_info.host;var h=document.getElementsByTagName("script")[0];h.parentNode.insertBefore(s,h);
 		}, 1);
 	}
 })();
 
 function initial(){
 	var flag = login_info.error_status;
-
-	if('<% check_asus_model(); %>' == '0'){
-		document.getElementById("warming_field").style.display ="";
-		disable_input(0);
-		disable_button(1);
+	if(isIE8 || isIE9){
+		document.getElementById("name_title_ie").style.display ="";
+		document.getElementById("password_title_ie").style.display ="";
 	}
 
 	if(flag != ""){
 		document.getElementById("error_status_field").style.display ="";
 
 		if(flag == 3){
-			document.getElementById("error_status_field").innerHTML ="* Invalid username or password";
+			document.getElementById("error_status_field").innerHTML ="* <#JS_validLogin#>";
 		}
 		else if(flag == 7){
 			document.getElementById("error_status_field").innerHTML ="You have entered an incorrect username or password 5 times. Please try again after "+"<span id='rtime'></span>"+" seconds.";
@@ -251,7 +253,7 @@ function initial(){
 			disable_input(1);
 			disable_button(1);
 			rtime_obj=document.getElementById("rtime");
-			rtime_obj.innerHTML=remaining_time;
+			countdownfunc();
 			countdownid = window.setInterval(countdownfunc,1000);
 		}
 		else if(flag == 8){
@@ -300,8 +302,11 @@ function initial(){
 	if(history.pushState != undefined) history.pushState("", document.title, window.location.pathname);
 }
 
-function countdownfunc(){ 
-	rtime_obj.innerHTML=remaining_time;
+function countdownfunc(){
+	remaining_time_min = checkTime(Math.floor(remaining_time/60));
+	remaining_time_sec = checkTime(Math.floor(remaining_time%60));
+	remaining_time_show = remaining_time_min +":"+ remaining_time_sec;
+	rtime_obj.innerHTML = remaining_time_show;
 	if (remaining_time==0){
 		clearInterval(countdownid);
 		setTimeout("top.location.href='/Main_Login.asp';", 2000);
@@ -379,21 +384,16 @@ function login(){
 			|| redirect_page.indexOf(" ") != -1 
 			|| redirect_page.indexOf("//") != -1 
 			|| redirect_page.indexOf("http") != -1
-			|| (redirect_page.indexOf(".asp") == -1 && redirect_page.indexOf(".htm") == -1)
+			|| (redirect_page.indexOf(".asp") == -1 && redirect_page.indexOf(".htm") == -1 && redirect_page != "send_IFTTTPincode.cgi" && redirect_page != "cfg_onboarding.cgi")
 		){
-			document.form.next_page.value = "index.asp";
+			document.form.next_page.value = "";
 		}
 		else{
 			document.form.next_page.value = redirect_page;
 		}
 	}
 	catch(e){
-		document.form.next_page.value = "index.asp";
-	}		
-
-	if(document.form.next_page.value == "cloud_sync.asp"){
-		document.form.cloud_file.disabled = false;
-		document.form.cloud_file.value = cloud_file;
+		document.form.next_page.value = "";
 	}
 
 	document.form.submit();
@@ -415,6 +415,13 @@ function disable_button(val){
 	else
 		document.getElementsByClassName('button')[0].style.display = "none";
 }
+
+function checkTime(i){
+	if (i<10){
+		i="0" + i
+	}
+	return i
+}
 </script>
 </head>
 <body class="wrapper" onload="initial();">
@@ -429,10 +436,8 @@ function disable_button(val){
 <input type="hidden" name="current_page" value="Main_Login.asp">
 <input type="hidden" name="next_page" value="Main_Login.asp">
 <input type="hidden" name="login_authorization" value="">
-<input type="hidden" name="cloud_file" value="" disabled>
 <div class="div_table main_field_gap">
 	<div class="div_tr">
-		<div id="warming_field" style="display:none;" class="warming_desc">Note: the router you are using is not an ASUS device or has not been authorised by ASUS. ASUSWRT might not work properly on this device.</div>
 		<div class="title_name">
 			<div class="div_td img_gap">
 				<div class="login_img"></div>
@@ -444,16 +449,19 @@ function disable_button(val){
 		<!-- Login field -->
 		<div id="login_filed">
 			<div class="p1 title_gap"><#Sign_in_title#></div>
+
+			<div id="name_title_ie" style="display:none;margin:20px 0 -10px 78px;" class="p1 title_gap"><#Username#></div>
 			<div class="title_gap">
-				<input type="text" id="login_username" name="login_username" tabindex="1" class="form_input" maxlength="20" autocapitalize="off" autocomplete="off" placeholder="<#HSDPAConfig_Username_itemname#>">
+				<input type="text" id="login_username" name="login_username" tabindex="1" class="form_input" maxlength="20" autocapitalize="off" autocomplete="off" placeholder="<#Username#>">
 			</div>
+			<div id="password_title_ie" style="display:none;margin:20px 0 -20px 78px;" class="p1 title_gap"><#HSDPAConfig_Password_itemname#></div>
 			<div class="password_gap">
 				<input type="password" name="login_passwd" tabindex="2" class="form_input" maxlength="16" placeholder="<#HSDPAConfig_Password_itemname#>" autocapitalize="off" autocomplete="off">
 			</div>
 			<div class="error_hint" style="display:none;" id="error_status_field"></div>
 				<div class="button" onclick="login();"><#CTL_signin#></div>
 		</div>
-		
+
 		<!-- No Login field -->
 		<div id="nologin_field" style="display:none;">
 			<div class="p1 title_gap"></div>

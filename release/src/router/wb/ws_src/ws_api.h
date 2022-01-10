@@ -2,8 +2,9 @@
 #define __WS_API_H__
 
 #define TRANSFER_TYPE		"https://"
-//#define SERVER 				"aae-spweb.asus.com"
-#define SERVER 				"aae-spweb.asuscloud.com"
+#define SERVER 				"aae-spweb-vx.asuscloud.com"
+//#define SERVER 				"54.179.149.151"
+#define LOGIN_SERVER 		"aae-sgweb001-1.asuscomm.com"
 #define GET_SERVICE_AREA	"/aae/getservicearea"
 #define LOGIN				"/aae/login"
 #define QUERY_FRIEND		"/aae/queryfriend"
@@ -15,8 +16,9 @@
 #define QUERY_PIN			"/aae/querypin"
 #define UNREGISTER			"/aae/unregister"
 #define UPDATE_ICE_INFO		"/aae/updateiceinfo"
-#define KEEP_ALIVE		"/aae/keepalive"
-#define PUSH_SENDMSG	"/aae/wlpush_sendmsg"
+#define KEEP_ALIVE			"/aae/keepalive"
+#define PUSH_SENDMSG		"/aae/wlpush_sendmsg"
+#define PNS_SENDMSG			"/aae/pns_sendmsg"
 
 
 #define MAX_STATUS_LEN 	32
@@ -35,26 +37,35 @@
 #define MAX_DEV_TICKET_EXP_LEN 	64
 #define MAX_ID_LEN		64
 #define MAX_STATUS_LEN		32
-#define MAX_DESC_LEN		64
+#define MAX_DESC_LEN		512
 #define MAX_PIN_LEN		64
-#define MAX_IP_LEN		128 	//32
+#define MAX_IP_ADDR_LEN		128 	//32
+
+typedef struct _AAE_STATUS
+{
+	int status;
+	char *status_text;
+} aae_status_t;
 
 typedef struct _GetServiceArea
 {
 	char 	status[MAX_STATUS_LEN];
 	char 	servicearea[MAX_URL_LEN];
 	char	time[MAX_TIME_LEN];
-	char	srcip[MAX_IP_LEN];
+	char	srcip[MAX_IP_ADDR_LEN];
+	char	retrytime[MAX_TIME_LEN];
 }GetServiceArea, *pGetServiceArea;
 
 typedef struct _SrvInfo
 {
 	struct _SrvInfo* next;
-	char	srv_ip[MAX_IP_LEN];
+	char	srv_ip[MAX_IP_ADDR_LEN];
 } SrvInfo, *pSrvInfo;
 
 typedef struct _Login{
 	char 	status[MAX_STATUS_LEN];
+	char 	apilevel_status[MAX_STATUS_LEN];
+	char 	apilevel[MAX_STATUS_LEN];
 	char	usersvclevel[MAX_USER_LEVEL_LEN];
 	char	cusid[MAX_CUSID_LEN];
 	char	userticket[MAX_TICKET_LEN]; 
@@ -69,6 +80,7 @@ typedef struct _Login{
 	pSrvInfo	relayinfoList;
 	pSrvInfo	stuninfoList;
 	pSrvInfo	turninfoList;
+	pSrvInfo	pnsinfoList;
 	char	deviceticketexpiretime[MAX_DEV_TICKET_EXP_LEN];
 	char 	time[MAX_TIME_LEN];
 } Login, *pLogin;
@@ -150,7 +162,7 @@ typedef struct _Updateiceinfo{
 
 typedef struct _Keepalive{
 	char	status[MAX_STATUS_LEN];
-	//char	deviceticketexpiretime[MAX_DEV_TICKET_EXP_LEN];
+	char	deviceticketexpiretime[MAX_DEV_TICKET_EXP_LEN];
 	char	time[MAX_TIME_LEN];
 }Keepalive, *pKeepalive;
 
@@ -159,6 +171,18 @@ typedef struct _Push_Msg
 	char 	status[MAX_STATUS_LEN];
 	char	time[MAX_TIME_LEN];
 } Push_Msg;
+
+typedef struct _PnsSendMsg
+{
+	char 	status[MAX_STATUS_LEN];
+	char	time[MAX_TIME_LEN];
+} PnsSendMsg, *pPnsSendMsg;
+
+typedef struct _IftttNotification
+{
+	char 	status[MAX_STATUS_LEN];
+	char	message[MAX_DEVICEID_LEN];
+} IftttNotification, *pIftttNotification;
 
 typedef enum _ws_status_code
 {
@@ -182,13 +206,19 @@ int send_loginbyticket_req(
 	const char*	deviceservice,
 	const char* devicetype,
 	const char*	permission,
+	const char* devicedesc,
 	Login*		pLogin
 );
 
 int send_getservicearea_req(
 	const char* server, 
+	const char* serviceid, 
 	const char* userid, 
 	const char* passwd,
+	const char* devicetype, 
+	const char* fwver, 
+	const int apilevel,
+	const char* modelname,
 	GetServiceArea* pGSA//out put
 	);
 
@@ -201,6 +231,10 @@ int send_login_req(
 	const char*	deviceservice,
 	const char* devicetype,
 	const char*	permission,
+	const char* devicedesc,
+	const char* fwver, 
+	const int apilevel,
+	const char* modelname,
 	Login*		pLogin
 	);
 
@@ -288,4 +322,29 @@ int send_push_msg_req(
 	const char *msg,
 	Push_Msg *pPm
 );
+
+int send_pns_sendmsg_req(
+	const char *server,
+	const char *cusid,
+	const char *deviceid,
+	const char *deviceticket,
+    const char *appids,
+	const char *todeviceid,
+	const char* devicetype, 
+	const char* fwver, 
+	const char* apilevel,
+	const char* modelname,
+	const char *msg,
+	PnsSendMsg *pPsm
+);
+
+int send_ifttt_notification_req(
+	const char *server,
+	const char *trigger,
+	const char *msg,
+	IftttNotification *pIftttnotification
+);
+
+char *get_curl_status_string(int error);
+char *get_aae_status_string(int error);
 #endif

@@ -349,6 +349,18 @@ config NF_CONNTRACK_SIP
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config NF_CONNTRACK_CISCO_SIP
+	tristate "Cisco SIP protocol support"
+	default m if NETFILTER_ADVANCED=n
+	help
+	  SIP is an application-layer control protocol that can establish,
+	  modify, and terminate multimedia sessions (conferences) such as
+	  Internet telephony calls. With the ip_conntrack_sip and
+	  the nf_nat_sip modules you can support the protocol on a connection
+	  tracking/NATing firewall.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config NF_CONNTRACK_TFTP
 	tristate "TFTP protocol support"
 	depends on NETFILTER_ADVANCED

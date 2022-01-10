@@ -14,6 +14,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307 USA
  */
+
+#include <rc.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -39,10 +42,18 @@
 #include <notify_rc.h>
 #include <bcmnvram.h>
 
-#include "rc.h"
+#ifdef RTCONFIG_TMOBILE
+#include <sys/reboot.h>
+#endif
 #ifdef RTCONFIG_USB
 #include <disk_io_tools.h>
 #endif
+#ifdef RTCONFIG_NOTIFICATION_CENTER
+#include <libnt.h>
+
+int sent_unpublic = 0;
+#endif
+
 
 #define DEFAULT_SCAN_INTERVAL 5
 #define TCPCHECK_TIMEOUT 3
@@ -172,10 +183,15 @@ int sim_lock = 0;
 
 int scan_interval;
 int wandog_enable, wandog_maxfail;
+int dnsprobe_enable;
 int max_disconn_count[WAN_UNIT_MAX];
 int max_wait_time[WAN_UNIT_MAX];
 int max_fb_count;
 int max_fb_wait_time;
+
+#ifdef RTCONFIG_USB_MODEM
+int modem_pdp;
+#endif
 
 int http_sock, dns_sock, maxfd;
 clients client[MAX_USER];
@@ -193,7 +209,8 @@ int cross_state = 0;
 int disconn_case_old[WAN_UNIT_MAX], disconn_case[WAN_UNIT_MAX];
 int ppp_fail_state;
 int rule_setup;
-int link_setup[WAN_UNIT_MAX], link_wan[WAN_UNIT_MAX];
+int link_changed[WAN_UNIT_MAX], link_setup[WAN_UNIT_MAX];
+int link_wan[WAN_UNIT_MAX], link_wan_old;
 int got_notify;
 int modem_act_reset;
 int nat_state;
@@ -209,7 +226,9 @@ char current_lan_dns[256];
 char current_lan_subnet[11];
 
 int current_wan_unit = WAN_UNIT_FIRST;
+#if defined(RTCONFIG_DUALWAN) || defined(RTCONFIG_USB_MODEM)
 int other_wan_unit = WAN_UNIT_SECOND;
+#endif
 int current_state[WAN_UNIT_MAX];
 
 char nvram_state[WAN_UNIT_MAX][16], nvram_sbstate[WAN_UNIT_MAX][16], nvram_auxstate[WAN_UNIT_MAX][16];

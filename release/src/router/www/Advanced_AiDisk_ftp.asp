@@ -33,7 +33,7 @@ var FTP_status = get_ftp_status(); // FTP
 var AM_to_cifs = get_share_management_status("cifs");  // Account Management for Network-Neighborhood
 var AM_to_ftp = get_share_management_status("ftp");  // Account Management for FTP
 
-var accounts = [<% get_all_accounts(); %>];
+var accounts = [<% get_all_accounts(); %>][0];
 var groups = [<% get_all_groups(); %>];
 
 var lastClickedAccount = 0;
@@ -63,9 +63,6 @@ function initial(){
 	showPermissionTitle();
 	if("<% nvram_get("ddns_enable_x"); %>" == 1)
 		document.getElementById("machine_name").innerHTML = "<% nvram_get("ddns_hostname_x"); %>";
-	else
-		document.getElementById("machine_name").innerHTML = "<#Web_Title2#>";
-		
 
 	// show mask
 	if(get_manage_type(PROTOCOL)){
@@ -256,10 +253,10 @@ function showPermissionTitle(){
 var controlApplyBtn = 0;
 function showApplyBtn(){
 	if(this.controlApplyBtn == 1){
-		document.getElementById("changePermissionBtn").className = "button_gen_long";
+		document.getElementById("changePermissionBtn").className = "button_gen";
 		document.getElementById("changePermissionBtn").disabled = false;
 	}else{
-		document.getElementById("changePermissionBtn").className = "button_gen_long_dis";
+		document.getElementById("changePermissionBtn").className = "button_gen_dis";
 		document.getElementById("changePermissionBtn").disabled = true;
 	}	
 }
@@ -474,9 +471,15 @@ function onEvent(){
 	//if(get_manage_type(PROTOCOL) == 1 && accounts.length < 6){
 		if(1){
 		changeActionButton(document.getElementById("createAccountBtn"), 'User', 'Add', 0);
-		
+
+		var accounts_length = this.accounts.length;
 		document.getElementById("createAccountBtn").onclick = function(){
-				popupWindow('OverlayMask','/aidisk/popCreateAccount.asp');
+				if(accounts_length >= 6) {
+					alert("<#JS_itemlimit1#> 6 <#JS_itemlimit2#>");
+					return false;
+				}
+				else
+					popupWindow('OverlayMask','/aidisk/popCreateAccount.asp');
 			};
 		document.getElementById("createAccountBtn").onmouseover = function(){
 				changeActionButton(this, 'User', 'Add', 1);
@@ -669,7 +672,7 @@ function applyRule(){
 }
 
 function validForm(){
-	if(!validator.range(document.form.st_max_user, 1, 10)){
+	if(!validator.range(document.form.st_max_user, 1, 99)){
 		document.form.st_max_user.focus();
 		document.form.st_max_user.select();
 		return false;
@@ -694,7 +697,7 @@ function switchUserType(flag){
 </script>
 </head>
 
-<body onLoad="initial();" onunload="unload_body();">
+<body onLoad="initial();" onunload="unload_body();" class="bg">
 <div id="TopBanner"></div>
 
 <div id="Loading" class="popup_bg"></div>
@@ -756,8 +759,7 @@ function switchUserType(flag){
 					</tr>
 				</table>
 			</div>
-			<div style="margin:5px;"><img src="/images/New_ui/export/line_export.png"></div>
-
+			<div style="margin:5px;" class="splitLine"></div>
 			<div class="formfontdesc"><#FTP_desc#></div>
 
 			<table width="740px" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
@@ -804,7 +806,7 @@ function switchUserType(flag){
 						<a class="hintstyle" href="javascript:void(0);" onClick="openHint(17,1);"><#ShareNode_MaximumLoginUser_itemname#></a>
 					</th>
 					<td>
-						<input type="text" name="st_max_user" class="input_3_table" maxlength="1" value="<% nvram_get("st_max_user"); %>" onKeyPress="return validator.isNumber(this, event);" autocorrect="off" autocapitalize="off">
+						<input type="text" name="st_max_user" class="input_3_table" maxlength="2" value="<% nvram_get("st_max_user"); %>" onKeyPress="return validator.isNumber(this, event);" autocorrect="off" autocapitalize="off">
 					</td>
 				</tr>
 				<tr>
@@ -887,7 +889,7 @@ function switchUserType(flag){
 			  		<table width="480"  border="0" cellspacing="0" cellpadding="0" class="FileStatusTitle">
 		  	    		<tr>
 		    	  			<td width="290" height="20" align="left">
-				    			<div id="machine_name" class="machineName"></div>
+				    			<div id="machine_name" class="machineName"><#Web_Title2#></div>
 				    		</td>
 				  		<td>
 				    			<div id="permissionTitle"></div>
@@ -897,7 +899,7 @@ function switchUserType(flag){
 			 	 <!-- the tree of folders -->
   		      	<div id="e0" style="font-size:10pt; margin-top:2px;"></div>
 			  	<div style="text-align:center; margin:10px auto; border-top:1px dotted #CCC; width:95%; padding:2px;">
-			    		<input name="changePermissionBtn" id="changePermissionBtn" type="button" value="<#CTL_save_permission#>" class="button_gen_long_dis" disabled="disabled">
+					<input name="changePermissionBtn" id="changePermissionBtn" type="button" value="<#CTL_onlysave#>" class="button_gen_dis" disabled="disabled">
 			  	</div>
 		    		</td>
 		    		<!-- The right side table of folders.    End -->

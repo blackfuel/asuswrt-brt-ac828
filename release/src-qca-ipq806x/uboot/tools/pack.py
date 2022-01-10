@@ -495,14 +495,14 @@ class NorScript(FlashScript):
         if size > 0:
             self.append("sf write $fileaddr 0x%08x 0x%08x" % (offset, size))
 
-    def nand_write(self, offset, size):
+    def nand_write(self, offset, part_size, img_size):
         """Handle the NOR + NAND case
            All binaries upto HLOS will go to NOR and Root FS will go to NAND
            Assumed all nand page sizes are less than are equal to 8KB
            """
-        self.append("nand device 0 && nand erase 0x%08x 0x%08x" % (offset, size))
-        if size > 0:
-            self.append("nand write $fileaddr 0x%08x 0x%08x" % (offset, size))
+        self.append("nand device 0 && nand erase 0x%08x 0x%08x" % (offset, part_size))
+        if img_size > 0:
+            self.append("nand write $fileaddr 0x%08x 0x%08x" % (offset, img_size))
 
     def switch_layout(self, layout):
         pass
@@ -742,8 +742,8 @@ class Pack(object):
             if part_info == None:
                 if self.flinfo.type == 'norplusnand':
                     offset = count * Pack.norplusnand_rootfs_img_size
-                    img_size = Pack.norplusnand_rootfs_img_size
-                    script.nand_write(offset, img_size)
+                    part_size = Pack.norplusnand_rootfs_img_size
+                    script.nand_write(offset, part_size, img_size)
                     count = count + 1
             else:
                 offset = part_info.offset

@@ -15,11 +15,8 @@
 <script type="text/javascript" src="/state.js"></script>
 <script type="text/javascript" src="/popup.js"></script>
 <script type="text/javascript" src="/help.js"></script>
-<script type="text/javascript" src="/disk_functions.js"></script>
 <script type="text/javascript" src="/js/jquery.js"></script>
 <script>
-
-
 function initial(){
 	show_menu();
 	if(adBlock_support)
@@ -28,11 +25,13 @@ function initial(){
 		document.getElementById("keyGuard_field_h").style.display = "";
 		document.getElementById("keyGuard_field").style.display = "";
 	}
+	if(yadns_support)
+		$("#item_yandex").css("display", "list-item");
 }
 
 </script>
 </head>
-<body onload="initial();" onunload="unload_body();">
+<body onload="initial();" onunload="unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -58,7 +57,7 @@ function initial(){
 				<div id="tabMenu" class="submenuBlock"></div>
 				<br>
 		<!--=====Beginning of Main Content=====-->
-				<div class="app_table" id="FormTitle">
+				<div class="app_table app_table_usb" id="FormTitle">
 					<table>
 						<tr>
 							<td class="formfonttitle">
@@ -74,7 +73,7 @@ function initial(){
 							</td>
 						</tr> 
 						<tr>
-							<td class="line_export"><img src="images/New_ui/export/line_export.png" /></td>
+							<td><div class="splitLine"></div></td>
 						</tr>
 						<tr>
 							<td>
@@ -111,11 +110,12 @@ function initial(){
 												</td>
 												<td class="app_table_radius_right" style="width:350px;height:120px;">
 													<div class="app_name">
-														<a style="text-decoration: underline;" href="AiProtection_WebProtector.asp"><#Parental_Control#></a>
+														<a id="Link_to_ParentalCtrl" style="text-decoration: underline;" href="AiProtection_WebProtector.asp"><#Parental_Control#></a>
 													</div>
 													<div class="app_desc" style="height:60px;">
-														<li><#Time_Scheduling#></li>
-														<li><#AiProtection_filter#></li>											
+														<li id="item_time_scheduling"><#Time_Scheduling#></li>
+														<li id="item_filter"><#AiProtection_filter#></li>
+														<li id="item_yandex" style="display:none;"><#YandexDNS#></li>
 													</div>
 												</td>
 											</tr>

@@ -71,7 +71,7 @@ function initial(){
 
 function applyRule(){
 	if(validForm()){
-		if(based_modelid == "MAP-AC1300" || based_modelid == "MAP-AC2200" || based_modelid == "VZW-AC1300" || based_modelid == "MAP-AC1750")
+		if(based_modelid == "MAP-AC1300" || based_modelid == "MAP-AC2200" || based_modelid == "VZW-AC1300" || based_modelid == "MAP-AC1750" || based_modelid == "RT-AC92U")
 			alert("By applying new LAN settings, please reboot all Lyras connected to main Lyra manually.");
 
 		if(tagged_based_vlan){
@@ -134,6 +134,34 @@ function valid_IP(obj_name, obj_flag){
 }
 
 function validForm(){
+	var alert_str = "";
+
+	if(document.form.lan_hostname.value.length > 0)
+		alert_str = validator.host_name(document.form.lan_hostname);
+	else
+		alert_str = "<#JS_fieldblank#>";
+	if(alert_str != ""){
+		showtext(document.getElementById("alert_hostname"), alert_str);
+		document.getElementById("alert_hostname").style.display = "";
+		document.form.lan_hostname.focus();
+		document.form.lan_hostname.select();
+		return false;
+	}else{
+		document.getElementById("alert_hostname").style.display = "none";
+ 	}
+ 
+	if(document.form.lan_domain.value.length > 0)
+		alert_str = validator.domainName(document.form.lan_domain);
+	if(alert_str != ""){
+		showtext(document.getElementById("alert_domain"), alert_str);
+		document.getElementById("alert_domain").style.display = "";
+		document.form.lan_domain.focus();
+		document.form.lan_domain.select();
+		return false;
+	}else{
+		document.getElementById("alert_domain").style.display = "none";
+ 	}
+	
 	if(sw_mode == 2 || sw_mode == 3 || sw_mode == 4){
 		if(document.form.lan_dnsenable_x_radio[0].checked == 1)
 			document.form.lan_dnsenable_x.value = 1;
@@ -327,7 +355,7 @@ function check_vpn(){		//true: lAN ip & VPN client ip conflict
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="hiddenMask" class="popup_bg" style="z-index:10000;">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center">
@@ -391,12 +419,32 @@ function check_vpn(){		//true: lAN ip & VPN client ip conflict
 		  <td bgcolor="#4D595D" valign="top">
 		  <div>&nbsp;</div>
 		  <div class="formfonttitle"><#menu5_2#> - <#menu5_2_1#></div>
-      <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+		  <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
       <div class="formfontdesc"><#LANHostConfig_display1_sectiondesc#></div>
       <div id="VPN_conflict" class="formfontdesc" style="color:#FFCC00;display:none;"><#LANHostConfig_display1_sectiondesc2#></div>
 		  
 		  <table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 		  
+		  <tr>
+			<th>
+			  <a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,13);"><#LANHostConfig_x_DDNSHostNames_itemname#></a>
+			</th>
+			<td>
+			  <input type="text" maxlength="32" class="input_32_table" name="lan_hostname" value="<% nvram_get("lan_hostname"); %>" onkeypress="return validator.isString(this, event)" autocorrect="off" autocapitalize="off"><br/>
+			  <span id="alert_hostname" style="color:#FC0;"></span>
+			</td>
+		  </tr>
+
+		  <tr>
+			<th>
+			  <a class="hintstyle" href="javascript:void(0);" onClick="openHint(5,2);"><#LANHostConfig_DomainName_itemname#></a>
+			</th>
+			<td>
+			  <input type="text" maxlength="32" class="input_32_table" name="lan_domain" value="<% nvram_get("lan_domain"); %>" onkeypress="return validator.isString(this, event)" autocorrect="off" autocapitalize="off"><br/>
+			  <span id="alert_domain" style="color:#FC0;"></span>
+			</td>
+		  </tr>
+
 			<tr id="table_proto">
 			<th width="30%"><#LANHostConfig_x_LAN_DHCP_itemname#></th>
 			<td>

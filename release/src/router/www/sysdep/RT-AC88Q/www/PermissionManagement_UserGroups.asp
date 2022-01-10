@@ -129,7 +129,7 @@ function collect_info(){
 function generate_group_table(){
 	var code = "";
 	code += '<tr>';
-	//code += '<th style="width:35px;"><input id="" type="checkbox" onclick="" value=""></th>';
+	//code += '<th style="width:35px;"><input type="checkbox" onclick="" value=""></th>';
 	code += '<th style="width:350px;"><#PM_Group_Name#></th>';
 	code += '<th style="width:350px;"><#Description#></th>';
 	code += '<th style="width:60px;"><#CTL_modify#></th>';
@@ -202,7 +202,7 @@ function add_group(flag, target){
 		return false;
 	}
 
-	var alert_str = validator.hostName(document.getElementById("group_name"));
+	var alert_str = validator.account_name(document.getElementById("group_name"));
 
 	if(alert_str != ""){
 		alert(alert_str);
@@ -460,7 +460,7 @@ function enable_account_all(obj){
 								<td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#Permission_Management#> - <#Permission_Management_Groups#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin: 10px 0 10px 5px" class="splitLine"></div>
 									<div style="margin-top:20px ;" class="formfontdesc"><#PM_UsersGroups_desc#></div>
 									<div>
 										<div style="display:flex">

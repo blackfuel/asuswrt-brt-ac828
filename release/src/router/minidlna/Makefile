@@ -13,19 +13,24 @@
 #CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG
 #CFLAGS = -Wall -g -Os -D_GNU_SOURCE
 
+ifeq ($(MSIPK),y)
+IPKINC = $(shell pwd)/../APP-IPK/MediaServer-ipk/opt/include
+TOP = $(shell pwd)/..
+else
 include ../common.mak
+endif
 
 LDFLAGS = -ffunction-sections -fdata-sections -Wl,--gc-sections
 
 #CFLAGS = -Wall -g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
 
+ifneq ($(MSIPK),y)
 CFLAGS += -Wall -g -Os -D_GNU_SOURCE $(EXTRACFLAGS) -D_FILE_OFFSET_BITS=64 \
 	-ffunction-sections -fdata-sections \
-	-I$(TOP)/ffmpeg/libavutil -I$(TOP)/ffmpeg/libavcodec -I$(TOP)/ffmpeg/libavformat \
-	-I$(TOP)/ffmpeg/libswscale -I$(TOP)/ffmpeg \
 	-I$(TOP)/flac/include -I$(TOP)/sqlite -I$(TOP)/jpeg \
 	-I$(TOP)/libexif -I$(TOP)/libid3tag -I$(TOP)/libogg/include \
 	-I$(TOP)/libvorbis/include \
+	-I$(TOP)/ffmpeg \
 
 ifneq ($(STATIC),1)
 LDFLAGS += -L$(TOP)/zlib -L$(TOP)/sqlite/.libs -L$(TOP)/jpeg -L$(TOP)/libvorbis/lib/.libs \
@@ -38,13 +43,38 @@ endif
 else
 LDFLAGS += -static
 endif
+else
+ifeq ($(PLATFORM),i686)
+EXTRACFLAGS = -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign \
+-DLINUX_KERNEL_VERSION=132630 -DMS_IPK -DMS_I686
+else
+EXTRACFLAGS = -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign \
+-mtune=mips32 -mips32 -DLINUX_KERNEL_VERSION=132630 -DMS_IPK
+endif
+CFLAGS = -Wall -g -Os -D_GNU_SOURCE $(EXTRACFLAGS) -D_FILE_OFFSET_BITS=64 \
+	-ffunction-sections -fdata-sections \
+	-I$(TOP)/ffmpeg-0.5/libavutil -I$(TOP)/ffmpeg-0.5/libavcodec -I$(TOP)/ffmpeg-0.5/libavformat \
+	-I$(TOP)/ffmpeg-0.5/libswscale -I$(TOP)/ffmpeg-0.5 \
+	-I$(TOP)/flac/include -I$(TOP)/sqlite -I$(TOP)/jpeg \
+	-I$(TOP)/libexif -I$(TOP)/libid3tag -I$(TOP)/libogg/include \
+	-I$(TOP)/libvorbis/include
+
+LDFLAGS += -L$(TOP)/zlib -L$(TOP)/sqlite/.libs -L$(TOP)/jpeg/.libs -L$(TOP)/libvorbis/lib/.libs \
+	-L$(TOP)/libogg/src/.libs -L$(TOP)/libexif/libexif/.libs -L$(TOP)/flac/src/libFLAC/.libs \
+	-L$(TOP)/APP-IPK/MediaServer-ipk/asusffmpeg_1.0.0.5/opt/lib \
+	-L$(TOP)/libid3tag/.libs
+endif
 
 #STATIC_LINKING: CFLAGS += -DSTATIC
 #STATIC_LINKING: LDFLAGS = -static
-#CC = gcc
 RM = rm -f
 INSTALL = install
 
+ifeq ($(RTCONFIG_BCMARM),y)
+CFLAGS += -I$(SRCBASE)/shared/bcmwifi/include -DTYPEDEF_FLOAT_T
+endif
+
+ifneq ($(MSIPK),y)
 CFLAGS += -I$(TOP)/shared
 
 ifeq ($(RTAC68U), y)
@@ -59,6 +89,15 @@ ifeq ($(RTAC66U), y)
 CFLAGS += -DRTN66U
 endif
 
+ifeq ($(MS_LIMIT), 1)
+CFLAGS += -DMS_LIMIT
+endif
+endif
+
+ifeq ($(RPAC68U), y)
+	CFLAGS += -DRPAC68U
+endif
+
 INSTALLPREFIX ?= $(DESTDIR)/usr
 SBININSTALLDIR = $(INSTALLPREFIX)/sbin
 ETCINSTALLDIR = $(DESTDIR)/etc
@@ -67,10 +106,10 @@ BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
 	   upnpreplyparse.o minixml.o \
 	   getifaddr.o process.o upnpglobalvars.o \
 	   options.o minissdp.o uuid.o upnpevents.o \
-	   sql.o utils.o metadata.o scanner.o inotify.o \
+	   sql.o utils.o metadata.o scanner.o monitor.o \
 	   tivo_utils.o tivo_beacon.o tivo_commands.o \
 	   containers.o \
-	   tagutils/tagutils.o \
+	   avahi.o tagutils/tagutils.o \
 	   playlist.o image_utils.o albumart.o log.o clients.o
 
 ALLOBJS = $(BASEOBJS) $(LNXOBJS)
@@ -78,6 +117,7 @@ ALLOBJS = $(BASEOBJS) $(LNXOBJS)
 #LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lavutil -lavcodec -lid3tag -lFLAC -logg -lvorbis
 #STATIC_LINKING: LIBS = -lvorbis -logg -lm -lsqlite3 -lpthread -lexif -ljpeg -lFLAC -lm -lid3tag -lz -lavformat -lavutil -lavcodec -lm
 
+ifneq ($(MSIPK),y)
 ifeq ($(STATIC),1)
 LIBS = -lpthread -ldl -lm \
 	$(TOP)/libvorbis/lib/.libs/libvorbis.a \
@@ -93,6 +133,17 @@ LIBS = -lpthread -ldl -lm \
 	$(TOP)/ffmpeg/libavutil/libavutil.a
 else
 LIBS += -lpthread -ldl -lm -lvorbis -logg -lsqlite3 -lexif -ljpeg -lFLAC -lid3tag -lz -lavformat -lavcodec -lavutil
+endif
+
+else
+LIBS += -lpthread -lm -lvorbis -logg -lsqlite3 -lexif -ljpeg -lFLAC -lid3tag_ms -lz \
+	$(TOP)/libid3tag/.libs/libid3tag_ms.so \
+	$(TOP)/APP-IPK/MediaServer-ipk/asusffmpeg_1.0.0.5/opt/lib/libavformat_asus.so \
+	$(TOP)/APP-IPK/MediaServer-ipk/asusffmpeg_1.0.0.5/opt/lib/libavcodec_asus.so \
+	$(TOP)/APP-IPK/MediaServer-ipk/asusffmpeg_1.0.0.5/opt/lib/libavutil_asus.so
+ifeq ($(PLATFORM),i686)
+LIBS += -lrt
+endif
 endif
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
@@ -142,7 +193,12 @@ minidlna.o: config.h upnpglobalvars.h minidlnatypes.h
 minidlna.o: upnphttp.h upnpdescgen.h minidlnapath.h getifaddr.h upnpsoap.h
 minidlna.o: options.h minissdp.h process.h upnpevents.h log.h
 upnphttp.o: config.h upnphttp.h upnpdescgen.h minidlnapath.h upnpsoap.h
-upnphttp.o: upnpevents.h image_utils.h sql.h log.h sendfile.h icons.c
+upnphttp.o: upnpevents.h image_utils.h sql.h log.h sendfile.h
+ifeq ($(MSIPK),y)
+upnphttp.o: icons_ipk.c
+else
+upnphttp.o: icons.c
+endif
 upnpdescgen.o: config.h upnpdescgen.h minidlnapath.h upnpglobalvars.h upnpdescstrings.h
 upnpdescgen.o: minidlnatypes.h upnpdescstrings.h log.h
 upnpsoap.o: config.h upnpglobalvars.h minidlnatypes.h log.h utils.h sql.h

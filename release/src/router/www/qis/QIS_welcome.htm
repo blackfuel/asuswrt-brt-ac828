@@ -79,12 +79,6 @@ function assign_color(){
 function QKinternettype_load_body(){
 	parent.flag_manual = 0;
 
-	if('<% check_asus_model(); %>' == '0'){
-		document.getElementById("warming_field").style.display ="";
-		document.getElementById("main_manual").style.display ="none";
-		disable_button();
-	}
-
 	if(wanstate == 4 && wansbstate == 4){
 		parent.changeSubnet = true;
 	}
@@ -98,8 +92,8 @@ function QKinternettype_load_body(){
 	}
 
 	if(parent.wisp_support){
-                document.getElementById("wisp_title").style.display = "";
-        }
+		document.getElementById("wisp_title").style.display = "";
+	}
 	
 	parent.document.title = "<#Web_Title#> - Welcome!";
 	parent.set_step("t0");		
@@ -117,7 +111,7 @@ function QKinternettype_load_body(){
 	else if(odmpid.length > 0 && odmpid != based_modelid){	//odmpid MODELDEP
 		if(odmpid == "RT-N66W" || odmpid == "RT-AC66W" || odmpid == "RT-AC68W" || odmpid == "RT-AC68RW")
 			document.getElementById("ModelPid_img").src="/images/Model_product_W.png";
-		else if(odmpid == "RT-AC66U V2")
+		else if(odmpid == "RT-AC66U_B1" || odmpid == "RT-AC1750_B1" || odmpid == "RT-N66U_C1" || odmpid == "RT-AC1900U" || odmpid == "RP-AC1900" || odmpid == "RT-AC67U")
 			document.getElementById("ModelPid_img").src="/images/RT-AC66U_V2/Model_product.png";
 		else
 			document.getElementById("ModelPid_img").src="/images/Model_product.png";
@@ -174,12 +168,14 @@ function QKinternettype_load_body(){
 		//document.getElementById("Productdesc_4").innerHTML = check_desc4;
 	}
 
-	if(based_modelid == "4G-AC55U"){
+	/* MODELDEP */
+	if(based_modelid == "4G-AC53U" || based_modelid == "4G-AC55U" || based_modelid == "4G-AC68U"){
 		document.getElementById("main_manual").style.display = "none";
 		document.getElementById("lte_manual").style.display = "";
 	}
-	else if(based_modelid == "PL-N12" || based_modelid == "PL-AC56")
+	else if(based_modelid == "PL-N12" || based_modelid == "PL-AC56" || based_modelid == "RT-AC58U"){
 		document.getElementById("Productdesc_4").style.display = "none";
+	}	
 
 	setTimeout(function() {document.getElementById("btn_next_step").focus();}, 10);
 
@@ -187,13 +183,17 @@ function QKinternettype_load_body(){
 		//submitForm(1);
 		location.href = "/qis/QIS_admin_pass.htm";
 	}
-	else if(parent.hadPlugged("modem")){
+	else if(parent.hadModem()){
 		parent.flag_manual = "modem";
 		location.href = "/qis/QIS_admin_pass.htm";
 	}
 	else{
 		document.getElementById("QISmain").style.display = "";
 	}
+
+	var amesh_found_cap = '<% nvram_get("amesh_found_cap"); %>';
+	if(amesh_found_cap == "1" && parent.amesh_support)
+		document.getElementById("amesh_hint").style.display = "";
 }
 
 function redirect_page(redirect_flag){
@@ -229,13 +229,13 @@ function detect_if_wan_plug(flag){
 		},
 		success: function(response){
 			if(autodet_state == "4"){// ethernet did not plug
-				if(based_modelid == "4G-AC55U"){
+				if(based_modelid == "4G-AC53U" || based_modelid == "4G-AC55U" || based_modelid == "4G-AC68U"){
 					if( sim_state == "-1")
 						redirect_page("unplug_ethsim");
 					else
 						submitForm(1);
 				}	
-				else if(parent.hadPlugged("modem")){
+				else if(parent.hadModem()){
 					submitForm("modem");
 				}	
 				else if(flag == null){
@@ -258,6 +258,11 @@ function detect_if_wan_plug(flag){
 					}
 					else{
 						document.getElementById("wan_unplug").style.display = "";
+
+						if(based_modelid == "RT-AC58U"){
+							document.getElementById("wan_unplug").style.marginTop = "0px";
+							document.getElementById("noti_usb_uplus").style.display = "";
+						}
 						
 						setTimeout("startPoll();", 2000);
 					}
@@ -359,7 +364,7 @@ function startDetect(){
 	if(parent.powerline_support)
 		update_plc_info();
 	else{
-		if((autodet_state == "2" && autodet_auxstate == "6") || (wanstate  == 2 && wansbstate == 0 && wanauxstate == 0)){
+		if((autodet_state == "6" || autodet_auxstate == "6") || (wanstate  == 2 && wansbstate == 0 && wanauxstate == 0)){
 			submitForm(1);
 		}
 		else{
@@ -374,17 +379,17 @@ function skip(){
 }
 
 function startPoll(){
-	if(parent.modem_support){
+	if(parent.modem_support && !parent.nomodem_support){
 		if(parent.ISMOBILE){
 			if(document.getElementById("unplugImg1_m").style.display == "none"){
 				$("#unplugImg2_m").fadeOut(500);
-				if(odmpid == "RT-AC66U V2")
+				if(odmpid == "RT-AC66U_B1" || odmpid == "RT-AC1750_B1" || odmpid == "RT-N66U_C1" || odmpid == "RT-AC1900U" || odmpid == "RP-AC1900" || odmpid == "RT-AC67U")
 					document.getElementById("unplugImg1_m").src = "/images/RT-AC66U_V2/WANunplug_eth.png";
 				setTimeout('$("#unplugImg1_m").fadeIn(500);', 500);	
 			}
 			else{
 				$("#unplugImg1_m").fadeOut(500);
-				if(odmpid == "RT-AC66U V2")
+				if(odmpid == "RT-AC66U_B1" || odmpid == "RT-AC1750_B1" || odmpid == "RT-N66U_C1" || odmpid == "RT-AC1900U" || odmpid == "RP-AC1900" || odmpid == "RT-AC67U")
 					document.getElementById("unplugImg2_m").src = "/images/RT-AC66U_V2/WANunplug_usb.png";
 				setTimeout('$("#unplugImg2_m").fadeIn(500);', 500);	
 			}
@@ -393,13 +398,13 @@ function startPoll(){
 			if(usb_flag != "" && based_modelid != "RT-AC87U"){
 				if(document.getElementById("unplugImg1").style.display == "none"){
 					$("#unplugImg2").fadeOut(500);
-					if(odmpid == "RT-AC66U V2")
+					if(odmpid == "RT-AC66U_B1" || odmpid == "RT-AC1750_B1" || odmpid == "RT-N66U_C1" || odmpid == "RT-AC1900U" || odmpid == "RP-AC1900" || odmpid == "RT-AC67U")
 						document.getElementById("unplugImg1").src = "/images/RT-AC66U_V2/WANunplug_eth.png";
 					setTimeout('$("#unplugImg1").fadeIn(500);', 500);	
 				}
 				else{
 					$("#unplugImg1").fadeOut(500);	
-					if(odmpid == "RT-AC66U V2")
+					if(odmpid == "RT-AC66U_B1" || odmpid == "RT-AC1750_B1" || odmpid == "RT-N66U_C1" || odmpid == "RT-AC1900U" || odmpid == "RP-AC1900" || odmpid == "RT-AC67U")
 						document.getElementById("unplugImg2").src = "/images/RT-AC66U_V2/WANunplug_usb.png";
 					setTimeout('$("#unplugImg2").fadeIn(500);', 500);	
 				}
@@ -413,13 +418,13 @@ function startPoll(){
 	else{
 		if(parent.ISMOBILE){
 			$("#unplugImg1_m").fadeOut(500);
-			if(odmpid == "RT-AC66U V2")
+			if(odmpid == "RT-AC66U_B1" || odmpid == "RT-AC1750_B1" || odmpid == "RT-N66U_C1" || odmpid == "RT-AC1900U" || odmpid == "RP-AC1900" || odmpid == "RT-AC67U")
 				document.getElementById("unplugImg1_m").src = "/images/RT-AC66U_V2/WANunplug_eth.png";
 			setTimeout('$("#unplugImg1_m").fadeIn(500);', 500);	
 		}
 		else{
 			$("#unplugImg1").fadeOut(500);
-			if(odmpid == "RT-AC66U V2")
+			if(odmpid == "RT-AC66U_B1" || odmpid == "RT-AC1750_B1" || odmpid == "RT-N66U_C1" || odmpid == "RT-AC1900U" || odmpid == "RP-AC1900" || odmpid == "RT-AC67U")
 				document.getElementById("unplugImg1").src = "/images/RT-AC66U_V2/WANunplug_eth.png";
 			setTimeout('$("#unplugImg1").fadeIn(500);', 500);	
 		}
@@ -443,15 +448,16 @@ function submitenter(myfield,e){
 }
 
 function uploadSetting(){
-  var file_obj = document.form.file;
+	var file_obj = document.form.file;
+	var file_obj_name = file_obj.value.toUpperCase();
 	
-	if(file_obj.value == ""){
+	if(file_obj_name == ""){
 		alert("<#JS_fieldblank#>");
 		file_obj.focus();
 	}
-	else if(file_obj.value.length < 6 ||
-					file_obj.value.lastIndexOf(".CFG")  < 0 || 
-					file_obj.value.lastIndexOf(".CFG") != (file_obj.value.length)-4){		
+	else if(file_obj_name.length < 6 ||
+					file_obj_name.lastIndexOf(".CFG")  < 0 || 
+					file_obj_name.lastIndexOf(".CFG") != (file_obj_name.length)-4){		
 		alert("<#Setting_upload_hint#>");
 		file_obj.focus();
 	}
@@ -464,14 +470,6 @@ function uploadSetting(){
 		document.form.submit();
 	}	
 }
-
-function disable_button(){
-	var disable_button_x = document.getElementsByClassName('button_gen');
-	for(x=disable_button_x.length-1;x>=0;x--){
-		disable_button_x[x].disabled = true;
-	}
-}
-
 
 </script>
 </head>  
@@ -492,8 +490,9 @@ function disable_button(){
 		</tr>	
 		<tr>
 			<td>
-				<div style="margin:5px;"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
-				<div id="warming_field" style="display:none" class="warming_desc">Note: the router you are using is not an ASUS device or has not been authorised by ASUS. ASUSWRT might not work properly on this device.</div>
+				<div style="margin:5px;">
+					<div style="width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
+				</div>
 			</td>
 		</tr>	
 		<tr>
@@ -517,7 +516,7 @@ function disable_button(){
 									</div>
 									<div style="">
 										<div>
-											<input class="button_gen_long" id="btn_next_step" type="button" value="<#Auto_Setting_btn#>" onclick="startDetect();" style="">
+											<input class="button_gen" id="btn_next_step" type="button" value="<#Auto_Setting_btn#>" onclick="startDetect();" style="">
 											<img id="loadingIcon" style="display:none;" src="/images/InternetScan.gif">
 										</div>
 									</div>									
@@ -528,7 +527,7 @@ function disable_button(){
 									</div>
 									<div style="">
 										<div>
-											<input class="button_gen_long" type="button" value="<#Manual_Setting_btn#>" onclick="submitForm(0);" style="">
+											<input class="button_gen" type="button" value="<#Manual_Setting_btn#>" onclick="submitForm(0);" style="">
 										</div>
 									</div>									
 								</div>							
@@ -546,16 +545,13 @@ function disable_button(){
 									<div><img id="unplugImg"  src="/images/WANunplug.png"></div>
 									<div><img id="unplugImg1" style="margin-top:-198px;" src="/images/WANunplug_eth.png"></div>
 									<div><img id="unplugImg2" style="margin-top:-198px;display:none;" src="/images/WANunplug_usb.png"></div>
+									<div id="noti_usb_uplus" class="QISGeneralFont" style="text-align:left;margin-left:25px;display:none;">*Please note that USB3.0 port is in front of router</div>
 								</div>	
 							</div>	
 						</td>
 					</tr>
 					<tr>
-						<td colspan="3" align="left">
-							<!--input class="button_gen_long" type="button" value="<#Manual_Setting_btn#>" onclick="submitForm(0);" style="margin-left:30px;"-->
-							<!--input class="button_gen_long" id="btn_next_step" type="button" value="<#btn_go#>" onclick="startDetect();" style="margin-left:50px;"-->
-							
-						</td>
+						<td colspan="3" align="left"></td>
 					</tr>
 				</table>
 			</td>	
@@ -563,7 +559,7 @@ function disable_button(){
 		<tr>
 			<td>
 				<div id="AreaHint" style="margin-top:25px;">
-					<div><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
+					<div style="width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
 					<div id="main_manual" style="padding-left:20px;margin-top:10px">
 						<span><#QKset_skip_setup#> </span>
 						<span><#QKset_setup_manual_1#> <#OP_AP_item#></span>
@@ -572,6 +568,9 @@ function disable_button(){
 						<span id="wisp_title" style="display:none">/ <#OP_WISP_item#></span>
 						<span>. </span>
 						<span><#QKset_restore_0#></span>
+						<script>
+							$("label").on("click", function(e){e.preventDefault();})
+						</script>
 					</div>	
 					<div id="lte_manual" style="padding-left:20px;margin-top:10px;display:none">
 						<span><#QKset_setup_manual_0#> </span>
@@ -579,6 +578,9 @@ function disable_button(){
 					</div>
 					<div style="height:30px;display:none">
 						<input id="upload_setting_profile" type="file" name="file" class="input" style="color:#FFCC00;" onchange="uploadSetting();">
+					</div>
+					<div id="amesh_hint" style="padding-left:20px;margin-top:10px;color:#FC0;display:none;">
+						<span>There are AiMesh Master Router available nearby, if you want adding this router to your Amesh system, please connecting to Master Router setting.</span>
 					</div>
 				</div>
 			</td>

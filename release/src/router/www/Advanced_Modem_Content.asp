@@ -91,6 +91,13 @@ else{
 }
 var modem_android_orig = '<% nvram_get("modem_android"); %>';
 
+function change_usb_unit(){
+	document.form.wan_unit.value = usb_index;
+	FormActions("apply.cgi", "change_wan_unit", "", "");
+	document.form.target = "";
+	document.form.submit();
+	location.herf = document.form.current_page.value;
+}
 
 function genWANSoption(){
 	for(i=0; i<wans_dualwan.split(" ").length; i++){
@@ -112,6 +119,11 @@ function initial(){
 
 	if(dualWAN_support && '<% nvram_get("wans_dualwan"); %>'.search("none") < 0){
 		genWANSoption();
+		if(document.form.wan_unit.value != usb_index && usb_index != -1)
+			change_usb_unit();
+		else if(usb_index == -1){
+			document.getElementById("WANscap").style.display = "none";
+		}
 	}
 	else{
 		document.form.wan_unit.disabled = true;
@@ -143,6 +155,9 @@ function initial(){
 		function() {
 			if(dualWAN_support)
 				document.form.wans_dualwan.value = wans_dualwan_array[0]+" usb";
+			else
+				document.form.modem_enable.value = "1";
+
 			document.getElementById("modem_android_tr").style.display="";
 			if(document.form.modem_android.value == "0"){
 				switch_modem_mode(document.form.modem_enable.value);
@@ -153,17 +168,19 @@ function initial(){
 				change_apn_mode();
 			}
 			else{
-				document.getElementById("android_desc").style.display="";					
+				document.getElementById("android_desc").style.display="";
 				hide_usb_settings(1);
-			}				
+			}
 		},
 		function() {
 			if(dualWAN_support){
 				if(usb_index == 0)
-						document.form.wans_dualwan.value = wans_dualwan_array[1]+" none";
-					else
-						document.form.wans_dualwan.value = wans_dualwan_array[0]+" none";
+					document.form.wans_dualwan.value = wans_dualwan_array[1]+" none";
+				else
+					document.form.wans_dualwan.value = wans_dualwan_array[0]+" none";
 			}
+			else
+				document.form.modem_enable.value = "0";
 			document.getElementById("modem_android_tr").style.display="none";
 			hide_usb_settings();
 		}
@@ -180,6 +197,10 @@ function initial(){
 
 	check_dongle_status();
 
+	//short term solution for brt-ac828
+	if(based_modelid == "BRT-AC828") {
+		document.getElementById("back_app_installation").style.display = "none";
+	}
 }
 
 function reloadProfile(){
@@ -490,6 +511,13 @@ function applyRule(){
 		document.form.modem_isp.options[0] = new Option(valueStr, valueStr, false, true);
 	}
 
+	wans_dualwan_array = document.form.wans_dualwan.value.split(" "); //update wans_dualwan_array
+	if(wans_dualwan_array.indexOf("usb") == 0 && document.form.wan0_enable.value == "0")
+		document.form.wan0_enable.value = "1";
+
+	if(wans_dualwan_array.indexOf("usb") == 1 && document.form.wan1_enable.value == "0")
+		document.form.wan1_enable.value = "1";
+
 	showLoading(); 
 	document.form.submit();
 }
@@ -677,7 +705,7 @@ function change_apn_mode(){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="hiddenMask" class="popup_bg">
 	<table cellpadding="5" cellspacing="0" id="dr_sweet_advise" class="dr_sweet_advise" align="center">
@@ -711,6 +739,8 @@ function change_apn_mode(){
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="modem_enable" value="<% nvram_get("modem_enable"); %>">
 <input type="hidden" name="wans_dualwan" value="<% nvram_get("wans_dualwan"); %>">
+<input type="hidden" name="wan0_enable" value="<% nvram_get("wan0_enable"); %>">
+<input type="hidden" name="wan1_enable" value="<% nvram_get("wan1_enable"); %>">
 
 <table class="content" align="center" cellpadding="0" cellspacing="0">
   <tr>
@@ -740,12 +770,12 @@ function change_apn_mode(){
 								<span class="formfonttitle"><#menu5_4_4#> / <#usb_tethering#></span>
 							</td>
 							<td align="right">
-								<img onclick="go_setting('/APP_Installation.asp')" align="right" style="cursor:pointer;position:absolute;margin-left:-20px;margin-top:-30px;" title="<#Menu_usb_application#>" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'">
+								<img id='back_app_installation' onclick="go_setting('/APP_Installation.asp')" align="right" style="cursor:pointer;position:absolute;margin-left:-20px;margin-top:-30px;" title="<#Menu_usb_application#>" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'">
 							</td>
 						</tr>
 					</table>
 				</div>
-				<div style="margin:5px;"><img src="/images/New_ui/export/line_export.png"></div>
+				<div style="margin:5px;" class="splitLine"></div>
 	      		<div class="formfontdesc"><#HSDPAConfig_hsdpa_enable_hint1#></div>
 					<table  width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable" id="WANscap">
 						<thead>
@@ -757,10 +787,6 @@ function change_apn_mode(){
 							<th><#wan_type#></th>
 							<td align="left">
 								<select class="input_option" name="wan_unit" onchange="change_wan_unit(this);"></select>
-								<!--select id="dsltmp_transmode" name="dsltmp_transmode" class="input_option" style="margin-left:7px;" onChange="change_dsl_transmode(this);">
-									<option value="atm" <% nvram_match("dsltmp_transmode", "atm", "selected"); %>>ADSL WAN (ATM)</option>
-									<option value="ptm" <% nvram_match("dsltmp_transmode", "ptm", "selected"); %>>VDSL WAN (PTM)</option>
-								</select-->
 							</td>
 						</tr>
 					</table>
@@ -802,7 +828,7 @@ function change_apn_mode(){
 						<th width="40%"><#APN_configuration#></th>
 						<td>
 							<select name="modem_autoapn" id="modem_autoapn" class="input_option" onchange="change_apn_mode();">
-								<option value="1" <% nvram_match("modem_autoapn", "1","selected"); %>>Automatic</option><!--untranslated-->
+								<option value="1" <% nvram_match("modem_autoapn", "1","selected"); %>><#Auto#></option>
 								<option value="0" <% nvram_match("modem_autoapn", "0","selected"); %>><#Manual_Setting_btn#></option>
 							</select>
 						</td>
@@ -839,7 +865,7 @@ function change_apn_mode(){
 					</tr>
 
           			<tr id="modem_enable_div_tr" style="display:none;">
-						<th>Telecommunications Standards</th>
+						<th><#Tele_Standards#></th>
 	            		<td>
 							<div id="modem_enable_div" style="color:#FFFFFF; margin-left:1px;"></div>
 						</td>
@@ -876,14 +902,14 @@ function change_apn_mode(){
 					</tr>
 
 					<tr>
-						<th><a class="hintstyle"  href="javascript:void(0);" onClick="openHint(21,11);"><#HSDPAConfig_Username_itemname#></a></th>
+						<th><a class="hintstyle"  href="javascript:void(0);" onClick="openHint(21,11);"><#Username#></a></th>
 						<td>
 						<input id="modem_user" name="modem_user" class="input_20_table" maxlength="32" type="text" value="<% nvram_get("modem_user"); %>" autocorrect="off" autocapitalize="off"/>
 						</td>
 					</tr>
 
           			<tr id="modem_user_div_tr" style="display:none;">
-						<th><#HSDPAConfig_Username_itemname#></th>
+						<th><#Username#></th>
 	            		<td>
 							<div id="modem_user_div" style="color:#FFFFFF; margin-left:1px;"></div>
 						</td>

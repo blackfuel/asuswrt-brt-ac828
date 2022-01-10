@@ -1,6 +1,6 @@
 include ../common.mak
 
-ifeq ($(RTCONFIG_BCMARM),y)
+ifeq ($(or $(RTCONFIG_BCMARM),$(RTCONFIG_QCA_ARM),$(RTCONFIG_ALPINE)),y)
 CONFIGURE=configure-router-arm
 ARCH=ARM
 else
@@ -8,10 +8,10 @@ CONFIGURE=configure-router-mips
 ARCH=MIPS
 endif
 
-all: clean pjproject-1.12/stamp-h1-$(ARCH)
+all: pjproject-1.12/stamp-h1-$(ARCH)
 	$(MAKE) -C pjproject-1.12
 	$(MAKE) -C udt os=LINUX arch=$(ARCH)
-	$(MAKE) -C natnl linux-lib
+	$(MAKE) -C natnl linux-lib router=yes RTCONFIG_SW_HW_AUTH=$(RTCONFIG_SW_HW_AUTH)
 #	$(MAKE) -C natnl/msvc_prjs/asusnatnl_test
 
 clean:

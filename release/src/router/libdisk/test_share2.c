@@ -14,6 +14,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307 USA
  */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #define VERSION 1
 //#define PC
@@ -392,7 +395,7 @@ extern void set_file_integrity(const char *const file_name){
 		return;
 	}
 	len = strlen(file_name)-strlen(ptr);
-	memset(target_dir, 0, PATH_MAX);
+	memset(target_dir, 0, szieof(target_dir));
 	strncpy(target_dir, file_name, len);
 
 	if((file_size = f_size(file_name)) == -1){
@@ -400,14 +403,12 @@ extern void set_file_integrity(const char *const file_name){
 		return;
 	}
 
-	memset(test_file, 0, PATH_MAX);
-	sprintf(test_file, "%s.%lu", file_name, file_size);
+	snprintf(test_file, szieof(test_file), "%s.%lu", file_name, file_size);
 	if((fp = fopen(test_file, "w")) != NULL)
 		fclose(fp);
 
-	memset(test_file_name, 0, PATH_MAX);
 	++ptr;
-	sprintf(test_file_name, "%s.%lu", ptr, file_size);
+	snprintf(test_file_name, szieof(test_file_name), "%s.%lu", ptr, file_size);
 
 	if((opened_dir = opendir(target_dir)) == NULL){
 		usb_dbg("Can't opendir \"%s\".\n", target_dir);
@@ -424,8 +425,7 @@ extern void set_file_integrity(const char *const file_name){
 		if(strncmp(dp->d_name, ptr, len) || !strcmp(dp->d_name, ptr) || !strcmp(dp->d_name, test_file_name))
 			continue;
 
-		memset(test_path, 0, PATH_MAX);
-		sprintf(test_path, "%s/%s", target_dir, dp->d_name);
+		snprintf(test_path, szieof(test_path), "%s/%s", target_dir, dp->d_name);
 		usb_dbg("delete %s.\n", test_path);
 		delete_file_or_dir(test_path);
 	}
@@ -441,8 +441,7 @@ extern int check_file_integrity(const char *const file_name){
 		return 0;
 	}
 
-	memset(test_file, 0, PATH_MAX);
-	sprintf(test_file, "%s.%lu", file_name, file_size);
+	snprintf(test_file, szieof(test_file), "%s.%lu", file_name, file_size);
 	if(!check_if_file_exist(test_file)){
 		usb_dbg("Fail to check the folder list.\n");
 		return 0;
@@ -483,7 +482,7 @@ extern int get_folder_list(const char *const mount_path, int *sh_num, char ***fo
 		usb_dbg("Can't malloc \"list_file\".\n");
 		return -1;
 	}
-	sprintf(list_file, "%s/.__folder_list.txt", mount_path);
+	snprintf(list_file, (len+1), "%s/.__folder_list.txt", mount_path);
 	list_file[len] = 0;
 	
 	// 2. check the file integrity.
@@ -554,8 +553,7 @@ extern int get_folder_list(const char *const mount_path, int *sh_num, char ***fo
 	
 	for (i = 0; i < *sh_num; ++i){
 		// 6. get folder name
-		memset(target, 0, 16);
-		sprintf(target, "\nsh_name%d=", i);
+		snprintf(target, szieof(target), "\nsh_name%d=", i);
 		follow_info = strstr(list_info, target);
 		if(follow_info == NULL){
 			usb_dbg("The list content in %s is wrong.\n", mount_path);
@@ -624,7 +622,7 @@ extern int get_all_folder(const char *const mount_path, int *sh_num, char ***fol
 			closedir(pool_to_open);
 			return -1;
 		}
-		sprintf(testdir, "%s/%s", mount_path, dp->d_name);
+		snprintf(testdir, (len+1), "%s/%s", mount_path, dp->d_name);
 		testdir[len] = 0;
 		if(!check_if_dir_exist(testdir)){
 			free(testdir);
@@ -677,7 +675,7 @@ extern int get_var_file_name(const int type, const char *const name, const char 
 	if(type == TYPE_GROUP)
 		++len;
 
-	memset(ascii_user, 0, 64);
+	memset(ascii_user, 0, szieof(ascii_user));
 	if(name != NULL){
 		char_to_ascii_safe(ascii_user, name, 64);
 
@@ -690,12 +688,12 @@ extern int get_var_file_name(const int type, const char *const name, const char 
 	var_file = *file_name;
 	if(name != NULL){
 		if(type == TYPE_GROUP)
-			sprintf(var_file, "%s/.__G%s_var.txt", path, ascii_user);
+			snprintf(var_file, (len+1), "%s/.__G%s_var.txt", path, ascii_user);
 		else
-			sprintf(var_file, "%s/.__%s_var.txt", path, ascii_user);
+			snprintf(var_file, (len+1), "%s/.__%s_var.txt", path, ascii_user);
 	}
 	else
-		sprintf(var_file, "%s/.___var.txt", path);
+		snprintf(var_file, (len+1), "%s/.___var.txt", path);
 	var_file[len] = 0;
 
 	return 0;
@@ -720,7 +718,7 @@ extern int initial_folder_list(const char *const mount_path){
 		usb_dbg("Can't malloc \"list_file\".\n");
 		return -1;
 	}
-	sprintf(list_file, "%s/.__folder_list.txt", mount_path);
+	snprintf(list_file, (len+1), "%s/.__folder_list.txt", mount_path);
 	list_file[len] = 0;
 	
 	// 2. get the folder number and folder_list
@@ -866,8 +864,7 @@ extern int initial_all_var_file(const char *const mount_path){
 		if(strncmp(dp->d_name, ".__", 3))
 			continue;
 
-		memset(test_path, 0, PATH_MAX);
-		sprintf(test_path, "%s/%s", mount_path, dp->d_name);
+		snprintf(test_path, szieof(test_path), "%s/%s", mount_path, dp->d_name);
 		usb_dbg("delete %s.\n", test_path);
 		delete_file_or_dir(test_path);
 	}
@@ -1097,7 +1094,7 @@ extern int modify_if_exist_new_folder(const int type, const char *const name, co
 			free(var_file);
 			return -1;
 		}
-		sprintf(target, "*%s=", folder_list[i]);
+		snprintf(target, (len+1), "*%s=", folder_list[i]);
 		target[len] = 0;
 
 		// 5. get the default permission of all protocol.
@@ -1208,14 +1205,11 @@ extern int set_permission(const int type, const char *const name, const char *co
 		
 		return -1;
 	}
-	if(folder == NULL)
-		strcpy(target, "*=");
-	else
-		sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", (folder != NULL)?folder:"");
 	target[len] = 0;
 	
 	// 5. judge if the target is in the var file.
-	follow_info = upper_strstr(var_info, target);
+	follow_info = strcasestr(var_info, target);
 	if(follow_info == NULL){
 		if(name == NULL)
 			usb_dbg("No right about \"%s\" with the share mode.\n", (folder == NULL?"Pool":folder));
@@ -1360,13 +1354,10 @@ retry_get_permission:
 		free(var_info);
 		return -1;
 	}
-	if(f == NULL)
-		strcpy(target, "*=");
-	else
-		sprintf(target, "*%s=", f);
+	snprintf(target, (len+1), "*%s=", (f != NULL)?f:"");
 	target[len] = 0;
 
-	follow_info = upper_strstr(var_info, target);
+	follow_info = strcasestr(var_info, target);
 	free(target);
 	if(follow_info == NULL){
 		if(name == NULL)
@@ -1507,7 +1498,7 @@ extern int add_folder(const char *const account, const char *const mount_path, c
 		usb_dbg("Can't malloc \"full_path\".\n");
 		return -1;
 	}
-	sprintf(full_path, "%s/%s", mount_path, folder);
+	snprintf(full_path, (len+1), "%s/%s", mount_path, folder);
 	full_path[len] = 0;
 
 	umask(0000);
@@ -1524,7 +1515,7 @@ extern int add_folder(const char *const account, const char *const mount_path, c
 		usb_dbg("Can't allocate \"target\".\n");
 		return -1;
 	}
-	sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", folder);
 	target[len] = 0;
 
 	// 3. add folder's right to every var file	
@@ -1569,7 +1560,7 @@ extern int add_folder(const char *const account, const char *const mount_path, c
 		if(var_info == NULL){
 			usb_dbg("add_folder: \"%s\" isn't existed or there's no content.\n", var_file);
 		}
-		else if(upper_strstr(var_info, target) != NULL){
+		else if(strcasestr(var_info, target) != NULL){
 			free(var_file);
 			free(var_info);
 			continue;
@@ -1672,7 +1663,7 @@ extern int add_folder(const char *const account, const char *const mount_path, c
 		if(var_info == NULL){
 			usb_dbg("add_folder: \"%s\" isn't existed or there's no content.\n", var_file);
 		}
-		else if(upper_strstr(var_info, target) != NULL){
+		else if(strcasestr(var_info, target) != NULL){
 			free(var_file);
 			free(var_info);
 			continue;
@@ -1775,7 +1766,7 @@ extern int del_folder(const char *const mount_path, const char *const folder){
 		usb_dbg("Can't malloc \"full_path\".\n");
 		return -1;
 	}
-	sprintf(full_path, "%s/%s", mount_path, folder);
+	snprintf(full_path, (len+1), "%s/%s", mount_path, folder);
 	full_path[len] = 0;
 
 	result = test_if_exist_share(mount_path, folder);
@@ -1804,7 +1795,7 @@ extern int del_folder(const char *const mount_path, const char *const folder){
 		usb_dbg("Can't allocate \"target\".\n");
 		return -1;
 	}
-	sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", folder);
 	target[len] = 0;
 
 	// 4. del folder's right to every var file
@@ -1852,7 +1843,7 @@ extern int del_folder(const char *const mount_path, const char *const folder){
 			continue;
 		}
 
-		follow_info = upper_strstr(var_info, target);
+		follow_info = strcasestr(var_info, target);
 		if(follow_info == NULL){
 			if(i == -1)
 				usb_dbg("No right about \"%s\" of the share mode.\n", folder);
@@ -1929,7 +1920,7 @@ extern int del_folder(const char *const mount_path, const char *const folder){
 			continue;
 		}
 
-		follow_info = upper_strstr(var_info, target);
+		follow_info = strcasestr(var_info, target);
 		if(follow_info == NULL){
 			if(i == -1)
 				usb_dbg("No right about \"%s\" of the share mode.\n", folder);
@@ -2008,7 +1999,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 		
 		return -1;
 	}
-	sprintf(full_path, "%s/%s", mount_path, folder);
+	snprintf(full_path, (len+1), "%s/%s", mount_path, folder);
 	full_path[len] = 0;
 
 	len = strlen(mount_path)+strlen("/")+strlen(new_folder);
@@ -2018,7 +2009,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 		
 		return -1;
 	}
-	sprintf(new_full_path, "%s/%s", mount_path, new_folder);
+	snprintf(new_full_path, (len+1), "%s/%s", mount_path, new_folder);
 	new_full_path[len] = 0;
 
 	result = test_if_exist_share(mount_path, folder);
@@ -2054,7 +2045,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 		usb_dbg("Can't allocate \"target\".\n");
 		return -1;
 	}
-	sprintf(target, "*%s=", folder);
+	snprintf(target, (len+1), "*%s=", folder);
 	target[len] = 0;
 
 	len = strlen("*")+strlen(new_folder)+strlen("=");
@@ -2064,7 +2055,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 		free(target);
 		return -1;
 	}
-	sprintf(new_target, "*%s=", new_folder);
+	snprintf(new_target, (len+1), "*%s=", new_folder);
 	new_target[len] = 0;
 
 	if((acc_num = PMS_ActionAccountInfo("get", &account_list, 0)) != 0){
@@ -2117,7 +2108,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 			return -1;
 		}
 
-		if((follow_info = upper_strstr(var_info, target)) == NULL){
+		if((follow_info = strcasestr(var_info, target)) == NULL){
 			usb_dbg("1. No \"%s\" in \"%s\"..\n", folder, var_file);
 			PMS_FreeAccountInfo(&account_list);
 			free(target);
@@ -2205,7 +2196,7 @@ extern int mod_folder(const char *const mount_path, const char *const folder, co
 			return -1;
 		}
 
-		if((follow_info = upper_strstr(var_info, target)) == NULL){
+		if((follow_info = strcasestr(var_info, target)) == NULL){
 			usb_dbg("1. No \"%s\" in \"%s\"..\n", folder, var_file);
 			PMS_FreeAccountGroupInfo(&group_list);
 			free(target);
@@ -2272,7 +2263,7 @@ extern int test_if_exist_share(const char *const mount_path, const char *const f
 	
 	result = 0;
 	for (i = 0; i < sh_num; ++i)
-		if(!upper_strcmp(folder, folder_list[i])){
+		if(strcasecmp(folder, folder_list[i]) == 0){
 			result = 1;
 			break;
 		}

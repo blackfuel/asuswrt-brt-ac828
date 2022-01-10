@@ -737,7 +737,7 @@ void genimg_get_dtb_from_asus_trx(bootm_headers_t *images)
 	hw = &(hdr->u.tail.hw[0]);
 	rfs_addr = rfs_offset = u.rfs_offset_net_endian = 0;
 	for (i = 0; i < (MAX_VER*2); i++, hw++) {
-		if (hw->major != ROOTFS_OFFSET_MAGIC)
+		if (hw->major != ROOTFS_OFFSET_MAGIC || (hw + 1)->minor & 0x3)
 			continue;
 
 		u.p[1] = hw->minor;
@@ -1186,7 +1186,7 @@ int boot_get_ramdisk(int argc, char * const argv[], bootm_headers_t *images,
 		else {
 			images->root_id = 2;	/* RAM disk */
 			for (i = 0; i < (MAX_VER*2); i++, hw++) {
-				if (hw->major != ROOTFS_OFFSET_MAGIC)
+				if (hw->major != ROOTFS_OFFSET_MAGIC || (hw + 1)->minor & 0x3)
 					continue;
 
 				u.p[1] = hw->minor;

@@ -108,6 +108,12 @@ confmtd_backup()
 	confmtd_hdr_t mtd_hdr;
 	DIR *dir;
 	int fd = -1;
+#ifdef BCA_HNDROUTER
+	FILE *fp;
+	char dev[PATH_MAX];
+	char size_str[32];
+	unsigned long int size = 0;
+#endif
 
 	/* backup confmtd directiries to raw partition */
 	unlink(CONFMTD_TGZ_TMP_FILE);
@@ -115,6 +121,36 @@ confmtd_backup()
 	if ((dir = opendir(NAND_DIR))) {
 		closedir(dir);
 		system(cmd);
+#ifdef BCA_HNDROUTER
+		if ((fd = open(CONFMTD_TGZ_TMP_FILE, O_RDONLY)) < 0) {
+			fprintf(stderr, "Open %s fail\n", CONFMTD_TGZ_TMP_FILE);
+			goto fail;
+		}
+
+		if (fstat(fd, &tmp_stat) || tmp_stat.st_size == 0) {
+			perror("tgz");
+			goto fail;
+		}
+
+		if ((fp = fopen("/proc/mtd", "r"))) {
+			while (fgets(dev, sizeof(dev), fp)) {
+				if (sscanf(dev, "%*s %s %*s", size_str) && strstr(dev, "data")) {
+					size = strtoul(size_str, NULL, 16);
+					break;
+				}
+			}
+
+			fclose(fp);
+
+			if (size == 0 || size < (tmp_stat.st_size + (128 + 8) * 1024)) {
+				perror("size");
+				goto fail;
+			}
+		} else {
+			perror("mtd");
+			goto fail;
+		}
+#endif
 		system(cp_file);
 
 		unlink(CONFMTD_TGZ_TMP_FILE);
@@ -177,7 +213,7 @@ confmtd_backup()
 
 	/* create mtd header content */
 	memset(&mtd_hdr, 0, sizeof(mtd_hdr));
-	snprintf(&mtd_hdr.magic, sizeof(mtd_hdr.magic), "%s", CONFMTD_MAGIC);
+	snprintf((char *) &mtd_hdr.magic, sizeof(mtd_hdr.magic), "%s", CONFMTD_MAGIC);
 	mtd_hdr.len = tmp_stat.st_size;
 	mtd_hdr.checksum = confmtd_checksum(tmp_buf, tmp_stat.st_size);
 
@@ -230,7 +266,7 @@ confmtd_restore()
 	FILE *fp = NULL;
 	char *buf = NULL;
 	int ret = -1;
-	confmtd_hdr_t mtd_hdr = {0};
+	confmtd_hdr_t mtd_hdr = { { 0,0,0,0,0,0,0,0 }, 0, 0 };
 	struct stat tmp_stat;
 	DIR *dir;
 
@@ -266,7 +302,7 @@ confmtd_restore()
 		goto fail;
 	}
 
-	if (strcmp(&mtd_hdr.magic, CONFMTD_MAGIC) != 0) {
+	if (strcmp((const char *)&mtd_hdr.magic, CONFMTD_MAGIC) != 0) {
 		printf("magic incorrect\n");
 		goto fail;
 	}

@@ -41,6 +41,15 @@ start_wps_method(void)
 		notify_rc("start_wps_method");
 		return 0;
 	}
+#ifdef RTCONFIG_CONCURRENTREPEATER
+	int sw_mode = sw_mode();
+
+	if (sw_mode == SW_MODE_REPEATER) {// Repeater mode
+
+		start_wps_cli();
+		return 0;
+	}
+#endif
 
 #ifdef RTCONFIG_WPS_ENROLLEE
 	if (nvram_match("wps_enrollee", "1"))
@@ -60,6 +69,15 @@ stop_wps_method(void)
 		return 0;
 	}
 
+#ifdef RTCONFIG_CONCURRENTREPEATER
+	int sw_mode = sw_mode;
+
+	if (sw_mode == SW_MODE_REPEATER) {// Repeater mode
+
+		stop_wps_cli();
+		return 0;
+	}
+#endif
 #ifdef RTCONFIG_WPS_ENROLLEE
 	if (nvram_match("wps_enrollee", "1")) {
 		stop_wsc_enrollee();
@@ -78,6 +96,10 @@ int is_wps_stopped(void)
 	int i, ret = 1;
 	char status[16], tmp[128], prefix[] = "wlXXXXXXXXXX_", word[256], *next, ifnames[128];
 	int wps_band = nvram_get_int("wps_band_x"), multiband = get_wps_multiband();
+	char tmpbuf[512];
+#if defined(RTCONFIG_WIFI_SON) || defined(RTCONFIG_AMAS)
+	int wps_enrollee_band = nvram_match("wifison_ready", "1") ? 1 : 0;
+#endif
 
 	i = 0;
 	strcpy(ifnames, nvram_safe_get("wl_ifnames"));
@@ -88,6 +110,7 @@ int is_wps_stopped(void)
 			++i;
 			continue;
 		}
+		SKIP_ABSENT_BAND_AND_INC_UNIT(i);
 		snprintf(prefix, sizeof(prefix), "wl%d_", i);
 		if (!__need_to_start_wps_band(prefix) || nvram_match(strcat_r(prefix, "radio", tmp), "0")) {
 			ret = 0;
@@ -96,11 +119,18 @@ int is_wps_stopped(void)
 		}
 
 #ifdef RTCONFIG_WPS_ENROLLEE
-		if (nvram_match("wps_enrollee", "1"))
-			strcpy(status, getWscStatus_enrollee(i));
+		if (nvram_match("wps_enrollee", "1")) {
+#if defined(RTCONFIG_WIFI_SON) || defined(RTCONFIG_AMAS)
+			if (i != wps_enrollee_band) {
+				++i;
+				continue;
+			}
+#endif
+			strcpy(status, getWscStatus_enrollee(i, tmpbuf, sizeof(tmpbuf)));
+		}
 		else
 #endif
-			strcpy(status, getWscStatus(i));
+			strcpy(status, getWscStatus(i, tmpbuf, sizeof(tmpbuf)));
 
 		//dbG("band %d wps status: %s\n", i, status);
 		if (!strcmp(status, "Success") 
@@ -112,13 +142,24 @@ int is_wps_stopped(void)
 #ifdef RTCONFIG_WPS_LED
 			nvram_set("wps_success", "1");
 #endif
-#if (defined(RTCONFIG_WPS_ENROLLEE) && defined(RTCONFIG_WIFI_CLONE))
+#if (defined(RTCONFIG_WPS_ENROLLEE))
 			if (nvram_match("wps_enrollee", "1")) {
 				nvram_set("wps_e_success", "1");
 #if (defined(PLN12) || defined(PLAC56))
 				set_wifiled(4);
 #endif
-				wifi_clone(i);
+#if defined(RTCONFIG_AMAS)
+#if defined(RTCONFIG_WIFI_SON)
+				if (!nvram_match("wifison_ready", "1"))
+#endif
+					amas_save_wifi_para();
+#if defined(RTCONFIG_WIFI_SON)
+				else
+#endif
+#endif	/* RTCONFIG_AMAS */
+#if defined(RTCONFIG_WIFI_CLONE)
+					wifi_clone(i);
+#endif
 			}
 #endif
 			ret = 1;
@@ -143,13 +184,22 @@ int is_wps_stopped(void)
 	return ret;
 }
 
+int is_wps_success(void)
+{
+#if (defined(RTCONFIG_WPS_ENROLLEE))
+	if (nvram_match("wps_enrollee", "1"))
+		return nvram_get_int("wps_e_success");
+#endif
+	return nvram_get_int("wps_success");
+}
+
 /*
  * save new AP configuration from WPS external registrar
  */
 int get_wps_er_main(int argc, char *argv[])
 {
 	int i;
-	char word[32], *next, ifnames[64];
+	char word[32], *next, ifname[IFNAMSIZ], ifnames[64];
 	char wps_ifname[32], _ssid[33], _auth[8], _encr[8], _key[65];
 
 	if (nvram_invmatch("w_Setting", "0"))
@@ -171,7 +221,8 @@ int get_wps_er_main(int argc, char *argv[])
 			int len;
 			char *pt1,*pt2 = NULL;
 
-			sprintf(buf, "hostapd_cli -i%s get_config", word);
+			SKIP_ABSENT_FAKE_IFACE(word);
+			snprintf(buf, sizeof(buf), "hostapd_cli -i%s get_config", word);
 			fp = popen(buf, "r");
 			if (fp) {
 				memset(buf, 0, sizeof(buf));
@@ -250,14 +301,47 @@ int get_wps_er_main(int argc, char *argv[])
 		sleep(1);
 	}
 
-	i = 0;
-	foreach (word, ifnames, next) {
-		if (i >= MAX_NR_WL_IF)
-			break;
-		if (!strcmp(word, wps_ifname))
+	for (i = WL_2G_BAND; i < MAX_NR_WL_IF; ++i) {
+		SKIP_ABSENT_BAND(i);
+
+		__get_wlifname(i, 0, ifname);
+		if (!strcmp(ifname, wps_ifname))
 			continue;
-		eval("hostapd_cli", "-i", word, "wps_config", _ssid, _auth, _encr, _key);
+
+		eval("hostapd_cli", "-i", ifname, "wps_config", _ssid, _auth, _encr, _key);
 	}
 
 	return 0;
 }
+
+#if defined(RTCONFIG_CFG80211)
+/**
+ * Helper of WPS-OOB. Should be call by hostapd_cli.
+ * argv[1]:	VAP interface name
+ * argv[2]:	event name.  Only WPS-NEW-AP-SETTINGS handled.
+ */
+int vap_evhandler_main(int argc, char *argv[])
+{
+	int ret = -2;
+	char path[sizeof("/sys/class/net/XXXXXX") + IFNAMSIZ];
+	char *vap, *cmd;
+
+	if (argc < 2)
+		return -1;
+
+	vap = argv[1];
+	cmd = argv[2];
+	snprintf(path, sizeof(path), "%s/%s", SYS_CLASS_NET, vap);
+	if (!f_exists(path) && !d_exists(path))
+		return -1;
+
+	if (!strcmp(cmd, "WPS-NEW-AP-SETTINGS")) {
+		sleep(2);
+		_ifconfig(vap, 0, NULL, NULL, NULL, 0);
+		_ifconfig(vap, IFUP, NULL, NULL, NULL, 0);
+		ret = 0;
+	}
+
+	return ret;
+}
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@ static ipq_mmc *host = &mmc_host;
 #endif
 
 #define DTB_CFG_LEN		64
-static unsigned char dtb_config_name[DTB_CFG_LEN];
+static char dtb_config_name[DTB_CFG_LEN];
 
 typedef struct {
 	unsigned int image_type;
@@ -79,8 +79,8 @@ static void update_dtb_config_name(uint32_t addr)
 	int nodeoffset;
 
 	/*
-	* construt the dtb config name upon image info property
-	*/
+	 * construt the dtb config name upon image info property
+	 */
 	nodeoffset = fdt_path_offset((const void *)addr, "/image-info");
 
 	if(nodeoffset >= 0) {
@@ -101,6 +101,25 @@ static void update_dtb_config_name(uint32_t addr)
 	} else {
 		snprintf((char *)dtb_config_name,
 			sizeof(dtb_config_name),"#config@%d",SOCINFO_VERSION_MAJOR(soc_version));
+		/*
+		 * Using dtb_config_name + 1 to remove '#' from dtb_config_name.
+		 */
+		if (fit_conf_get_node((void *)addr, (dtb_config_name + 1)) < 0) {
+			/*
+			 * Fetching the dtb_config_name based on the soc version
+			 * of the board.
+			 */
+			snprintf((char *)dtb_config_name, sizeof(dtb_config_name), "#config@%s",
+				gboard_param->dtb_config_name
+				[(SOCINFO_VERSION_MAJOR(soc_version) - 1)]);
+			if (fit_conf_get_node((void *)addr, (dtb_config_name + 1)) < 0) {
+				/*
+				 * For .itb of a specific soc version in a board.
+				 */
+				snprintf((char *)dtb_config_name, sizeof(dtb_config_name),
+					"#config@1");
+			}
+		}
 	}
 }
 
@@ -152,10 +171,8 @@ static int set_fs_bootargs(int *fs_on_nand)
 {
 	char *bootargs = NULL;
 #ifdef CONFIG_IPQ_MMC
-#define STRING(VALUE) #VALUE
-#define STRINGIFY(VALUE) STRING(VALUE)
-#define EMMC_MAX_ARGS "root=/dev/mmcblk0p" STRINGIFY(-INT_MAX) " rootwait"
-	char emmc_rootfs[sizeof(EMMC_MAX_ARGS)];
+#define EMMC_MAX_ARGS 48
+	char emmc_rootfs[EMMC_MAX_ARGS];
 	block_dev_desc_t *blk_dev = mmc_get_dev(host->dev_num);
 	disk_partition_t disk_info;
 	int pos;
@@ -208,7 +225,7 @@ static int set_fs_bootargs(int *fs_on_nand)
 		return -EINVAL;
 	}
 
-	if (getenv("fsbootargs") == NULL)
+	if ((getenv("fsbootargs") == NULL) && (bootargs != NULL))
 		setenv("fsbootargs", bootargs);
 
 	return run_command("setenv bootargs ${bootargs} ${fsbootargs}", 0);
@@ -261,7 +278,7 @@ static int do_boot_signedimg(cmd_tbl_t *cmdtp, int flag, int argc, char *const a
 #ifdef CONFIG_IPQ_LOAD_NSS_FW
 	char bootargs[IH_NMLEN+32];
 #endif
-	char runcmd[256];
+	char runcmd[256] = {0};
 	int ret;
 	unsigned int request;
 #ifdef CONFIG_IPQ_MMC
@@ -387,7 +404,7 @@ static int do_boot_signedimg(cmd_tbl_t *cmdtp, int flag, int argc, char *const a
 
 
 		if (debug)
-			printf(runcmd);
+			printf("%s\n", runcmd);
 
 		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
 			return CMD_RET_FAILURE;
@@ -429,7 +446,7 @@ static int do_boot_signedimg(cmd_tbl_t *cmdtp, int flag, int argc, char *const a
 			request, sfi->hlos.offset, sfi->hlos.size);
 
 		if (debug)
-			printf(runcmd);
+			printf("%s\n", runcmd);
 
 		if (run_command(runcmd, 0) != CMD_RET_SUCCESS)
 			return CMD_RET_FAILURE;
@@ -467,7 +484,7 @@ static int do_boot_signedimg(cmd_tbl_t *cmdtp, int flag, int argc, char *const a
 		dtb_config_name);
 
 	if (debug)
-		printf(runcmd);
+		printf("%s\n", runcmd);
 
 #ifdef CONFIG_IPQ_MMC
 	board_mmc_deinit();
@@ -492,7 +509,7 @@ static int do_boot_unsignedimg(cmd_tbl_t *cmdtp, int flag, int argc, char *const
 #ifdef CONFIG_IPQ_LOAD_NSS_FW
 	char bootargs[IH_NMLEN+32];
 #endif
-	char runcmd[256];
+	char runcmd[256] = {0};
 	int ret;
 
 #ifdef CONFIG_IPQ_MMC
@@ -669,7 +686,7 @@ static int do_boot_unsignedimg(cmd_tbl_t *cmdtp, int flag, int argc, char *const
 	}
 
 	if (debug)
-		printf(runcmd);
+		printf("%s\n", runcmd);
 
 #ifdef CONFIG_IPQ_MMC
 	board_mmc_deinit();

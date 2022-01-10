@@ -42,6 +42,7 @@ obj-$(CONFIG_NF_CONNTRACK_QUAKE3) += nf_conntrack_quake3.o
 obj-$(CONFIG_NF_CONNTRACK_RTSP) += nf_conntrack_rtsp.o
 obj-$(CONFIG_NF_CONNTRACK_SANE) += nf_conntrack_sane.o
 obj-$(CONFIG_NF_CONNTRACK_SIP) += nf_conntrack_sip.o
+obj-$(CONFIG_NF_CONNTRACK_CISCO_SIP) += nf_conntrack_cisco_sip.o
 obj-$(CONFIG_NF_CONNTRACK_TFTP) += nf_conntrack_tftp.o
 
 # transparent proxy support

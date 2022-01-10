@@ -235,7 +235,7 @@ function initial(){
 	if(!openvpnd_support) {
 		delete vpn_server_array.OpenVPN;
 	}
-	if(!ipsec_support) {
+	if(!ipsec_srv_support) {
 		delete vpn_server_array.IPSEC;
 	}
 	$('#divSwitchMenu').html(gen_switch_menu(vpn_server_array, "IPSEC"));
@@ -1923,14 +1923,8 @@ function showipsec_clientlist() {
 					else
 						code +='<td width="45%" title="' + ipsec_client_list_col[0] + '">' + ipsec_client_list_col[0] + '</td>';
 				}
-				else if(j == 1) {
-					if(ipsec_client_list_col[1].length > 28) {
-						ipsec_user_pwd = ipsec_client_list_col[1].substring(0, 26)+"...";
-						code +='<td width="45%" title="' + ipsec_client_list_col[1] + '">'+ ipsec_user_pwd +'</td>';
-					}
-					else
-						code +='<td width="45%" title="' + ipsec_client_list_col[1] + '">'+ ipsec_client_list_col[1] +'</td>';
-				} 
+				else if(j == 1)
+					code +='<td width="45%" title="' + ipsec_client_list_col[1] + '" style="pointer-events:none;">-</td>';
 			}
 			
 			code +='<td width="10%">';
@@ -2319,7 +2313,7 @@ function changeDebugLog() {
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#BOP_isp_heart_item#> - IPSec VPN<!--untranslated--></div>
 									<div id="divSwitchMenu" style="margin-top:-40px;float:right;"></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin: 10px 0 10px 5px" class="splitLine"></div>
 									<div class="formfontdesc"></div>
 
 									<table id="ipsec_general_setting" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
@@ -2833,7 +2827,7 @@ function changeDebugLog() {
 		</tr>
 		</thead>
 		<tr>
-			<th><#HSDPAConfig_Username_itemname#></th>
+			<th><#Username#></th>
 			<th><#HSDPAConfig_Password_itemname#></th>
 			<th><#list_add_delete#></th>
 		</tr>
@@ -2898,7 +2892,7 @@ function changeDebugLog() {
 <input type="hidden" name="action_wait" value="">
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="clear_file_name" value="ipsec">
 </form>

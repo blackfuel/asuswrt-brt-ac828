@@ -78,7 +78,7 @@ var timezones = {
 	"EBST3DST_1":	"(GMT-03:00)",
 	"UTC3":	"(GMT-03:00)",
 	"EBST3DST_2":	"(GMT-03:00)",
-	"NORO2DST":	"(GMT-02:00)",
+	"UTC2":	"(GMT-02:00)",
 	"EUT1DST":	"(GMT-01:00)",
 	"UTC1":	"(GMT-01:00)",
 	"GMT0":	"(GMT)",
@@ -87,7 +87,7 @@ var timezones = {
 	/*"GMT0DST_3":		"(GMT)",	use adj_dst to desc*/
 	"UTC-1DST_1":	"(GMT+01:00)",
 	"UTC-1_1_1":	"(GMT+01:00)",
-	"UTC-1_2":	"(GMT+01:00)",
+	"UTC-1DST_1_2":	"(GMT+01:00)",
 	"UTC-1_2_1":	"(GMT+01:00)",
 	"MET-1DST":	"(GMT+01:00)",
 	"MET-1DST_1":	"(GMT+01:00)",
@@ -95,7 +95,7 @@ var timezones = {
 	"MEZ-1DST_1":	"(GMT+01:00)",
 	"UTC-1_3":	"(GMT+01:00)",
 	"UTC-2DST":	"(GMT+02:00)",
-	"EST-2DST":	"(GMT+02:00)",
+	"EST-2":	"(GMT+02:00)",
 	"UTC-2_1":	"(GMT+02:00)",
 	"UTC-2DST_2":	"(GMT+02:00)",
 	"IST-2DST":	"(GMT+02:00)",
@@ -103,12 +103,13 @@ var timezones = {
 	"EET-2DST":	"(GMT+02:00)",
 	"UTC-3_1":	"(GMT+03:00)",
 	"UTC-3_2":	"(GMT+03:00)",
-	"IST-3DST":	"(GMT+03:00)",
+	"IST-3":	"(GMT+03:00)",
+	"UTC-3_6":	"(GMT+03:00)",
 	"UTC-3.30DST":	"(GMT+03:30)",
 	"UTC-4_2":	"(GMT+04:00)",
 	"UTC-4_3":	"(GMT+04:00)",
 	"UTC-4_1":	"(GMT+04:00)",
-	"UTC-4DST_2":	"(GMT+04:00)",
+	"UTC-4_6":	"(GMT+04:00)",
 	"UTC-4.30":	"(GMT+04:30)",
 	"UTC-5":	"(GMT+05:00)",
 	"UTC-5.30_2":	"(GMT+05:30)",
@@ -134,11 +135,11 @@ var timezones = {
 	"UTC-10_3":	"(GMT+10:00)",
 	"UTC-10_1":	"(GMT+10:00)",
 	"UTC-10_2":	"(GMT+10:00)",
-	"TST-10TDT":	"(GMT+10:00)",
-	"UTC-10_5":	"(GMT+10:00)",
+	"TST-10TDT":	"(GMT+10:00)",	
 	"UTC-11_2":	"(GMT+11:00)",
 	"UTC-11":	"(GMT+11:00)",
 	"UTC-11_1":	"(GMT+11:00)",
+	"UTC-11_4":	"(GMT+11:00)",
 	"UTC-12":	"(GMT+12:00)",
 	"NZST-12DST":	"(GMT+12:00)",
 	"UTC-13":	"(GMT+13:00)"
@@ -150,18 +151,8 @@ if(parent.yadns_support){
 }
 
 var wans_mode = '<% nvram_get("wans_mode"); %>';
-
-var get_protocol = function() {
-	var protocol = "http:";
-	if(window.location.protocol == "http:" || window.location.protocol == "https:") {
-		protocol = window.location.protocol;
-		return protocol;
-	}
-
-	return protocol;
-};
 var header_info = [<% get_header_info(); %>];
-var location_org = get_protocol() + "//" + header_info[0].host;
+var location_org = header_info[0].protocol + "://" + header_info[0].host + ":" + header_info[0].port;
 
 function yadns_apply(){
 	var enable = document.getElementById("yadns_enable").checked;
@@ -192,7 +183,7 @@ function doLiveUpdate(_do){
 	}
 	else{
 		goto_index();
-		setTimeout("parent.location.href='/index.asp'", 3000);
+		setTimeout("parent.location.href='/'", 3000);
 	}
 }
 
@@ -223,7 +214,7 @@ function detect_httpd(){
 				progressBar = 100;
 				document.getElementById('progress_bar_no').innerHTML = "100%";
 				document.getElementById("updateProgress").style.width = "100%";
-				document.getElementById("liveUpdateResult").innerHTML = "<#connect_failed#>";
+				document.getElementById("liveUpdateResult").innerHTML = "<#info_failed#>";
 				document.getElementById("newFWgraded").style.display = "";
 				return false;
 			}else if(webs_state_error == "2"){
@@ -1019,29 +1010,12 @@ function QKfinish_load_body(){
 			if(parent.isStatic){
 				$("#lanip")[0].innerHTML = parent.staticIP;
 				document.getElementById("applyBtn").innerHTML = "<div style='text-align:left;margin-left:70px;'><br/><br/><#SAVE_restart_desc#><br><#LAN_IP_changed_suggedtion1#>&nbsp;" + parent.staticIP + "&nbsp;<#LAN_IP_changed_suggedtion2#></div>";
-				
-				var startQuery = function(){
-					$.ajax({ 
-						url: location_org.replace(header_info[0].host, parent.staticIP) + "/repage.json",
-						dataType: 'jsonp',
-						timeout: 2000,
 
-						error: function(){
-							setTimeout(function(){
-								startQuery();
-							}, 1000);
-						}
-					});
-
-				}
-
-				setTimeout(function(){
-					startQuery();
-				}, 80000);
+				setTimeout(startQuery, 80000);
 			}
 			else{
 				$("#lanip")[0].innerHTML = "<#BOP_ctype_title1#>";
-				document.getElementById("applyBtn").innerHTML = "<div style='text-align:left;margin-left:75px;'><br/><br/><#LANConfig_ChangedLANIP#></div>";
+				document.getElementById("applyBtn").innerHTML = "<div style='text-align:left;margin-left:75px;'><br/><br/><#deviceDiscorvy3#></div>";
 			}
 		}
 	}
@@ -1092,18 +1066,28 @@ function QKfinish_load_body(){
 	setTimeout("check_fimware();", 1000);
 }
 
+var startQuery = function(){
+	$.ajax({ 
+		url: location_org.replace(header_info[0].host, parent.staticIP) + "/repage.json",
+		dataType: "script",
+		timeout: 5000,
+		success: function(){
+			top.location.href = location_org.replace(header_info[0].host, parent.staticIP);
+		},
+		error: function(){
+			setTimeout(startQuery, 1000);
+		}
+	});
+};
+
 function check_fimware(){
 	if(!parent.new_FW){
 		gotoNext();
 	}	
 }
 
-function repage(){
-	top.location.href = "http://" + parent.staticIP;					
-}
-
 function gotoASUS(){
-	parent.location.href = "http://www.asus.com/support/";
+	parent.location.href = "https://www.asus.com/support/";
 }
 
 var wans_dualwan_orig = '<% nvram_get("wans_dualwan"); %>';
@@ -1111,7 +1095,7 @@ function goto_index(){
 	document.restartForm.force_change.value++;
 	document.restartForm.action_wait.value = 0;
 
-	if(parent.based_modelid == "4G-AC55U" && parent.wan_autodet_state == "4" && parent.usb_connected == 1 && wans_dualwan_orig == "wan usb"){
+	if((parent.based_modelid == "4G-AC53U" || parent.based_modelid == "4G-AC55U" || parent.based_modelid == "4G-AC68U") && parent.wan_autodet_state == "4" && parent.usb_connected == 1 && wans_dualwan_orig == "wan usb"){
 		document.restartForm.wans_dualwan.disabled = false;
 		document.restartForm.wans_dualwan.value = "usb wan";
 		parent.sysReboot = true;
@@ -1147,7 +1131,7 @@ function goto_index(){
 		//document.getElementById('qisFinish_div').style.display = '';
 	}
 
-	if(parent.based_modelid == "4G-AC55U" && wans_mode == "lb"){
+	if((parent.based_modelid == "4G-AC53U" || parent.based_modelid == "4G-AC55U" || parent.based_modelid == "4G-AC68U") && wans_mode == "lb"){
 		document.restartForm.wans_mode.disabled = false;
 	}
 
@@ -1168,7 +1152,7 @@ function redirect_index(){
 		return checkIsNewFirmware();
 	}
 	else{
-		parent.location.href = "/index.asp";
+		parent.location.href = "/";
 	}
 }
 
@@ -1383,344 +1367,6 @@ body{
 	</div>	
 
 </div>
-
-<!--div class="QISmain" id="QISmain" style="display:none">
-		<div id="descTltle">
-			<table width="100%">
-				<tr>
-					<td align="left">
-						<div class="description_down"><#qis_finish_title1#></div>
-					</td>
-					<td align="right"></td>
-				</tr>
-			</table>
-		</div>
-		<div style="margin:5px;" id="splitLine"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
-<br/>
-
-<p id="timeObject" class="QISGeneralFont" style="margin-top:-5px;"><#General_x_SystemTime_itemname#>: <span id="system_time" size="40" class="devicepin" style="font-size:12px;"></span>&nbsp&nbsp<span id="change_tz" style="font-family:Lucida Console;"></span>&nbsp<span id="dstzone" style="display:none;"></span></p>
-<div id="svc_hint_div" style="margin-left:70px;display:none;"><span style="color:#FFCC00;"><#General_x_SystemTime_syncNTP#></span></div>
-<br/-->
-
-<!--table id="tblsetting_1" class="QISform_finish" width="400" border=0 align="center" cellpadding="5" cellspacing="0" style="margin-top:-10px;">
-	<tr id="freqtitle">
-		<td align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"><#menu5_1#></td>	
-	</tr>
-
-	
-	<tr id="band_block">
-	  <th width="250"><#Interface#></th>
-	  <td class="QISformtd" width="300px"><span style="white-space: pre;">2.4GHz</span></td>
-	  <td class="QISformtd" width="300px"><span style="white-space: pre;">5GHz</span></td>
-	</tr>
-	<tr id="ssid_block">
-	  <th><#QIS_finish_wireless_item1#></th>
-	  <td class="QISformtd"><span id="ssid_2g" style="white-space: pre-wrap; word-break: break-all;"></span></td>
-	  <td class="QISformtd"><span id="ssid_5g" style="white-space: pre-wrap; word-break: break-all;"></span></td>
-	</tr>
-	<tr id="key_block">
-	  <th><#Network_key#></th>
-	  <td class="QISformtd"><span id="key2g" style="word-break: break-all;"></span></td>
-	  <td class="QISformtd"><span id="key5g" style="word-break: break-all;"></span></td>
-	</tr>
-	<tr id="security_block">
-	  <th><#QIS_finish_wireless_item2#></th>
-	  <td class="QISformtd"><span id="security2g"></span></td>
-	  <td class="QISformtd"><span id="security5g"></span></td>
-	</tr>
-
-
-	<tr id="freqtitle2" class="wlItem">
-		<td align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"><#menu5_1#> <span style="color:#5AD;" id="desc2g">(2.4GHz)</span></td>	
-	</tr>
-	<tr id="ssid2_block" class="wlItem">
-	  <th width="180"><span id="ssid_2_item"></span></th>
-	  <td class="QISformtd" width="300px">
-			<span id="ssid_2" style="white-space: pre-wrap; word-break: break-all;"></span>
-	  </td>
-	</tr>
-	<tr id="key2_block" class="wlItem">
-	  <th width="180"><span id="key2_item"></span></th>
-	  <td class="QISformtd">
-			<span id="key2" style="word-break: break-all;"></span>
-	  </td>
-	</tr>
-	<tr id="security2_block" class="wlItem">
-	  <th width="180"><span id="security_item2"></span></th>
-	  <td class="QISformtd">
-			<span id="security2"></span>
-	  </td>
-	</tr>
-
-
-	<tr id="freqtitle5" class="wlItem">
-		<td align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"><#menu5_1#> <span id="band5g_desc" style="color:#5AD;">(5GHz)</span></td>	
-	</tr>
-	<tr id="ssid5_block" class="wlItem">
-	  <th width="180"><span id="ssid_5_item"></span></th>
-	  <td class="QISformtd">
-			<span id="ssid_5" style="white-space: pre-wrap; word-break: break-all;"></span>
-	  </td>
-	</tr>
-	<tr id="key5_block" class="wlItem">
-	  <th width="180"><span id="key5_item"></span></th>
-	  <td class="QISformtd">
-			<span id="key5" style="word-break: break-all;"></span>
-	  </td>
-	</tr>
-	<tr id="security5_block" class="wlItem">
-	  <th width="180"><span id="security_item5"></span></th>
-	  <td class="QISformtd">
-			<span id="security5"></span>
-	  </td>
-	</tr>
-
-
-	<tr id="freqtitle5_2" class="wlItem">
-		<td align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"><#menu5_1#> <span style="color:#5AD;">(5GHz-2)</span></td>	
-	</tr>
-	<tr id="ssid5_2_block" class="wlItem">
-	  <th width="180"><span id="ssid_5_2_item"></span></th>
-	  <td class="QISformtd">
-			<span id="ssid_5_2" style="white-space: pre;"></span>
-	  </td>
-	</tr>
-	<tr id="key5_2_block" class="wlItem">
-	  <th width="180"><span id="key5_2_item"></span></th>
-	  <td class="QISformtd">
-			<span id="key5_2"></span>
-	  </td>
-	</tr>
-	<tr id="security5_2_block" class="wlItem">
-	  <th width="180"><span id="security_item5_2"></span></th>
-	  <td class="QISformtd">
-			<span id="security5_2"></span>
-	  </td>
-	</tr>
-
-
-	<tr class="reItem wanItem">
-		<td align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"><div id="wan_hd1"><#menu5_3#></div></td>	
-	</tr>
-	<tr class="reItem wanItem">
-	  <th width="180"><span id="wantype_item"></span></th>
-	  <td class="QISformtd"><span id="wantype"></span></td>
-	  <td class="QISformtd"><span id="wantype2" style="display: none;"></span></td>
-	</tr>
-	<tr class="reItem wanItem" id="wanstatus_tr1">
-	  <th width="180"><#Status_Str#> </th>
-	  <td class="QISformtd"><span id="wanstatus1"></span></td>
-	  <td class="QISformtd"><span id="wanstatus2" style="display: none;"></span></td>	  
-	</tr>  
-	<tr class="reItem wanItem">
-	  <th width="180"><span id="wanip_item"></span></th>
-	  <td class="QISformtd"><span id="wanip"></span></td>
-	  <td class="QISformtd"><span id="wanip2" style="display: none;"></span></td>	  
-	</tr>  
-
-
-	<tr class="reItem">
-		<td align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"><#menu5_2#></td>	
-	</tr>
-	<tr class="reItem">
-	  <th width="180"><span id="lanip_item"></span></th>
-	  <td class="QISformtd">
-			<span id="lanip"></span>
-	  </td>
-	</tr>
-
-	<tr class="reItem">
-	  <th width="180"><span id="mac_item"></span></th>
-	  <td class="QISformtd">
-			<span id="mac"></span>
-	  </td>
-	</tr>
-
-	<tr style="display:none;">
-	  <th width="180"><span id="account_item"></span></th>
-	  <td class="QISformtd">
-			<span id="account"></span>
-	  </td>
-	</tr>
-
-	<tr style="display:none;">
-	  <th width="180"><span id="password_item"></span></th>
-	  <td class="QISformtd">
-			<span id="password"></span>
-	  </td>
-	</tr>
-
-	<tr class="yadnsItem" style="display:none;">
-		<td align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"><#YandexDNS#></td>
-	<tr>
-	<tr class="yadnsItem" style="display:none;">
-	  <td class="QISformtd" colspan="4">
-		<#YandexDNS_desc1#><br>
-		<input type="checkbox" id="yadns_enable" colspan="4" onchange="yadns_change(true);" <% nvram_match("yadns_enable_x", "1", "checked"); %>><#YandexDNS_qis_lua#><br>
-		<input type="checkbox" id="yadns_defmode" colspan="4" onchange="yadns_change(true);" <% nvram_match("yadns_mode", "1", "checked"); %>><#YandexDNS_qis_default#>
-	  </td>
-	</tr>
-
-
-	<tr class="wlcItem">
-		<td id="tdWlcItem" align="left" colspan="4" style="color:#5AD;font-size:16px; border-bottom:1px dashed #AAA;"></td>	
-	</tr>
-	<tr class="wlcItem">
-	  <th width="180"><span id="wlcssid_item"><#QIS_finish_wireless_item1#> (<#remote#>)</span></th>
-	  <td class="QISformtd">
-			<span id="wlcssid"></span>
-	  </td>
-	</tr>
-
-	<tr class="wlcItem">
-	  <th width="180"><span id="wlcstate_item"><#statusTitle_AP#></span></th>
-	  <td class="QISformtd">
-			<span id="wlcstate"></span>
-	  </td>
-	</tr>
-
-	<tr class="wlcItem">
-	  <th width="180"><span id="wlcip_item"><#QIS_internet_success_item1#></span></th>
-	  <td class="QISformtd">
-			<span id="wlcip"></span>
-	  </td>
-	</tr>
-</table-->
-
-<!--div id="applyBtn" class="apply_gen" style="margin-top:30px;">
-	<input type="button" id="nextButton" value="<#CTL_finish#>" onclick="gotoNext();" class="button_gen">
-	<img id="loadingIcon" style="display:none;" src="/images/InternetScan.gif"></span>
-</div>
-</div>
-<div id="liveUpdate_div" style="display:none">
-	<div id="liveUpdateTitle">
-		<div>
-			<table width="100%">
-				<tr>
-					<td align="left">
-						<div class="description_down"><#menu5_6_3#></div>
-					</td>
-					<td align="right">
-					</td>
-				</tr>
-			</table>
-		</div>
-		<div style="margin:5px;"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
-		<br>
-		<br>
-	</div>
-
-	<div id="newFWDetected">
-		<div class="QISGeneralFont" style="margin-top:5px;text-align:center;line-height:180%;font-size:18px;">
-			<div style="text-align:left;" id="showLiveUpdateResult_div">
-			<#exist_new#><br><br><#Main_alert_proceeding_desc5#>
-			<br>
-			<br>
-			<div id="current_fw_div" style="display:none;"><#ADSL_FW_item1#> : <span style="font-family:Segoe UI, Arial, sans-serif;" id="currentFW"></span></div>
-			<br>
-			<br>
-				<div id="Latest_fw_div" style="display:none;"><#ADSL_FW_item3#> : <span style="font-family:Segoe UI, Arial, sans-serif;" id="latestFW"></span></div>	
-			</div>
-		</div>
-		<br>
-		<br>
-		<div class="apply_gen" style="margin-top:5px">
-			<input type="button" value="<#CTL_Cancel#>" onclick="showCancel();" class="button_gen">
-			<input type="button" value="<#checkbox_Yes#>" onclick="doLiveUpdate(true);" class="button_gen">
-		</div>
-	</div>
-		
-	<div id="newFWCancel" style="display:none;">
-		<div class="QISGeneralFont" style="margin-top:5px;text-align:center;line-height: 180%;font-size:18px;">
-			<div id="newFWCancelDesc" style="text-align:left;">
-				<#newFW_cancel#>
-			</div>
-		</div>
-		<br>
-		<br>
-		<div class="apply_gen" style="margin-top:5px">
-			<input type="button" value="OK" onclick="doLiveUpdate(false);" class="button_gen">
-			<img id="doRestartIcon" style="display:none" src="/images/InternetScan.gif">
-		</div>
-	</div>
-
-	<div id="progressBar" class="QISGeneralFont" style="margin-top:5px;text-align:center;display:none;*margin-left:70px;line-height: 180%;font-size:18px;">
-		<div style="text-align:left;">
-		<#FIRM_ok_desc#><br><#Main_alert_proceeding_desc5#>
-		</div>
-		<br>
-		<div id="updateProgress_bg" style="text-align:left;*margin-left:-65px;">
-			<div align="left">
-				<style>
-					#updateProgress_bg{
-						margin-top:5px;
-						width:90%;
-						height:30px;
-						background:url(/images/quotabar_bg_progress.gif);
-						background-repeat: repeat-x;
-					}
-				</style>
-				<span id="progress_bar_no" style="display:none;position:absolute;margin-left:285px;margin-top:7px;*margin-left:290px">0%</span>
-				<img id="updateProgress" src="/images/quotabar.gif" style="width:0%" height="30px">
-			</div>
-		</div>
-		<br>
-		<br>
-		<div style="text-align:left;line-height: 25px;">
-			<#FW_n1#>
-			<br>
-		</div>
-	</div>
-	<br>
-	<div id="newFWgraded" style="margin-top:5px;text-align:center;display:none;line-height: 180%;font-size:18px;">
-		<div class="QISGeneralFont" style="margin-top:5px;text-align:center;">
-			<div id="liveUpdateResult" style="text-align:left;color:#FC0;line-height: 25px;">
-			<#is_latest#>
-			</div>
-		</div>
-		<br>
-		<div class="apply_gen" style="margin-top:5px">
-			<input type="button" value="<#CTL_next#>" onclick="doLiveUpdate(false);" class="button_gen">
-		</div>
-	</div>
-
-	<div id="newFWgradedFail" style="margin-top:5px;text-align:center;display:none;line-height: 180%;font-size:18px;">
-		<div class="QISGeneralFont" style="margin-top:5px;text-align:center;">
-			<div style="text-align:left;color:#FC0">
-			<#FIRM_reboot_manually#>
-			</div>
-		</div>
-	</div>
-</div>
-
-<div id="qisFinish_div" style="display:none">
-	<div>
-		<div>
-			<table width="100%">
-				<tr>
-					<td align="left">
-						<div class="description_down"><#Main_alert_proceeding_desc1#></div>
-					</td>
-					<td align="right">
-					</td>
-				</tr>
-			</table>
-		</div>
-		<div style="margin:5px;"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
-		<br>
-		<br>
-	</div>
-
-	<div>
-		<div class="QISGeneralFont" style="margin-top:5px;text-align:center;font-size:18px;">
-			<div style="text-align:left;">
-				<#CTL_apply1#>... &nbsp
-				<img src="/images/InternetScan.gif">
-			</div>
-		</div>
-	</div>
-</div-->
-
 </form>
 
 <iframe name="hidden_frame" id="hidden_frame" width="0" height="0" frameborder="0"></iframe>
@@ -1750,8 +1396,8 @@ body{
 <form method="post" name="restartForm" action="/start_apply2.htm" target="hidden_frame">
 	<input type="hidden" name="productid" value="<% nvram_get("productid"); %>">
 	<input type="hidden" name="flag" value="finishQIS">
-	<input type="hidden" name="current_page" value="/index.asp">
-	<input type="hidden" name="next_page" value="/index.asp">
+	<input type="hidden" name="current_page" value="/">
+	<input type="hidden" name="next_page" value="/">
 	<input type="hidden" name="action_mode" value="apply">
 	<input type="hidden" name="action_script" value="">
 	<input type="hidden" name="action_wait" value="0">

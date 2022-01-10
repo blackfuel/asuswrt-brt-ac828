@@ -202,7 +202,7 @@ function switchPage(page){
 </script>
 </head>
 
-<body onLoad="initial();" onunLoad="return unload_body();">
+<body onLoad="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
@@ -263,7 +263,7 @@ function switchPage(page){
 						
 						
 		  			<tr>
-          				<td height="5"><img src="images/New_ui/export/line_export.png" /></td>
+          				<td height="5"><div class="splitLine"></div></td>
         			</tr>
 					<tr>
 						<td style="font-style: italic;font-size: 14px;">

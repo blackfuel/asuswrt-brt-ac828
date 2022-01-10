@@ -1486,6 +1486,18 @@ static pj_status_t transport_media_create(pjmedia_transport *tp,
 
     status = pj_ice_strans_init_ice(tp_ice->ice_st, ice_role, NULL, NULL);
 
+	// Prepare stun and turn last status.
+	if (tp_ice->base.stun_last_status == 0 &&
+		pj_ice_strans_get_stun_last_status(tp_ice->ice_st) != 0) {
+			tp_ice->base.stun_last_status = pj_ice_strans_get_stun_last_status(tp_ice->ice_st);
+			tp->stun_last_status = pj_ice_strans_get_stun_last_status(tp_ice->ice_st);
+	}
+	if (tp_ice->base.turn_last_status == 0 &&
+		pj_ice_strans_get_turn_last_status(tp_ice->ice_st) != 0) {
+			tp_ice->base.turn_last_status = pj_ice_strans_get_turn_last_status(tp_ice->ice_st);
+			tp->turn_last_status = pj_ice_strans_get_turn_last_status(tp_ice->ice_st);
+	}
+
     /* Done */
     return status;
 }
@@ -2270,6 +2282,8 @@ static void ice_on_ice_complete(pj_ice_strans *ice_st,
 
 	tp_ice->base.tunnel_type = pj_ice_strans_get_use_tunnel_type(ice_st);
 
+	tp_ice->base.ice_retry_count = 1;//pj_ice_strans_get_transmit_count(ice_st);
+
     /* Notify application */
     if (tp_ice->cb.on_ice_complete)
 		(*tp_ice->cb.on_ice_complete)(&tp_ice->base, op, result, turn_mapped_addr);
@@ -2354,10 +2368,12 @@ static pj_status_t transport_destroy(pjmedia_transport *tp)
     }
 
     if (tp_ice->pool) {
-	pj_pool_t *pool = tp_ice->pool;
-	tp_ice->pool = NULL;
-	pj_pool_release(pool);
-    }
+		pj_pool_t *pool = tp_ice->pool;
+		tp_ice->pool = NULL;
+		PJ_LOG(4, (tp->name, " tp_ice->pool released"));
+		pj_pool_release(pool);
+	}
+	PJ_LOG(4, (THIS_FILE, "ICE media transport destroyed"));
 
     return PJ_SUCCESS;
 }

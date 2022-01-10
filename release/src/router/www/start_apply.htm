@@ -12,6 +12,7 @@ var restart_time = 0;
 var rc_support = '<% nvram_get("rc_support"); %>'; 
 var dsl_support = (rc_support.search("dsl") == -1) ? false : true;
 var tmo_support = (rc_support.search("tmo") == -1) ? false : true;
+var amesh_support = (rc_support.search("amas") == -1) ? false : true;
 var current_page = '<% get_parameter("current_page"); %>';
 var next_page = '<% get_parameter("next_page"); %>';
 var action_script = '<% get_parameter("action_script"); %>';
@@ -25,6 +26,64 @@ if(tmo_support)
 	var theUrl = "cellspot.router"; 
 else
 	var theUrl = "router.asus.com";
+
+var htmlEnDeCode = (function() {
+	var charToEntityRegex,
+		entityToCharRegex,
+		charToEntity,
+		entityToChar;
+
+	function resetCharacterEntities() {
+		charToEntity = {};
+		entityToChar = {};
+		// add the default set
+		addCharacterEntities({
+			'&amp;'	 :   '&',
+			'&gt;'	  :   '>',
+			'&lt;'	  :   '<',
+			'&quot;'	:   '"',
+			'&#39;'	 :   "'"
+		});
+	}
+
+	function addCharacterEntities(newEntities) {
+		var charKeys = [],
+			entityKeys = [],
+			key, echar;
+		for (key in newEntities) {
+			echar = newEntities[key];
+			entityToChar[key] = echar;
+			charToEntity[echar] = key;
+			charKeys.push(echar);
+			entityKeys.push(key);
+		}
+		charToEntityRegex = new RegExp('(' + charKeys.join('|') + ')', 'g');
+		entityToCharRegex = new RegExp('(' + entityKeys.join('|') + '|&#[0-9]{1,5};' + ')', 'g');
+	}
+
+	function htmlEncode(value){
+		var htmlEncodeReplaceFn = function(match, capture) {
+			return charToEntity[capture];
+		};
+
+		return (!value) ? value : String(value).replace(charToEntityRegex, htmlEncodeReplaceFn);
+	}
+
+	function htmlDecode(value) {
+		var htmlDecodeReplaceFn = function(match, capture) {
+			return (capture in entityToChar) ? entityToChar[capture] : String.fromCharCode(parseInt(capture.substr(2), 10));
+		};
+
+		return (!value) ? value : String(value).replace(entityToCharRegex, htmlDecodeReplaceFn);
+	}
+
+	resetCharacterEntities();
+
+	return {
+		htmlEncode: htmlEncode,
+		htmlDecode: htmlDecode
+	};
+})();
 
 function isMobile(){
 	/*if(!tmo_support)
@@ -98,7 +157,7 @@ function redirect(){
 }
 
 function redirect_qis(){
-	parent.location.href = 'http://'+parent.document.form.lan_ipaddr.value+'/index.asp';
+	parent.location.href = 'http://'+parent.document.form.lan_ipaddr.value+'/';
 }
 
 function hideLoading(){
@@ -145,14 +204,27 @@ function showWlHint(){
 		var wlc_psta = '<% nvram_get("wlc_psta"); %>';
 		var wlc_express = '<% nvram_get("wlc_express"); %>';
 
-		if(sw_mode == '2' && wlc_express == '0') ui_sw_mode = "re"; // Repeater
-		else if((sw_mode == '3' && wlc_psta == '0') || (sw_mode == '3' && wlc_psta == '')) ui_sw_mode = "ap"; // AP
-		else if((sw_mode == '3' && wlc_psta == '1') || (sw_mode == '3' && wlc_psta == '3')) ui_sw_mode = "mb"; // MediaBridge
-		else if(sw_mode == '2' && wlc_express != '0') ui_sw_mode = "ew"; // Express Way
-		else if(sw_mode == '5') ui_sw_mode = 'hs'; // Hotspot
+		if(((sw_mode == '2' && wlc_psta == '0') || (sw_mode == '3' && wlc_psta == '2')) && wlc_express == '0'){ // Repeater
+			ui_sw_mode = "re";
+		}
+		else if((sw_mode == '3' && wlc_psta == '0') || (sw_mode == '3' && wlc_psta == '')){     // Access Point
+			ui_sw_mode = "ap";
+		}
+		else if((sw_mode == '3' && wlc_psta == '1' && wlc_express == '0') || (sw_mode == '3' && wlc_psta == '3' && wlc_express == '0') || (sw_mode == '2' && wlc_psta == '1' && wlc_express == '0')){   // MediaBridge
+			ui_sw_mode = "mb";
+		}
+		else if(sw_mode == '2' && wlc_psta == '0' && wlc_express == '1'){       // Express Way 2G
+			ui_sw_mode = "ew2";
+		}
+		else if(sw_mode == '2' && wlc_psta == '0' && wlc_express == '2'){       // Express Way 5G
+			ui_sw_mode = "ew5";
+		}
+		else if(sw_mode == '5'){        // Hotspot
+			ui_sw_mode = 'hs';
+		}
 		else ui_sw_mode = "rt"; // Router
 
-		return (ui_sw_mode == mode);
+		return (ui_sw_mode.search(mode) !== -1);
 	}
 
 	if(!isSwMode('rt') && !isSwMode('ap')) return false;
@@ -193,18 +265,18 @@ function showWlHint(){
 			this.key = _key;
 		}
 
-		var ssid_nvram = [decodeURIComponent('<% nvram_char_to_ascii("", "wl0_ssid"); %>'), decodeURIComponent('<% nvram_char_to_ascii("", "wl1_ssid"); %>'), decodeURIComponent('<% nvram_char_to_ascii("", "wl2_ssid"); %>')];
+		var ssid_nvram = [htmlEnDeCode.htmlEncode(decodeURIComponent('<% nvram_char_to_ascii("", "wl0_ssid"); %>')), htmlEnDeCode.htmlEncode(decodeURIComponent('<% nvram_char_to_ascii("", "wl1_ssid"); %>')), htmlEnDeCode.htmlEncode(decodeURIComponent('<% nvram_char_to_ascii("", "wl2_ssid"); %>'))];
 		var auth_nvram = [decodeURIComponent('<% nvram_char_to_ascii("", "wl0_auth_mode_x"); %>'), decodeURIComponent('<% nvram_char_to_ascii("", "wl1_auth_mode_x"); %>'), decodeURIComponent('<% nvram_char_to_ascii("", "wl2_auth_mode_x"); %>')];
 		var key_nvram = [decodeURIComponent('<% nvram_char_to_ascii("", "wl0_wpa_psk"); %>'), decodeURIComponent('<% nvram_char_to_ascii("", "wl1_wpa_psk"); %>'), decodeURIComponent('<% nvram_char_to_ascii("", "wl2_wpa_psk"); %>')];
 		var smart_connect_nvram = '<% nvram_get("smart_connect_x"); %>';
 
-		var ssid_param = [decodeURIComponent('<% get_ascii_parameter("wl0_ssid"); %>'), decodeURIComponent('<% get_ascii_parameter("wl1_ssid"); %>'), decodeURIComponent('<% get_ascii_parameter("wl2_ssid"); %>')];
+		var ssid_param = [htmlEnDeCode.htmlEncode(decodeURIComponent('<% get_ascii_parameter("wl0_ssid"); %>')), htmlEnDeCode.htmlEncode(decodeURIComponent('<% get_ascii_parameter("wl1_ssid"); %>')), htmlEnDeCode.htmlEncode(decodeURIComponent('<% get_ascii_parameter("wl2_ssid"); %>'))];
 		var auth_param = [decodeURIComponent('<% get_ascii_parameter("wl0_auth_mode_x"); %>'), decodeURIComponent('<% get_ascii_parameter("wl1_auth_mode_x"); %>'), decodeURIComponent('<% get_ascii_parameter("wl2_auth_mode_x"); %>')];
 		var key_param = [decodeURIComponent('<% get_ascii_parameter("wl0_wpa_psk"); %>'), decodeURIComponent('<% get_ascii_parameter("wl1_wpa_psk"); %>'), decodeURIComponent('<% get_ascii_parameter("wl2_wpa_psk"); %>')];
 
 		var applyParam = {
 			unit: decodeURIComponent('<% get_ascii_parameter("wl_unit"); %>'),
-			ssid: decodeURIComponent('<% get_ascii_parameter("wl_ssid"); %>'),
+			ssid: htmlEnDeCode.htmlEncode(decodeURIComponent('<% get_ascii_parameter("wl_ssid"); %>')),
 			auth: decodeURIComponent('<% get_ascii_parameter("wl_auth_mode_x"); %>'),
 			key: decodeURIComponent('<% get_ascii_parameter("wl_wpa_psk"); %>'),
 			smartConnect: decodeURIComponent('<% get_ascii_parameter("smart_connect_x"); %>')
@@ -289,7 +361,6 @@ function showWlHint(){
 		wlHintCss += "width: 480px;";
 		wlHintCss += "border: 0;";
 		wlHintCss += "color:#fff;";
-		wlHintCss += "color:#000\9;"; /* IE6 IE7 IE8 */
 		wlHintCss += "font-size:16pt;";
 		wlHintCss += "}.div_table{";
 		wlHintCss += "display:table;";
@@ -401,7 +472,7 @@ function initial(){
 		}
 
 		makeRequest.start('/httpd_check.xml', function(xhr){
-			if(xhr.responseText.search("Main_Login.asp") !== -1) top.location.href = "/index.asp";
+			if(xhr.responseText.search("Main_Login.asp") !== -1) top.location.href = "/";
 
 			var httpds = xhr.responseXML.getElementsByTagName("httpd");
 			if (httpds !== null && httpds[0] !== null) {
@@ -429,7 +500,7 @@ function initial(){
 		return false;
 	}
 	else if(getflag == "set_language"){
-		top.location.reload();
+		parent.location.href = current_page;
 	}
 	else if(next_page.indexOf("MobileQIS_Login") != -1){
 	}
@@ -455,7 +526,7 @@ function initial(){
 						setTimeout("qis_delay_redirect('/qis/QIS_modem.htm');", restart_time*1000);
 				}	
 				else{
-					if(isMobile())
+					if(isMobile() && (parent.based_modelid == "RT-AC88U" || parent.based_modelid == "RT-AC3100" || parent.based_modelid == "RT-AC5300" || parent.based_modelid == "GT-AC5300"))
 						setTimeout("qis_delay_redirect('/qis_m/QIS_wireless.htm');", restart_time*1000);
 					else
 						setTimeout("qis_delay_redirect('/qis/QIS_wireless.htm');", restart_time*1000);
@@ -485,6 +556,9 @@ function initial(){
 				}
 				else if(getflag == "pppoe_fail"){
 					return;
+				}
+				else if(getflag == "sim"){
+					qis_delay_redirect('/qis/QIS_detect.htm?flag=sim');
 				}
 				else{
 					if(isMobile())
@@ -538,7 +612,10 @@ function initial(){
 		setTimeout(getXMLAndRedirect, restart_time*1000);
 	}
 	else if(current_page.indexOf("Feedback") != -1){
-		setTimeout("parent.redirect();", action_wait*1000);
+		if(action_script == "stop_dblog")
+			setTimeout("top_delay_redirect('"+current_page+"');", restart_time*1000);
+		else
+			setTimeout("parent.CheckFBSize();", 15000);
 	}	
 	else if(getflag == "ddnscheck"){
 		setTimeout("parent.go_index_page();", 2000);
@@ -590,6 +667,15 @@ function initial(){
 		parent.show_block();
 	}
 	else if(page_modified == 1){
+		if(amesh_support && current_page == "device-map/amesh.asp") {
+			return;
+		}
+		if(parent.based_modelid == "BLUECAVE"){
+			if(group_id == "mumimo" || group_id == "location"){
+				restart_time += 20;
+			}
+		}
+
 		parent.showLoading(restart_time, "waiting");
 		if(current_page.length > 0){
 			if(action_script == "restart_wireless" && isWLclient()){
@@ -600,7 +686,7 @@ function initial(){
 				setTimeout("top_delay_redirect('/');", restart_time*1000);
 			}
 			else if(current_page.indexOf("Advanced_OperationMode_Content.asp") != -1){
-				parent.document.getElementById('drword').innerHTML = "<#LAN_IP_changed_suggedtion1#>"+parent.document.form.lan_ipaddr.value+"<#LAN_IP_changed_suggedtion2#><br/>";
+				parent.document.getElementById('drword').innerHTML = "<#LAN_IP_changed_suggedtion1#>&nbsp;"+parent.document.form.lan_ipaddr.value+"<#LAN_IP_changed_suggedtion2#><br/>";
 				setTimeout("hideLoading()	",20000);
 				setTimeout("parent.document.getElementById('Loading').style.display = 'none';",20000);
 				setTimeout("parent.dr_advise();",20000);
@@ -611,7 +697,7 @@ function initial(){
 					parent.document.getElementById('drword').innerHTML = "<#Main_alert_proceeding_desc3#>.<#LANConfig_ChangedLANIP#>";
 				}
 				else{
-					parent.document.getElementById('drword').innerHTML = "<#LAN_IP_changed_suggedtion1#>"+parent.document.form.lan_ipaddr.value+"<#LAN_IP_changed_suggedtion2#><br/>";
+					parent.document.getElementById('drword').innerHTML = "<#LAN_IP_changed_suggedtion1#>&nbsp;"+parent.document.form.lan_ipaddr.value+"<#LAN_IP_changed_suggedtion2#><br/>";
 				}
 				setTimeout("hideLoading();",20000);
 				setTimeout("parent.dr_advise();",20000);

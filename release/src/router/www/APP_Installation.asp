@@ -17,59 +17,57 @@
 <script type="text/javascript" src="/help.js"></script>
 <script type="text/javascript" src="/disk_functions.js"></script>
 <script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <style>
 #Aidisk_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px 0px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 0%;
 }
 #server_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px -76px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 12.5%;
 }
 #PrinterServer_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px -152px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 25%;
 }
 #modem_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px -228px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 100%;
 }
 #downloadmaster_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px -304px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 50.5%;
 }
 #mediaserver_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px -380px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 88%;
 }
 #mediaserver2_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px -380px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 88%;
 }
 #aicloud_png{
-  background: url(images/New_ui/USBExt/APP_list.png);
-  background-position: 0px -456px;
-  width: 66px;
-  height: 66px;
+	background-position: 0% 75%;
 }
 #TimeMachine_png{
-  background: url(images/New_ui/USBExt/TimeMachine.png);
-  width: 66px;
-  height: 66px;
+	background-position: 0% 37.5%;
+}
+#fileflex_png{
+	background-position: 0% 63%;
+}
+.app_list{
+	position: relative;
+	background-image: url(images/New_ui/USBExt/app_list_active.svg);
+	background-size: cover;
+	background-repeat: no-repeat;
+	background-position: 0% 0%;
+	width: 50px;
+	height: 50px;
+}
+.app_list::before{
+	content: "";
+	position: absolute;
+	top: -15px;
+	right: -15px;
+	background-image: url(images/New_ui/USBExt/circle.svg);
+	background-size: cover;
+	background-position: 0% 100%;
+	width: 80px;
+	height: 80px;
 }
 </style>
 <script>
@@ -98,6 +96,7 @@ var webs_state_update;
 var webs_state_error;
 var webs_state_info;
 var wan_unit_orig = '<% nvram_get("wan_unit"); %>';
+var fileflex_text = "<#FileFlex_desc0#>";
 
 function initial(){
 	show_menu();
@@ -119,7 +118,7 @@ function initial(){
 	if(!printer_support || noprinter_support)
 		default_apps_array = default_apps_array.del(default_apps_array.getIndexByValue2D("<#Network_Printer_Server#>")[0]);
 
-	if(sw_mode == 2 || sw_mode == 3 || sw_mode == 4 || !modem_support || nomodem_support || based_modelid == "4G-AC55U" || based_modelid == "4G-AC68U")
+	if(sw_mode == 2 || sw_mode == 3 || sw_mode == 4 || !modem_support || nomodem_support || based_modelid == "4G-AC53U" || based_modelid == "4G-AC55U" || based_modelid == "4G-AC68U")
 		default_apps_array = default_apps_array.del(default_apps_array.getIndexByValue2D("3G/4G")[0]);
 
 	if(!timemachine_support)
@@ -135,12 +134,18 @@ function initial(){
 		(apps_state_switch == 5 || apps_state_switch == "") && 
 		(apps_state_autorun == 4 || apps_state_autorun == "") && 
 		(apps_state_install == 5 || apps_state_install == "")){
-		setTimeout('show_apps();', 500);
+		setTimeout(show_apps, 500);
 	}
 	else{
-		setTimeout("update_appstate();", 2000);
+		setTimeout(update_appstate, 2000);
 	}
 
+	setTimeout(function(){
+		//	https://www.asus.com/support/FAQ/114001/
+		httpApi.faqURL("114001", function(url){document.getElementById("faq").href=url;});
+		//	https://www.asus.com/support/FAQ/1016385/
+		httpApi.faqURL("1016385", function(url){document.getElementById("faq2").href=url;});
+	}, 1000);
 }
 
 function update_appstate(e){
@@ -185,6 +190,9 @@ function update_applist(e){
 				document.getElementById("isInstallDesc").style.display = "";
 				setTimeout('divdisplayctrl("none", "none", "none", "");', 100);
 				document.getElementById("return_btn").style.display = "";
+			}
+			else if(isinstall > 0 && cookie.get("apps_last") == "fileflex"){
+				window.location.href = "fileflex.asp";
 			}
 			else{
 				// setTimeout('show_partition();', 100);
@@ -432,11 +440,12 @@ function show_apps(){
 	if(apps_array == "" && (appnet_support || appbase_support)){
 		apps_array = [["downloadmaster", "", "", "no", "no", "", "", "<#DM_EnableHint#>", "downloadmaster_png", "", "", ""],
 									["mediaserver", "", "", "no", "no", "", "", "", "mediaserver_png", "", "", ""]];
-		if(nodm_support)
-			apps_array[1][0] = "mediaserver2";
 
 		if(aicloudipk_support)
 			apps_array.push(["aicloud", "", "", "no", "no", "", "", "AiCloud 2.0 utilities", "aicloud_png", "", "", ""]);
+
+		if(fileflex_support)
+			apps_array.push(["fileflex", "", "", "no", "no", "", "fileflex.asp", "From any Internet connected device, remotely access and share all your files via your ASUS router.", "downloadmaster_png", "", "", ""]);
 	}
 
 	if(!aicloudipk_support){
@@ -463,20 +472,29 @@ function show_apps(){
 			apps_array.splice(media2_idx[0], 1);
 	}
 	else{
-		if(nodm_support)
-			var media_idx = apps_array.getIndexByValue2D("mediaserver");
-		else
-			var media_idx = apps_array.getIndexByValue2D("mediaserver2");
+		var media_idx = apps_array.getIndexByValue2D("mediaserver2");
 
 		if(media_idx[1] != -1 && media_idx != -1)
 			apps_array.splice(media_idx[0], 1);
 
 		var media_idx = apps_array.getIndexByValue2D("mediaserver");
-		if(!nodm_support && (media_idx == -1 || media_idx[1] == -1)){
+		if(media_idx == -1 || media_idx[1] == -1){
 			var apps_len = apps_array.length;
 			apps_array[apps_len] = ["mediaserver", "", "", "no", "no", "", "", "", "mediaserver_png", "", "", ""];
 		}
-  }
+	}
+
+	if(!fileflex_support){
+		var fileflex_idx = apps_array.getIndexByValue2D("fileflex");
+		if(fileflex_idx[1] != -1 && fileflex_idx != -1)
+			apps_array.splice(fileflex_idx[0], 1);
+	}
+	else{
+		var fileflex_idx = apps_array.getIndexByValue2D("fileflex");
+		if(fileflex_idx[1] != -1 && fileflex_idx != -1){
+			apps_array[fileflex_idx[0]][7] = "From any Internet connected device, remotely access and share all your files via your ASUS router.";
+		}
+	}
 
 	// calculate div height
 	htmlcode = '<table class="appsTable" align="center" style="margin:auto;border-collapse:collapse;">';
@@ -486,10 +504,10 @@ function show_apps(){
 		htmlcode += '<tr><td align="center" class="app_table_radius_left" style="width:85px">';
 		//Viz modified to CSS sprites : htmlcode += '<img style="margin-top:0px;" src="/images/New_ui/USBExt/'+ default_apps_array[i][3] +'" style="cursor:pointer" onclick="location.href=\''+ default_apps_array[i][1] +'\';">';
 		if(i == 3 && wan_unit_orig != usb_index && usb_index != -1){
-			htmlcode += '<div id="'+default_apps_array[i][3]+'" style="cursor:pointer" onclick="go_modem_page('+usb_index+');"></div>';
+			htmlcode += '<div id="'+default_apps_array[i][3]+'" class="app_list" style="cursor:pointer" onclick="go_modem_page('+usb_index+');"></div>';
 		}
 		else
-			htmlcode += '<div id="'+default_apps_array[i][3]+'" style="cursor:pointer" onclick="location.href=\''+ default_apps_array[i][1] +'\';"></div>';
+			htmlcode += '<div id="'+default_apps_array[i][3]+'" class="app_list" style="cursor:pointer" onclick="location.href=\''+ default_apps_array[i][1] +'\';"></div>';
 		htmlcode += '</td><td class="app_table_radius_right" style="width:350px;">\n';
 		if(i == 3 && wan_unit_orig != usb_index && usb_index != -1){
 			console.log("2 need to change wan unit!");
@@ -498,7 +516,7 @@ function show_apps(){
 		else
 			htmlcode += '<div class="app_name"><a style="text-decoration: underline;" href="' + default_apps_array[i][1] + '">' + default_apps_array[i][0] + '</a></div>\n';
 		if(i ==3){
-			htmlcode += '<div class="app_desc">' + default_apps_array[i][2] + ' <a href="http://www.asus.com/event/networks_3G4G_support/" target="_blank" style="text-decoration:underline;"><#Support#></a></div>\n';
+			htmlcode += '<div class="app_desc">' + default_apps_array[i][2] + ' <a href="https://www.asus.com/event/networks_3G4G_support/" target="_blank" style="text-decoration:underline;"><#Support#></a></div>\n';
 		}
 		else{
 			htmlcode += '<div class="app_desc">' + default_apps_array[i][2] + '</div>\n';
@@ -511,12 +529,13 @@ function show_apps(){
 		if(apps_array[i][0] == "DM2_Utility")
 			document.getElementById("DMUtilityLink").href = apps_array[i][5]+ "/" + apps_array[i][12];
 
-		if(apps_array[i][0] != "downloadmaster" && apps_array[i][0] != "mediaserver" && apps_array[i][0] != "mediaserver2" && apps_array[i][0] != "aicloud") // discard unneeded apps
+		if(apps_array[i][0] != "downloadmaster" && apps_array[i][0] != "mediaserver" && apps_array[i][0] != "mediaserver2" && apps_array[i][0] != "aicloud" && apps_array[i][0] != "fileflex") // discard unneeded apps
 			continue;
 		else if((apps_array[i][0] == "downloadmaster" || apps_array[i][0] == "mediaserver" || apps_array[i][0] == "mediaserver2" || apps_array[i][0] == "aicloud") && apps_array[i][3] == "yes" && apps_array[i][4] == "yes"){
 
 			var header_info = [<% get_header_info(); %>];
-			apps_array[i][6] = "http://" + header_info[0].host + ":" + dm_http_port;
+			var host_name = header_info[0].host;
+			apps_array[i][6] = "http://" + host_name + ":" + dm_http_port;
 
 			if(apps_array[i][0] == "aicloud") // append URL
 				apps_array[i][6] = "/cloud_main.asp";
@@ -526,55 +545,84 @@ function show_apps(){
 		appnum++; // cal the needed height of applist table 
 
 		if(apps_array[i][4] == "no" && apps_array[i][3] == "yes")
-			apps_array[i][6] = "";	
+			apps_array[i][6] = "";
+
+		if(apps_array[i][0] == "fileflex")
+			apps_array[i][6] = "fileflex.asp";
 			
 		// apps_icon
-		htmlcode += '<tr style="height: 100px;"><td class="app_table_radius_left" align="center" style="width:85px">\n';
-		if(apps_array[i][4] == "yes" && apps_array[i][3] == "yes"){
-			if(apps_array[i][6] != ""){
-				htmlcode += '<div id="'+apps_array[i][0]+'_png" style="cursor:pointer" onclick="location.href=\''+ apps_array[i][6] +'\';"></div>';
+		htmlcode += '<tr style="height: 100px;"><td class="app_table_radius_left circle active" align="center" style="width:85px">\n';
+		if(apps_array[i][0] == "fileflex"){
+			if(apps_array[i][4] == "no" && apps_array[i][3] == "yes") // disable
+				htmlcode += '<div id="'+apps_array[i][0]+'_png" class="app_list"></div>';
+			else // uninstall or enable
+				htmlcode += '<div id="'+apps_array[i][0]+'_png" class="app_list" style="cursor:pointer" onclick="location.href=\''+ apps_array[i][6] +'\';"></div>';
+		}
+		else{
+			if(apps_array[i][4] == "yes" && apps_array[i][3] == "yes"){
+				if(apps_array[i][6] != ""){
+					htmlcode += '<div id="'+apps_array[i][0]+'_png" class="app_list" style="cursor:pointer" onclick="location.href=\''+ apps_array[i][6] +'\';"></div>';
+				}
+				else{
+					htmlcode += '<div id="'+apps_array[i][0]+'_png" class="app_list"></div>';
+				}
 			}
 			else{
-				htmlcode += '<div id="'+apps_array[i][0]+'_png"></div>';	
+				htmlcode += '<div id="'+apps_array[i][0]+'_png" class="app_list"></div>';
 			}
-		}	
-		else{
-			htmlcode += '<div id="'+apps_array[i][0]+'_png"></div>';
 		}
 		htmlcode += '</td>\n';
 
 		// apps_name
 		htmlcode += '<td class="app_table_radius_right" style="width:350px;">\n';
 		if(apps_array[i][0] == "downloadmaster")
-			apps_array[i][0] = "Download Master";
+			apps_array[i][0] = "<#DM_title#>";
 		else if(apps_array[i][0] == "mediaserver" || apps_array[i][0] == "mediaserver2")
 			apps_array[i][0] = "Media Server";
 		else if(apps_array[i][0] == "aicloud")
 			apps_array[i][0] = "AiCloud 2.0";
+		else if(apps_array[i][0] == "fileflex")
+			apps_array[i][0] = "FileFlex";
 
 		if(apps_array[i][6] != ""){ // with hyper-link
 			htmlcode += '<div class="app_name">';
 
 			if(apps_array[i][1] == ""){
-				if(apps_array[i][3] == "no") // uninstall
-					htmlcode += apps_array[i][0] + '</div>\n';
-				else if(apps_array[i][4] == "no" && apps_array[i][3] == "yes") // disable
-					htmlcode += '<a href="' + apps_array[i][6] + '" style="color:gray;">' + apps_array[i][0] + '<span class="app_ver" style="color:gray">' + apps_array[i][1] + '</sapn></a></div>\n';
-				else{ // enable
-					if(apps_array[i][0] == "Download Master")
-						htmlcode += '<a target="_blank" href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">' + apps_array[i][1] + '</sapn></div>\n';		
-					else
-						htmlcode += '<a href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">' + apps_array[i][1] + '</sapn></div>\n';		
+				if(apps_array[i][0] == "FileFlex"){
+					if(apps_array[i][4] == "no" && apps_array[i][3] == "yes") // disable
+						htmlcode += '<a style="color:gray;">' + apps_array[i][0] + '</a></div>\n';
+					else // uninstall or enable
+						htmlcode += '<a href="' + apps_array[i][6] + '" style="text-decoration:underline;">' + apps_array[i][0] + '</a></div>\n';
+				}
+				else{
+					if(apps_array[i][3] == "no") // uninstall
+						htmlcode += apps_array[i][0] + '</div>\n';
+					else if(apps_array[i][4] == "no" && apps_array[i][3] == "yes") // disable
+						htmlcode += '<a href="' + apps_array[i][6] + '" style="color:gray;">' + apps_array[i][0] + '<span class="app_ver" style="color:gray">' + apps_array[i][1] + '</sapn></a></div>\n';
+					else{ // enable
+						if(apps_array[i][0] == "<#DM_title#>")
+							htmlcode += '<a target="_blank" href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">' + apps_array[i][1] + '</sapn></div>\n';
+						else
+							htmlcode += '<a href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">' + apps_array[i][1] + '</sapn></div>\n';
+					}
 				}
 			}
 			else{
-				if(apps_array[i][4] == "no" && apps_array[i][3] == "yes") // disable
-					htmlcode += '<a href="' + apps_array[i][6] + '" style="color:gray">' + apps_array[i][0] + '<span class="app_ver" style="color:gray">ver. ' + apps_array[i][1] + '</sapn></a></div>\n';
-				else{ // enable
-					if(apps_array[i][0] == "Download Master")
-						htmlcode += '<a target="_blank" href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">ver. ' + apps_array[i][1] + '</sapn></div>\n';
-					else
-						htmlcode += '<a href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">ver. ' + apps_array[i][1] + '</sapn></div>\n';
+				if(apps_array[i][0] == "FileFlex"){
+					if(apps_array[i][4] == "no" && apps_array[i][3] == "yes") // disable
+						htmlcode += '<a style="color:gray;">' + apps_array[i][0] + '</a><span class="app_ver" style="color:gray">ver. ' + apps_array[i][1] + '</sapn></div>\n';
+					else // uninstall or enable
+						htmlcode += '<a href="' + apps_array[i][6] + '" style="text-decoration:underline;">' + apps_array[i][0] + '</a><span class="app_ver">ver. ' + apps_array[i][1] + '</sapn></div>\n';
+				}
+				else{
+					if(apps_array[i][4] == "no" && apps_array[i][3] == "yes") // disable
+						htmlcode += '<a href="' + apps_array[i][6] + '" style="color:gray">' + apps_array[i][0] + '<span class="app_ver" style="color:gray">ver. ' + apps_array[i][1] + '</sapn></a></div>\n';
+					else{ // enable
+						if(apps_array[i][0] == "<#DM_title#>")
+							htmlcode += '<a target="_blank" href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">ver. ' + apps_array[i][1] + '</sapn></div>\n';
+						else
+							htmlcode += '<a href="' + apps_array[i][6] + '" style="text-decoration: underline;">' + apps_array[i][0] + '</a><span class="app_ver">ver. ' + apps_array[i][1] + '</sapn></div>\n';
+					}
 				}
 			}
 		}
@@ -589,16 +637,15 @@ function show_apps(){
 				htmlcode += apps_array[i][0] + '<span class="app_ver">ver. ' + apps_array[i][1] + '</sapn></div>\n';
 		}
 
-		if(apps_array[i][0] == "Download Master")
+		if(apps_array[i][0] == "<#DM_title#>")
 			apps_array[i][0] = "downloadmaster";
 		else if(apps_array[i][0] == "Media Server"){
-			if(!nodm_support)
-				apps_array[i][0] = "mediaserver";
-			else
-				apps_array[i][0] = "mediaserver2";
+			apps_array[i][0] = "mediaserver";
 		}
 		else if(apps_array[i][0] == "AiCloud 2.0")
 			apps_array[i][0] = "aicloud";
+		else if(apps_array[i][0] == "FileFlex")
+			apps_array[i][0] = "fileflex";
 
 		// apps_desc
 		if(apps_array[i][4] == "no" && apps_array[i][3] == "yes"){
@@ -618,7 +665,7 @@ function show_apps(){
 			else
 				htmlcode += '<span class="app_action" onclick="apps_form(\'enable\',\''+ apps_array[i][0] +'\',\'yes\');"><#WLANConfig11b_WirelessCtrl_button1name#></span>\n';
 
-			if(sw_mode == 3 || document.getElementById("connect_status").className == "connectstatuson")
+			if( (sw_mode == 3 || document.getElementById("connect_status").className == "connectstatuson") && apps_array[i][0] != "fileflex")
 				htmlcode += '<span class="app_action" onclick="apps_form(\'update\',\''+ apps_array[i][0] +'\',\'\');">Check update</span>\n';	/* untranslated */
 	
 			if(apps_array[i][0] == "downloadmaster"){
@@ -635,8 +682,8 @@ function show_apps(){
 		}
 		else{
 			
-			if(apps_array[i][0] == "downloadmaster" || apps_array[i][0] == "mediaserver" || apps_array[i][0] == "aicloud" || apps_array[i][0] == "mediaserver2")
-				htmlcode += '<span class="app_action" onclick="_appname=\''+apps_array[i][0]+'\';divdisplayctrl(\'none\', \'\', \'none\', \'none\');location.href=\'#\';"><#Excute#></span>\n';		/* untranslated */
+			if(apps_array[i][0] == "downloadmaster" || apps_array[i][0] == "mediaserver" || apps_array[i][0] == "aicloud" || apps_array[i][0] == "mediaserver2" || apps_array[i][0] == "fileflex")
+				htmlcode += '<span class="app_action" onclick="_appname=\''+apps_array[i][0]+'\';check_usb_app_dev();"><#Excute#></span>\n';		/* untranslated */
 			else
 				htmlcode += '<span class="app_action" onclick="apps_form(\'install\',\''+ apps_array[i][0] +'\',\''+ partitions_array[i] +'\');"><#Excute#></span>\n';		/* untranslated */
 		}
@@ -774,13 +821,14 @@ function divdisplayctrl(flag1, flag2, flag3, flag4){
 		document.getElementById("return_btn").style.display = "none";
 	}
 	else if(flag2 != "none"){ // partition list
-	 	setInterval(show_partition, 2000);
+		setInterval(show_partition, 2000);
 		show_partition();
 		document.getElementById("return_btn").style.display = "";
 	}
 	else if(flag4 != "none"){ // help
 		var header_info = [<% get_header_info(); %>];
-		var _quick_dmlink = "http://" + header_info[0].host + ":" + dm_http_port;
+		var host_name = header_info[0].host;
+		var _quick_dmlink = "http://" + host_name + ":" + dm_http_port;
 		
 		if(_dm_enable == "yes"){
 			document.getElementById("realLink").href = _quick_dmlink;
@@ -812,16 +860,30 @@ function go_modem_page(usb_unit_flag){
 	document.act_form.submit();
 	location.herf = default_apps_array[3][1];
 }
+function check_usb_app_dev(){
+	get_app_dev_info(function(usbAppDevInfo){
+		if(usbAppDevInfo.hasAppDev){
+			if(usbAppDevInfo.availableSize)
+				apps_form("install", _appname, usbAppDevInfo.mountPoint);
+			else
+				alert("Disk quota can not less than 1GB");
+		}
+		else {
+			location.href = "#";
+			divdisplayctrl("none", "", "none", "none");
+		}
+	});
+}
 </script>
 </head>
 
-<body onload="initial();" onunload="unload_body();">
+<body onload="initial();" onunload="unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
 <iframe name="hidden_frame" id="hidden_frame" width="0" height="0" frameborder="0" scrolling="no"></iframe>
 <form method="post" name="app_form" action="/APP_Installation.asp">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>" disabled>
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>" disabled>
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>" disabled>
 <input type="hidden" name="apps_action" value="">
 <input type="hidden" name="apps_path" value="">
@@ -870,7 +932,7 @@ function go_modem_page(usb_unit_flag){
 		</td>
   </tr> 
   <tr>
-  	<td class="line_export"><img src="images/New_ui/export/line_export.png" /></td>
+  	<td><div class="splitLine"></div></td>
   </tr>
   <tr>
 		<td>
@@ -901,7 +963,7 @@ function go_modem_page(usb_unit_flag){
 					</tr>		
 				</table>
 			<br/>
-			<div><img src="images/New_ui/export/line_export.png" /></div>
+			<div class="splitLine"></div>
 			<table class="" cellspacing="0" cellpadding="0">
 				<tbody>
 					<tr valign="top">
@@ -909,10 +971,10 @@ function go_modem_page(usb_unit_flag){
 						<ul style="margin-left:10px;">
 							<br>
 							<li>
-								<a id="faq" href="http://www.asus.com/support/FAQ/1009773/" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF">Download Master FAQ</a>
+								<a id="faq" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#DM_title#> FAQ</a>
 							</li>
 							<li style="margin-top:10px;">
-								<a id="faq2" href="http://www.asus.com/support/FAQ/1016385/" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF">Download Master Tool FAQ</a>
+								<a id="faq2" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#DM_title#> Tool FAQ</a>
 							</li>
 							<li style="margin-top:10px;">
 								<a id="DMUtilityLink" href="http://dlcdnet.asus.com/pub/ASUS/wireless/RT-AC5300/UT_Download_Master_2228_Win.zip" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#DM_Download_Tool#></a>

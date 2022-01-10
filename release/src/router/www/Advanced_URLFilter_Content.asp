@@ -31,11 +31,14 @@ function show_url_rulelist(){
 	if(url_rulelist_row.length == 1)
 		code +='<tr><td style="color:#FFCC00;"><#IPConnection_VSList_Norule#></td>';
 	else{
-		for(var i =1; i < url_rulelist_row.length; i++){
-		code +='<tr id="row'+i+'">';
-		code +='<td width="80%">'+ url_rulelist_row[i] +'</td>';		//Url keyword
-		code +='<td width="20%">';
-		code +="<input class=\"remove_btn\" type=\"button\" onclick=\"deleteRow(this);\" value=\"\"/></td>";
+		for(var i=1; i < url_rulelist_row.length; i++){
+			//Read new url_rulelist format, get keyword of URL only
+			var url_rulelist_col = url_rulelist_row[i].split('>');
+			
+			code +='<tr id="row'+i+'">';
+			code +='<td width="80%">'+ url_rulelist_col[2] +'</td>';		//Url keyword
+			code +='<td width="20%">';
+			code +="<input class=\"remove_btn\" type=\"button\" onclick=\"deleteRow(this);\" value=\"\"/></td>";
 		}
 	}
 	
@@ -48,7 +51,8 @@ function deleteRow(r){
 	document.getElementById('url_rulelist_table').deleteRow(i);
 	var url_rulelist_value = "";
 	for(i=0; i<document.getElementById('url_rulelist_table').rows.length; i++){
-		url_rulelist_value += "<";
+		//Add default field value for "enable" "ALL LAN"  ==>   1>ALL>URL_1<1>ALL>URL_2<1>ALL>URL_3		
+		url_rulelist_value += "<1>ALL>";
 		url_rulelist_value += document.getElementById('url_rulelist_table').rows[i].cells[0].innerHTML;
 	}
 	
@@ -57,15 +61,19 @@ function deleteRow(r){
 		show_url_rulelist();
 }
 
-function addRow(obj){
+function addRow(obj,upper){
 	if(validForm(obj)){	
 		if(url_firewall_enable != "1")
 			document.form.url_enable_x[0].checked = true;
 		
 		var rule_num = document.getElementById('url_rulelist_table').rows.length;
 		var item_num = document.getElementById('url_rulelist_table').rows[0].cells.length;
-		
-				//Viz check same rule
+
+		if(rule_num >= upper){
+			alert("<#JS_itemlimit1#> " + upper + " <#JS_itemlimit2#>");
+			return false;   
+		}
+		//check same rule
 		for(i=0; i<rule_num; i++){
 			for(j=0; j<item_num-1; j++){		//only 1 value column
 				if(obj.value.toLowerCase() == document.getElementById('url_rulelist_table').rows[i].cells[j].innerHTML.toLowerCase()){
@@ -74,8 +82,9 @@ function addRow(obj){
 				}	
 			}
 		}
-				
-		url_rulelist_array += "<";
+		
+		//Add default field value for "enable" "ALL LAN"  ==>   1>ALL>URL_1<1>ALL>URL_2<1>ALL>URL_3		
+		url_rulelist_array += "<1>ALL>";
 		url_rulelist_array += obj.value;
 		obj.value = "";		
 		show_url_rulelist();			
@@ -86,10 +95,12 @@ function applyRule(){
 	var rule_num = document.getElementById('url_rulelist_table').rows.length;
 	var item_num = document.getElementById('url_rulelist_table').rows[0].cells.length;
 	var tmp_value = "";
-	
 	for(i=0; i<rule_num; i++){
-		tmp_value += "<"		
-		for(j=0; j<item_num-1; j++){	
+		tmp_value += "<";
+		for(j=0; j<item_num-1; j++){
+			//Add default field value for "enable" "ALL LAN"  ==>   1>ALL>URL_1<1>ALL>URL_2<1>ALL>URL_3
+			tmp_value += "1>ALL>";
+			
 			tmp_value += document.getElementById('url_rulelist_table').rows[i].cells[j].innerHTML;
 			if(j != item_num-2)	
 				tmp_value += ">";
@@ -128,7 +139,7 @@ function done_validating(action){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -164,9 +175,9 @@ function done_validating(action){
 								<td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#menu5_5#> - <#menu5_5_2#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div class="formfontdesc"><#FirewallConfig_UrlFilterEnable_sectiondesc#></div>
-									<div class="formfontdesc"><#FirewallConfig_KeywordFilterEnable_sectiondesc2#></div>	
+									<!--div class="formfontdesc"><#FirewallConfig_KeywordFilterEnable_sectiondesc2#></div-->	
 									<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 										<thead>
 											<tr>
@@ -179,12 +190,21 @@ function done_validating(action){
 												<input type="radio" value="1" name="url_enable_x" <% nvram_match("url_enable_x", "1", "checked"); %>><#CTL_Enabled#>
 												<input type="radio" value="0" name="url_enable_x" <% nvram_match("url_enable_x", "0", "checked"); %>><#CTL_Disabled#>
 											</td>
-										</tr>	
+										</tr>
+										<tr>
+											<th><a class="hintstyle" href="javascript:void(0);" onClick="openHint(9,3);"><#FirewallConfig_LanWanDefaultAct_itemname#></a></th>
+											<td>
+												<select name="url_mode_x" class="input_option" onChange="">
+													<option class="content_input_fd" value="0" <% nvram_match( "url_mode_x", "0", "selected"); %>><#BlackList#></option>
+													<option class="content_input_fd" value="1" <% nvram_match( "url_mode_x", "1", "selected"); %>><#WhiteList#></option>
+												</select>
+											</td>
+										</tr>
 									</table>
 									<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" class="FormTable_table">
 										<thead>
 										<tr>
-											<td colspan="2"><#FirewallConfig_UrlList_groupitemdesc#></td>
+											<td colspan="2"><#FirewallConfig_UrlList_groupitemdesc#>&nbsp;(<#List_limit#>&nbsp;64)</td>
 										</tr>
 										</thead>
 										<tr>
@@ -196,7 +216,7 @@ function done_validating(action){
 												<input type="text" maxlength="32" class="input_32_table" name="url_keyword_x_0" onKeyPress="return validator.isString(this, event)" autocorrect="off" autocapitalize="off">
 											</td>
 											<td width="20%">	
-												<input class="add_btn" type="button" onClick="addRow(document.form.url_keyword_x_0);" value="">
+												<input class="add_btn" type="button" onClick="addRow(document.form.url_keyword_x_0, 64);" value="">
 											</td>	
 										</tr>
 									</table>		

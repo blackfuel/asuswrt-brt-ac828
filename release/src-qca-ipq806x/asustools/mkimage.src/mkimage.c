@@ -740,7 +740,6 @@ print_header (image_header_t *hdr)
 	{
 		printf ("Product ID:   %.*s\n", MAX_STRING, hdr->u.tail.productid);
 	}
-	printf ("Created:      %s", ctime(&timestamp));
 	printf ("Image Type:   "); print_type(hdr);
 	printf ("Data Size:    %d Bytes = %.2f kB = %.2f MB\n",
 		size, (double)size / 1.024e3, (double)size / 1.048576e6 );

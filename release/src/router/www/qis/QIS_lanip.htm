@@ -164,6 +164,11 @@ function submitForm(){
 				document.mbform.wlc_psta.value = 1;							
 				document.mbform.sw_mode.value = 3;
 			}
+
+			if(smart_connect_support){
+				document.mbform.smart_connect_x.value = 0;
+			}
+			
 			document.mbform.submit();
 		}
 		else {
@@ -440,6 +445,7 @@ var retValHandler = {
 <input type="hidden" name="http_passwd" value="" disabled> 
 <input type="hidden" name="x_Setting" value="1">
 <input type="hidden" name="w_Setting" value="1">
+<input type="hidden" name="smart_connect_x" value="<% nvram_get("smart_connect_x"); %>">
 </form>
 
 <form method="post" name="form" action="/start_apply.htm" onsubmit="return submitForm();">
@@ -457,13 +463,12 @@ var retValHandler = {
 					<td align="left">
 						<div class="description_down"><#LANHostConfig_display1_sectionname#></div>
 					</td>
-					<!--td align="right">
-						<img onclick="parent.gotoIndex();" style="cursor:pointer;" align="right" title="Go to Home" src="/images/backtohome.png" onMouseOver="this.src='/images/backtohomeclick.png'" onMouseOut="this.src='/images/backtohome.png'">
-					</td-->
 				</tr>
 			</table>
 		</div>
-		<div style="margin:5px;" id="splitLine"><img style="width: 720px; *width: 710px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
+		<div style="margin:5px;" id="splitLine">
+			<div style="width: 720px; *width: 710px; height: 2px;" class="splitLine"></div>
+		</div>
 </div>
 <br/>
 

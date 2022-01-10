@@ -518,6 +518,16 @@ struct pjmedia_transport
 	pj_bool_t		 remote_ua_is_sdk; // If true, the remote user agent is our SDK.
 	
 	pj_sockaddr turn_mapped_addr;
+
+	// retransmit count
+	int ice_retry_count;
+	int dtls_retry_count;
+	int udt_retry_count;
+	int sctp_retry_count;
+
+	// the stun and turn error status.
+	int stun_last_status;
+	int turn_last_status;
 };
 
 /**

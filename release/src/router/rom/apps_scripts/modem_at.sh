@@ -17,6 +17,13 @@ modem_vid=`nvram get ${prefix}act_vid`
 
 atcmd=`nvram get modem_atcmd`
 
+stop_lock=`nvram get stop_atlock`
+if [ -n "$stop_lock" ] && [ "$stop_lock" -eq "1" ]; then
+	at_lock=""
+else
+	at_lock="flock -x /tmp/at_cmd_lock"
+fi
+
 
 if [ "$modem_type" == "" -o "$modem_type" == "ecm" -o "$modem_type" == "rndis" -o "$modem_type" == "asix" -o "$modem_type" == "ncm" ]; then
 	exit 0
@@ -62,8 +69,8 @@ if [ -n "$atcmd" ] && [ "$atcmd" -eq "1" ]; then
 	open_tty "$ATCMD"
 	ret=$?
 else
-	#chat -t $waited_sec -e '' "$ATCMD" OK >> /dev/$modem_act_node < /dev/$modem_act_node 2>$at_ret
-	chat -t $waited_sec -e '' "$ATCMD" OK >> /dev/$modem_act_node < /dev/$modem_act_node
+	#$at_lock chat -t $waited_sec -e '' "$ATCMD" OK >> /dev/$modem_act_node < /dev/$modem_act_node 2>$at_ret
+	$at_lock chat -t $waited_sec -e '' "$ATCMD" OK >> /dev/$modem_act_node < /dev/$modem_act_node
 	ret=$?
 	#cat $at_ret
 fi

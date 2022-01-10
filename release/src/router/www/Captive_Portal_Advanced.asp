@@ -24,6 +24,7 @@
 <script type="text/javascript" src="switcherplugin/jquery.iphone-switch.js"></script>
 <script type="text/javascript" src="jscolor/jscolor.js"></script>
 <script type="text/javascript" src="Captive_Portal_Advanced_template.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <script>
 // disable auto log out
 AUTOLOGOUT_MAX_MINUTE = 0;
@@ -73,6 +74,12 @@ function initial(){
 	if(captive_portal_adv_profile_list == "") {
 		editProfile("new");
 	}
+
+	var series = productid.split("-")[0].toUpperCase();
+	if(series == "BRT")
+		httpApi.faqURL("1034977", function(url){document.getElementById("faq").href=url;});
+	else
+		$(".brt_series").remove();
 }
 function captivePortalAdvShowAndHide(_flag) {
 	if(_flag == 1) {
@@ -2453,7 +2460,7 @@ function gen_account_settings() {
 	code += "</tr>";
 	code += "</thead>";
 	code += "<tr>";
-	code += "<th><#HSDPAConfig_Username_itemname#></th>";
+	code += "<th><#Username#></th>";
 	code += "<th><#HSDPAConfig_Password_itemname#></th>";
 	code += "<th><#list_add_delete#></th>";
 	code += "</tr>";
@@ -3461,10 +3468,10 @@ function finishRule(flag) {
 	splash_page_adv_html += "<meta HTTP-EQUIV='Expires' CONTENT='-1'>\n";
 	splash_page_adv_html += "<title><#FreeWiFi_title#></title>\n";
 	splash_page_adv_html += "<link rel='stylesheet' type='text/css' href='Uam.css'>\n";
-	splash_page_adv_html += "<script type='text/javascript' src='jquery-1.7.1.min.js'><\/script>\n";
-	splash_page_adv_html += "<script type='text/javascript' src='uam.js'><\/script>\n";
+	splash_page_adv_html += "<_INCLUDE_JQUERY_>\n";
+	splash_page_adv_html += "<_INCLUDE_UAM_>\n";
 
-	splash_page_adv_html += "<script>\n";
+	splash_page_adv_html += "<_TAG_START_>\n";
 	splash_page_adv_html += "var htmlEnDeCode = (function() {\n";
 	splash_page_adv_html += "var charToEntityRegex,\n";
 	splash_page_adv_html += "entityToCharRegex,\n";
@@ -3982,7 +3989,7 @@ function finishRule(flag) {
 	splash_page_adv_html += "var result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(_hex);\n";
 	splash_page_adv_html += "return result ? 'rgb(' + parseInt(result[1], 16) + ',' + parseInt(result[2], 16) + ',' + parseInt(result[3], 16) + ')' : 'rgb(255,255,255)';\n";
 	splash_page_adv_html += "}\n";
-	splash_page_adv_html += "<\/script>\n";
+	splash_page_adv_html += "<_TAG_END_>\n";
 	splash_page_adv_html += "</head>\n";
 	splash_page_adv_html += "<body id='component_body' onload='initial();' style='overflow-x:hidden;overflow-y:auto;;background-color:#21333E;font-family:Arial,Helvetica,sans-serif;'>\n";
 	if(component_array['component_eula'])
@@ -4665,10 +4672,10 @@ function update_connect_status() {
 function exportConnectEventLog() {
 	var data = [];
 	if(event_log_mode) {
-		data = [["MAC Address", "IP Address", "User Name", "Authentication", "Connection Timeout", "Idle Timeout", "Start Time", "Recevied Bytes", "Transmitted Bytes"]];
+		data = [["<#MAC_Address#>", "<#IPConnection_ExternalIPAddress_itemname#>", "<#Username#>", "<#PPPConnection_Authentication_itemname#>", "<#FreeWiFi_timeout#>", "<#FreeWiFi_Idle#>", "<#Captive_Portal_Start_Time#>", "<#Captive_Portal_Recevied_Bytes#>", "<#Captive_Portal_Transmitted_Bytes#>"]];
 	}
 	else {
-		data = [["MAC Address", "IP Address", "User Name", "Authentication", "Failure Time"]];
+		data = [["<#MAC_Address#>", "<#IPConnection_ExternalIPAddress_itemname#>", "<#Username#>", "<#PPPConnection_Authentication_itemname#>", "Failure Time"]];
 	}
 	var tempArray = new Array();
 	var setArray = function(array) {
@@ -4952,7 +4959,7 @@ function re_gen_wl_if(_wl_list) {
 function find_empty_gn_group() {
 	var _empty_wl_idx = "";
 	var _empty_flag = false;
-	var _gn_count = multissid_support;
+	var _gn_count = multissid_count;
 	for(_gn_count; _gn_count > 0; _gn_count -= 1) {
 		_empty_flag = (gn_array_2g[(_gn_count - 1)][0] == "0") ? true : false;
 		if(!_empty_flag)
@@ -5016,7 +5023,7 @@ function remove_hint_msg() {
 
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="captive_portal_adv_log_panel" class="captive_portal_adv_log_panel"></div>
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
@@ -5066,14 +5073,17 @@ function remove_hint_msg() {
 								<td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#Guest_Network#> - <#Captive_Portal#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div class="captive_portal_adv_intro_icon"></div>
 									<div style='float:left;width:80%;'>
 									<div class="captive_portal_adv_intro_txt" style="color:#FC0;"><#Captive_Portal_desc1#></div>
 									<div class="captive_portal_adv_intro_txt"><#Captive_Portal_desc2#></div>
+									<div class="captive_portal_adv_intro_txt brt_series">
+										<#FAQ_Find#> : <a id="faq" href="" target="_blank" style="font-weight:bolder;text-decoration:underline;" href="" target="_blank">GO</a>
+									</div>
 									</div>
 									<div style="clear:both;"></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 										<thead>
 										<tr>
@@ -5161,7 +5171,7 @@ function remove_hint_msg() {
 <form method="post" name="splash_page_form" action="splash_page.cgi" target="hidden_frame_save" enctype="multipart/form-data">
 <input type="hidden" name="current_page" value="Captive_Portal.asp">
 <input type="hidden" name="next_page" value="Captive_Portal.asp">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="splash_page_id" value="">
 <input type="hidden" name="splash_page_attribute" value="">
@@ -5173,7 +5183,7 @@ function remove_hint_msg() {
 <form method="post" name="splash_page_form_del" action="splash_page_del.cgi" target="hidden_frame_save" enctype="multipart/form-data">
 <input type="hidden" name="current_page" value="Captive_Portal.asp">
 <input type="hidden" name="next_page" value="Captive_Portal.asp">
-<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
+<input type="hidden" name="preferred_lang" value="<% nvram_get("preferred_lang"); %>">
 <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>">
 <input type="hidden" name="splash_page_id_del" value="">
 </form>

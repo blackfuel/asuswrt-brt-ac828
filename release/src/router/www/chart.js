@@ -366,12 +366,22 @@ var pie_flag;
 		calculateScaleRange = helpers.calculateScaleRange = function(valuesArray, drawingSize, textSize, startFromZero, integersOnly){
 
 			//Set a minimum step of two - a point at the top of the graph, and a point at the base
-			var minSteps = 2,
-				maxSteps = Math.floor(drawingSize/(textSize * 1.5)),
+			var minSteps = 4,
+				maxSteps = 4,
 				skipFitting = (minSteps >= maxSteps);
 
 			var maxValue = max(valuesArray),
 				minValue = min(valuesArray);
+				var _unit = getTrafficUnit();
+				if(_unit == '1' && maxValue < 1e6){
+					maxValue = 1e6;
+				}
+				else if(_unit == '2' && maxValue < 1e9){
+					maxValue = 1e9;
+				}
+				else if(_unit == '3' && maxValue < 1e12){
+					maxValue = 1e12;
+				}
 
 			// We need some degree of seperation here to calculate the scales if all the values are the same
 			// Adding/minusing 0.5 will give us a range of 1.
@@ -905,6 +915,9 @@ var pie_flag;
 			if (ChartElements.length > 0){
 				// If we have multiple datasets, show a MultiTooltip for all of the data points at that index
 				//if (this.datasets && this.datasets.length > 1) {
+				if(this.datasets == undefined)
+					return true;
+
 				if (this.datasets[0].bars) {
 					var dataArray,
 						dataIndex;
@@ -996,7 +1009,7 @@ var pie_flag;
 								document.getElementById('current_traffic_percent_field').innerHTML = "0.00 %";
 							else
 								document.getElementById('current_traffic_percent_field').innerHTML = ((ChartElements[0].value/router_total_traffic)*100).toFixed(2) + " %";
-							//console.log(translate_traffic(ChartElements[0].value));
+
 							new Chart.Tooltip({
 								x: Math.round(tooltipPosition.x),
 								y: Math.round(tooltipPosition.y),
@@ -1444,6 +1457,7 @@ var pie_flag;
 			var unit_value = 0;
 			for (var i=0; i<=this.steps; i++){
 				unit_value = template(this.templateString,{value:(this.min + (i * this.stepValue)).toFixed(stepDecimalPlaces)});
+
 				if(unit_value >= 1000){
 					unit_value = unit_value/1000;
 					unit_scale = "KB";
@@ -1457,8 +1471,6 @@ var pie_flag;
 					}
 				}
 				
-				//console.log(template(this.templateString,{value:(this.min + (i * this.stepValue)).toFixed(stepDecimalPlaces)}));
-				//this.yLabels.push(template(this.templateString,{value:(this.min + (i * this.stepValue)).toFixed(stepDecimalPlaces)}) + " KB");
 				this.yLabels.push(unit_value + " " +unit_scale);
 			}
 
@@ -2364,9 +2376,6 @@ var pie_flag;
 				type_flag = "app";
 				index = top5_app_array.indexOf(this.activeElements[0].target_id);
 			}	
-			//console.log("456");
-			//console.log(this.activeElements[0].target_id);
-			//console.log(type);
 
 		//	change_top5_clients(this.activeElements[0].target_id, type_flag)
 			change_top5_clients(index, type_flag)
@@ -2567,7 +2576,6 @@ var pie_flag;
 			//Set up tooltip events on the chart
 			if (this.options.showTooltips){
 				helpers.bindEvents(this, this.options.tooltipEvents, function(evt){
-				if(evt.type == "click"){console.log("123");};
 					var activePoints = (evt.type !== 'mouseout') ? this.getPointsAtEvent(evt) : [];
 					this.eachPoints(function(point){
 						point.restore(['fillColor', 'strokeColor']);
@@ -2598,12 +2606,20 @@ var pie_flag;
 
 				helpers.each(dataset.data,function(dataPoint,index){
 					//Add a new point for each piece of data, passing any required data to draw.
+					var label_string = "";
+					if(data.labels[index-1] != undefined){
+						label_string = data.labels[index-1] +"-" + data.labels[index];
+					}
+					else{
+						label_string = data.labels[index]
+					}
+
 					datasetObject.points.push(new this.PointClass({
 						//year : "2055",
 						unit : dataset.unit[index],
 						displayValue : dataset.displayValue[index],
 						value : dataPoint,
-						label : data.labels[index],
+						label : label_string,
 						datasetLabel: dataset.label,
 						strokeColor : dataset.pointStrokeColor,
 						fillColor : dataset.pointColor,
@@ -2611,6 +2627,7 @@ var pie_flag;
 						highlightStroke : dataset.pointHighlightStroke || dataset.pointStrokeColor
 					}));
 				},this);
+
 
 				this.buildScale(data.labels);
 
@@ -2700,6 +2717,7 @@ var pie_flag;
 				showLabels : this.options.scaleShowLabels,
 				display : this.options.showScale
 			};
+
 
 			if (this.options.scaleOverride){
 				helpers.extend(scaleOptions, {

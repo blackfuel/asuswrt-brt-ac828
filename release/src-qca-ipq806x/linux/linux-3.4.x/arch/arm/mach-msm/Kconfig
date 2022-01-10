@@ -701,6 +701,10 @@ config ASUS_BRTAC828
 	depends on MACH_IPQ806X_AP148
 	bool "ASUS BRT-AC828"
 
+config ASUS_RTAD7200
+	depends on MACH_IPQ806X_AP148
+	bool "ASUS RT-AD7200"
+
 endchoice
 
 choice

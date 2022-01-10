@@ -231,7 +231,7 @@ sub setup_secserver($$$)
 	my $secserver_options = "
 	security = server
         password server = $s3dcvars->{SERVER_IP}
-	client ntlmv2 auth = no
+	client NTLMv2 auth = no
 ";
 
 	my $ret = $self->provision($prefix,

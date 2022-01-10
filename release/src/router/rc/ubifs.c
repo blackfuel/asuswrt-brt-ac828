@@ -6,6 +6,9 @@
 
 #include "rc.h"
 
+#if LINUX_KERNEL_VERSION >= KERNEL_VERSION(3,10,14)
+#define __packed __attribute__((__packed__))
+#endif
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -20,6 +23,14 @@
 #define UBIFS_VOL_NAME	"jffs2"
 #define UBIFS_MNT_DIR	"/jffs"
 #define UBIFS_FS_TYPE	"ubifs"
+
+#ifdef RTCONFIG_MTK_NAND
+#define JFFS2_MTD_NAME	"jffs2"
+#define UBI_DEV_NUM	"0"
+#define UBI_DEV_PATH	"/dev/ubi"UBI_DEV_NUM
+#define LEBS		0x1F000		/* 124 KiB */
+#define NUM_OH_LEB	24		/* for ubifs overhead */
+#endif
 
 static void error(const char *message)
 {
@@ -110,19 +121,73 @@ void start_ubifs(void)
 #if defined(RTCONFIG_TEST_BOARDDATA_FILE)
 	int r;
 #endif
+#ifdef RTCONFIG_MTK_NAND
+	int mtd_part = 0, mtd_size = 0;
+	char dev_mtd[] = "/dev/mtdXXX";
+#endif
 
 	if (!nvram_match("ubifs_on", "1")) {
 		notice_set("ubifs", "");
 		return;
 	}
 
+#if defined(RTCONFIG_LANTIQ)
+	if (!wait_action_idle(1))
+		return;
+#else
 	if (!wait_action_idle(10))
 		return;
+#endif
+
+#ifdef RTCONFIG_MTK_NAND
+	if (!mtd_getinfo(JFFS2_MTD_NAME, &mtd_part, &mtd_size)) return;
+
+	_dprintf("*** ubifs: %s (%d, %d)\n", UBIFS_VOL_NAME, mtd_part, mtd_size);
+
+	if (!nvram_get_int("ubifs_clean_fs")) {
+		/* attach ubi */
+		snprintf(dev_mtd, sizeof(dev_mtd), "/dev/mtd%d", mtd_part);
+		_dprintf("*** ubifs: attach (%s, %d)\n", dev_mtd, UBI_DEV_NUM);
+		eval("ubiattach", "-p", dev_mtd, "-d", UBI_DEV_NUM);
+	}
+
+	if (ubi_getinfo(UBIFS_VOL_NAME, &dev, &part, &size) == 1) {	//ubi volume not found, format it and create volume
+		unsigned int num_leb = 0, num_avail_leb = 0, vol_size = 0;
+		
+		_dprintf("*** ubifs: ubi volume not found\n");
+
+		/* mtd erase on UBIFS_VOL_NAME first */
+		if (mtd_erase(JFFS2_MTD_NAME)) {
+			error("formatting");
+			return;
+		}
+
+		/* compute jffs2's volume size */
+		num_leb = mtd_size >> 17;			/* compute number of leb divde by 128KiB */
+		num_avail_leb = num_leb - NUM_OH_LEB;
+		vol_size = (num_avail_leb * LEBS) >> 10;	/* convert to KiB unit */
+		if (vol_size > 0) {
+			char vol_size_s[32] = {0};
+
+			snprintf(vol_size_s, sizeof(vol_size_s), "%dKiB", vol_size);
+			_dprintf("*** ubifs: mtd_part(%02x), num_leb(%d), num_avail_leb(%d), vol_size(%s)\n", mtd_part, num_leb, num_avail_leb, vol_size_s);
+
+			/* attach ubi */
+			snprintf(dev_mtd, sizeof(dev_mtd), "/dev/mtd%d", mtd_part);
+			_dprintf("*** ubifs: attach (%s, %d)\n", dev_mtd, UBI_DEV_NUM);
+			eval("ubiattach", "-p", dev_mtd, "-d", UBI_DEV_NUM);
+
+			/* make ubi volume */
+			_dprintf("*** ubifs: create jffs2 volume\n");
+			eval("ubimkvol", UBI_DEV_PATH, "-s", vol_size_s, "-N", UBIFS_VOL_NAME);
+		}
+	}
+#endif
 
 	if (ubi_getinfo(UBIFS_VOL_NAME, &dev, &part, &size) < 0)
 		return;
 
-	_dprintf("*** ubifs: %d, %d, %d\n", dev, part, size);
+	_dprintf("*** ubifs: %s %d, %d, %d\n", UBIFS_VOL_NAME, dev, part, size);
 	if (nvram_match("ubifs_format", "1")) {
 		nvram_set("ubifs_format", "0");
 
@@ -157,6 +222,10 @@ void start_ubifs(void)
 			error("unlocking");
 			return;
 		}
+#ifdef RTCONFIG_MTK_NAND
+		nvram_unset("ubifs_clean_fs");
+		nvram_commit_x();
+#endif
 	}
 	sprintf(s, "/dev/ubi%d_%d", dev, part);
 
@@ -182,14 +251,18 @@ void start_ubifs(void)
 		nvram_commit_x();
 	}
 
+	userfs_prepare(UBIFS_MNT_DIR);
+
 	notice_set("ubifs", format ? "Formatted" : "Loaded");
 
+#if 0 /* disable legacy & asus autoexec */
 	if (((p = nvram_get("ubifs_exec")) != NULL) && (*p != 0)) {
 		chdir(UBIFS_MNT_DIR);
 		system(p);
 		chdir("/");
 	}
 	run_userfile(UBIFS_MNT_DIR, ".asusrouter", UBIFS_MNT_DIR, 3);
+#endif
 
 #if defined(RTCONFIG_TEST_BOARDDATA_FILE)
 	/* Copy /lib/firmware to /tmp/firmware, and
@@ -221,8 +294,10 @@ void stop_ubifs(int stop)
 
 	if ((statfs(UBIFS_MNT_DIR, &sf) == 0) && (sf.f_type != 0x73717368)) {
 		// is mounted
+#if 0 /* disable legacy & asus autoexec */
 		run_userfile(UBIFS_MNT_DIR, ".autostop", UBIFS_MNT_DIR, 5);
 		run_nvscript("script_autostop", UBIFS_MNT_DIR, 5);
+#endif
 	}
 #if defined(RTCONFIG_PSISTLOG)
 	if (!stop && !strncmp(get_syslog_fname(0), UBIFS_MNT_DIR "/", sizeof(UBIFS_MNT_DIR) + 1)) {

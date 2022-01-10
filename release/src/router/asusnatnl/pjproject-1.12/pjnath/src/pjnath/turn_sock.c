@@ -25,6 +25,9 @@
 #include <pj/log.h>
 #include <pj/pool.h>
 #include <pj/ioqueue.h>
+#if defined(ENABLE_MEMWATCH) && ENABLE_MEMWATCH != 0
+#include <memwatch.h>
+#endif
 
 enum
 {
@@ -231,11 +234,12 @@ static void turn_sock_on_destroy(void *comp)
     pj_turn_sock *turn_sock = (pj_turn_sock*) comp;
 
     if (turn_sock->pool) {
-	pj_pool_t *pool = turn_sock->pool;
-	PJ_LOG(4,(turn_sock->obj_name, "TURN socket destroyed"));
-	turn_sock->pool = NULL;
-	pj_pool_release(pool);
-    }
+		pj_pool_t *pool = turn_sock->pool;
+		turn_sock->pool = NULL;
+		PJ_LOG(4, (turn_sock->obj_name, " turn_sock->pool released"));
+		pj_pool_release(pool);
+	}
+	PJ_LOG(4, (THIS_FILE, "TURN socket destroyed"));
 }
 
 static void destroy(pj_turn_sock *turn_sock)
@@ -569,6 +573,7 @@ static pj_bool_t on_connect_complete(pj_activesock_t *asock,
 			turn_sock->curr_turn = 0;
 			pj_grp_lock_release(turn_sock->grp_lock);
 			PJ_LOG(3, (__FILE__, "Failed(%d) connect to all turn servers.", status));
+			return status;
 		} else {
 
 			set_state(turn_sock->sess, PJ_TURN_STATE_NULL);
@@ -789,7 +794,7 @@ static pj_status_t turn_on_send_pkt(pj_turn_session *sess,
 		is_tnl_data = (((pj_uint8_t*)pkt)[pkt_len] == 1);
 
     if(is_stun || !is_tnl_data) {
-        pj_ioqueue_op_key_t *op_key = (pj_ioqueue_op_key_t*)pj_mem_alloc(sizeof(pj_ioqueue_op_key_t));
+        pj_ioqueue_op_key_t *op_key = (pj_ioqueue_op_key_t*)malloc(sizeof(pj_ioqueue_op_key_t));
         pj_ioqueue_op_key_init(op_key, sizeof(pj_ioqueue_op_key_t));
 	    status = pj_activesock_send(turn_sock->active_sock, op_key,
 			        pkt, &len, PJ_IOQUEUE_URGENT_DATA);
@@ -860,6 +865,16 @@ static void turn_on_state(pj_turn_session *sess,
 	return;
     }
 
+    if (old_state == PJ_TURN_STATE_ALLOCATING &&
+	new_state == PJ_TURN_STATE_RESOLVED)
+    {
+	/* TURN session won't destroy itself upon allocation failure, it will
+	 * just revert back TURN state to PJ_TURN_STATE_RESOLVED. So, let's
+	 * avoid infinite loop here (see ticket #1942).
+	 */
+	return;
+    }
+
     /* Notify app first */
     if (turn_sock->cb.on_state) {
 	(*turn_sock->cb.on_state)(turn_sock, old_state, new_state);
@@ -881,8 +896,8 @@ static void turn_on_state(pj_turn_session *sess,
 	char addrtxt[PJ_INET6_ADDRSTRLEN+8];
 	int sock_type;
 	pj_sock_t sock;
+	pj_activesock_cfg asock_cfg;
 	pj_activesock_cb asock_cb;
-    pj_activesock_cfg asock_cfg;
 
 	/* Close existing connection, if any. This happens when
 	 * we're switching to alternate TURN server when either TCP

@@ -56,10 +56,15 @@
 #define Y2K		946684800UL
 
 #define INTERVAL		30
-#if defined(RTCONFIG_WANPORT2)
-#define MAX_BW			2000
+#if defined(RTCONFIG_SWITCH_QCA8075_QCA8337_PHY_AQR107_AR8035_QCA8033)
+#define MAX_BW			(2 * 10 * 1024 + 4 * 1024)	/* need NIC driver provide 64-bits TX/RX bytes */
+#elif defined(RTCONFIG_SWITCH_RTL8370M_PHY_QCA8033_X2) || \
+      defined(RTCONFIG_SWITCH_RTL8370MB_PHY_QCA8033_X2)
+#define MAX_BW			(4 * 1024)			/* need NIC driver provide 64-bits TX/RX bytes */
+#elif defined(RTCONFIG_WANPORT2)
+#define MAX_BW			2048				/* need NIC driver provide 64-bits TX/RX bytes */
 #else
-#define MAX_BW			1000
+#define MAX_BW			1024
 #endif
 
 #ifdef RTCONFIG_ISP_METER
@@ -124,6 +129,15 @@ enum if_id {
 	IFID_WIRELESS2_4,	/* WIRELESS2.4 */
 	IFID_WIRELESS2_5,	/* WIRELESS2.6 */
 	IFID_WIRELESS2_6,	/* WIRELESS2.5 */
+	IFID_WIRELESS3,		/* WIRELESS3 */
+	IFID_WIRELESS3_1,	/* WIRELESS3.1 */
+	IFID_WIRELESS3_2,	/* WIRELESS3.2 */
+	IFID_WIRELESS3_3,	/* WIRELESS3.3 */
+	IFID_WIRELESS3_4,	/* WIRELESS3.4 */
+	IFID_WIRELESS3_5,	/* WIRELESS3.6 */
+	IFID_WIRELESS3_6,	/* WIRELESS3.5 */
+	IFID_LACP1,		/* LACP1, first slave interface of bonding interface */
+	IFID_LACP2,		/* LACP2, second slave interface of bonding interface */
 
 	IFID_MAX
 };
@@ -404,7 +418,7 @@ static int decomp(const char *fname, void *buffer, int size, int max)
 	file_size = ftell(fp);
 	fclose(fp);
 	if ((size * max) != file_size) {
-		_dprintf("%s: filesize mismatch! (%ld/%ld)\n", (size * max), file_size);
+		_dprintf("%s: filesize mismatch! (%ld/%ld)\n", __FUNCTION__, (size * max), file_size);
 		goto exit_decomp;
 	}
 
@@ -613,7 +627,7 @@ static void save_speedjs(long next)
 	FILE *f;
 	uint64_t total;
 	uint64_t tmax;
-	unsigned long n;
+	unsigned long long n;
 	char c;
 
 	if ((f = fopen("/var/tmp/rstats-speed.js", "w")) == NULL) return;
@@ -632,7 +646,7 @@ static void save_speedjs(long next)
 			for (k = 0; k < MAX_NSPEED; ++k) {
 				p = (p + 1) % MAX_NSPEED;
 				n = sp->speed[p][j];
-				fprintf(f, "%s%lu", k ? "," : "", n);
+				fprintf(f, "%s%llu", k ? "," : "", n);
 				total += n;
 				if (n > tmax) tmax = n;
 			}
@@ -759,7 +773,16 @@ static enum if_id desc_to_id(char *desc)
 			id = IFID_WIRELESS2;
 		else if (*d == '.' && *s >= '0' && *s <= '6' && *(s + 1) == '\0')
 			id = IFID_WIRELESS2 + *s - '0' + 1;
+	} else if (!strncmp(desc, "WIRELESS3", 9)) {
+		if (*d == '\0')
+			id = IFID_WIRELESS3;
+		else if (*d == '.' && *s >= '0' && *s <= '6' && *(s + 1) == '\0')
+			id = IFID_WIRELESS3 + *s - '0' + 1;
 	}
+	else if (!strcmp(desc, "LACP1"))
+		id = IFID_LACP1;
+	else if (!strcmp(desc, "LACP2"))
+		id = IFID_LACP2;
 
 	if (id < 0 || id == IFID_MAX)
 		_dprintf("%s: Unknown desc [%s]\n", __func__, desc);
@@ -768,6 +791,50 @@ static enum if_id desc_to_id(char *desc)
 
 }
 
+#ifdef RTCONFIG_BCMARM
+FILE* renew_devfile(FILE *f)
+{
+	FILE *f2;
+	char buf[256], wan0buf[256], wan1buf[256];
+	char *wan0_if = nvram_safe_get("wan0_ifname");
+	char *wan1_if = nvram_safe_get("wan1_ifname");
+
+	unlink("/tmp/dev");
+	f2 = fopen("/tmp/dev", "w+");
+
+	memset(buf, 0, sizeof(buf));
+	memset(wan0buf, 0, sizeof(wan0buf));
+	memset(wan1buf, 0, sizeof(wan1buf));
+
+	while (fgets(buf, sizeof(buf), f)) {
+		if(*wan0_if && strstr(buf, wan0_if)) {
+			strlcpy(wan0buf, buf, sizeof(wan0buf));
+			continue;
+		} else if(*wan1_if && strstr(buf, wan1_if)) {
+			strlcpy(wan1buf, buf, sizeof(wan1buf));
+			continue;
+		}
+		fwrite(buf, 1, strlen(buf), f2);
+	}
+	fclose(f);
+
+	if(*wan0_if)
+		fwrite(wan0buf, 1, strlen(wan0buf), f2);
+	if(*wan1_if)
+		fwrite(wan1buf, 1, strlen(wan1buf), f2);
+
+	rewind(f2);
+
+	return f2;
+}
+
+#endif
+
+#ifdef RTCONFIG_LANTIQ
+#define RS_PPACMD_WAN_PATH "/tmp/rs_ppacmd_getwan"
+#define RS_PPACMD_LAN_PATH "/tmp/rs_ppacmd_getlan"
+#define RS_PPACMD_TRAFFIC_PATH "/tmp/rs_ppacmd_traffic"
+#endif
 static void calc(void)
 {
 	FILE *f;
@@ -782,12 +849,13 @@ static void calc(void)
 	time_t now;
 	time_t mon;
 	struct tm *tms;
-	uint32_t c;
-	uint32_t sc;
+	unsigned long long c;
+	unsigned long long sc;
 	unsigned long long diff;
 	long tick;
 	int n;
-	char *exclude;
+	char buf_lan_ifname[2 * IFNAMSIZ], buf_lan_ifnames[20 * IFNAMSIZ], buf_exclude[2 * IFNAMSIZ];
+	char *exclude = NULL;
 	enum if_id id;
 	struct tmp_speed_s {
 		char desc[20];
@@ -799,41 +867,129 @@ static void calc(void)
 #ifdef RTCONFIG_ISP_METER
         char traffic[64];
 #endif
+	char *nv_lan_ifname = NULL;
+	char *nv_lan_ifnames = NULL;
 
 #ifdef RTCONFIG_QTN
 	qcsapi_unsigned_int l_counter_value;
+#endif
+#ifdef RTCONFIG_LANTIQ
+	char ifname_buf[10];
+#endif
+#ifdef RTCONFIG_BCMARM
+	unsigned long long vlan_rx = 0, vlan_tx = 0;
 #endif
 
 	rx2 = 0;
 	tx2 = 0;
 	now = time(0);
-	exclude = nvram_safe_get("rstats_exclude");
+	if (strlen(nvram_safe_get("rstats_exclude")) >= sizeof(buf_exclude))
+		exclude = strdup(nvram_safe_get("rstats_exclude"));
+	if (!exclude) {
+		strlcpy(buf_exclude, nvram_safe_get("rstats_exclude"), sizeof(buf_exclude));
+		exclude = buf_exclude;
+	}
 
-	if ((f = fopen("/proc/net/dev", "r")) == NULL) return;
-	fgets(buf, sizeof(buf), f);	// header
-	fgets(buf, sizeof(buf), f);	// "
+	if (strlen(nvram_safe_get("lan_ifname")) >= sizeof(buf_lan_ifname))
+		nv_lan_ifname = strdup(nvram_safe_get("lan_ifname"));
+	if (!nv_lan_ifname) {
+		strlcpy(buf_lan_ifname, nvram_safe_get("lan_ifname"), sizeof(buf_lan_ifname));
+		nv_lan_ifname = buf_lan_ifname;
+	}
+
+	if (strlen(nvram_safe_get("lan_ifnames")) >= sizeof(buf_lan_ifnames))
+		nv_lan_ifnames = strdup(nvram_safe_get("lan_ifnames"));
+	if (!nv_lan_ifnames) {
+		strlcpy(buf_lan_ifnames, nvram_safe_get("lan_ifnames"), sizeof(buf_lan_ifnames));
+		nv_lan_ifnames = buf_lan_ifnames;
+	}
+
+#ifdef RTCONFIG_LANTIQ
+	if ((nvram_get_int("switch_stb_x") == 0 || nvram_get_int("switch_stb_x") > 6) && ppa_support(WAN_UNIT_FIRST)) {
+		if(nvram_get_int("wave_ready") == 0 ||
+			nvram_get_int("wave_action") != 0 )
+			goto exit_calc;
+		memset(tmp_speed, 0, sizeof(tmp_speed));
+		doSystem("ppacmd getwan > %s", RS_PPACMD_WAN_PATH);
+		doSystem("ppacmd getlan > %s", RS_PPACMD_LAN_PATH);
+		doSystem("cat %s %s > %s", RS_PPACMD_WAN_PATH, RS_PPACMD_LAN_PATH, RS_PPACMD_TRAFFIC_PATH);
+		f = fopen(RS_PPACMD_TRAFFIC_PATH, "r");
+	}
+	else
+#endif
+		f = fopen("/proc/net/dev", "r");
+
+	if (!f)
+		goto exit_calc;
+
+#ifdef RTCONFIG_LANTIQ
+	if ((nvram_get_int("switch_stb_x") > 0 && nvram_get_int("switch_stb_x") <= 6) || !ppa_support(WAN_UNIT_FIRST))
+#endif
+	{
+		fgets(buf, sizeof(buf), f);	// header
+		fgets(buf, sizeof(buf), f);	// "
+	}
+#ifdef RTCONFIG_BCMARM
+	f = renew_devfile(f);
+	if (!f) return;
+#endif
 	memset(tmp_speed, 0, sizeof(tmp_speed));
 	while (fgets(buf, sizeof(buf), f)) {
-		if ((p = strchr(buf, ':')) == NULL) continue;
-			//_dprintf("\n=== %s\n", buf);
-		*p = 0;
-		if ((ifname = strrchr(buf, ' ')) == NULL) ifname = buf;
-			else ++ifname;
-		if ((strcmp(ifname, "lo") == 0) || (find_word(exclude, ifname))) continue;
+#ifdef RTCONFIG_LANTIQ
+		if ((nvram_get_int("switch_stb_x") > 0 && nvram_get_int("switch_stb_x") <= 6) || !ppa_support(WAN_UNIT_FIRST)) {
+#endif
+			if ((p = strchr(buf, ':')) == NULL) continue;
+				//_dprintf("\n=== %s\n", buf);
+			*p = 0;
+			if ((ifname = strrchr(buf, ' ')) == NULL) ifname = buf;
+				else ++ifname;
+			if ((strcmp(ifname, "lo") == 0) || (find_word(exclude, ifname))) continue;
 
-		// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
-		if (sscanf(p + 1, "%llu%*u%*u%*u%*u%*u%*u%*u%llu", &counter[0], &counter[1]) != 2) continue;
-
+			// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
+			if (sscanf(p + 1, "%llu%*u%*u%*u%*u%*u%*u%*u%llu", &counter[0], &counter[1]) != 2) continue;
+#ifdef RTCONFIG_LANTIQ
+		}
+		else
+		{
+			if ((p = strchr(buf, '[')) == NULL || strstr(buf, "errno")) continue;
+			if (sscanf(buf, "%*s%*s%s%*s%*s%llu", ifname_buf, &counter[0]) != 2) continue;
+			if ((p = strchr(buf, ':')) == NULL) continue;
+			sscanf(p + 1, "%llu", &counter[1]);
+			ifname = &ifname_buf;
+		}
+#endif
 //TODO: like httpd/web.c ej_netdev()
-#ifdef RTCONFIG_BCM5301X_TRAFFIC_MONITOR
+
+#ifdef RTCONFIG_BCMARM
+/* calc INTERNET tag values by proc results */
+		if(strstr(nvram_safe_get("wan_ifnames"), "eth0")) {
+			if(strstr(nvram_safe_get("lan_ifnames"),ifname) && strncmp(ifname, "vlan1", 5)==0){
+				vlan_rx += counter[0];
+				vlan_tx += counter[1];
+			}
+			if(strncmp(ifname, "eth0", 4)==0){
+				if(counter[0]>vlan_rx) {
+					counter[0] -= vlan_rx;
+				} else {
+					counter[0] = counter[0] + 0xffffffff - vlan_rx;
+				}
+				if(counter[1]>vlan_tx) {
+					counter[1] -= vlan_tx;
+				} else {
+					counter[1] = counter[1] + 0xffffffff - vlan_tx;
+				}
+			}
+		}
+#endif
+/* retrieve vlan-if counters again for bcm5301x case */
+#if defined(RTCONFIG_BCM5301X_TRAFFIC_MONITOR)
 		if(strncmp(ifname, "vlan", 4)==0){
-			traffic_wanlan(ifname, &counter[0], &counter[1]);
+			traffic_wanlan(ifname, (uint32_t*) &counter[0], (uint32_t*) &counter[1]);
 		}
 #endif
 
-		if (!netdev_calc(ifname, ifname_desc, (unsigned long*) &counter[0], (unsigned long*) &counter[1], ifname_desc2, (unsigned long*) &rx2, (unsigned long*) &tx2))
+		if (!netdev_calc(ifname, ifname_desc, &counter[0], &counter[1], ifname_desc2, &rx2, &tx2, nv_lan_ifname, nv_lan_ifnames))
 			continue;
-		//_dprintf(">>> %s, %s, %llu, %llu, %s, %llu, %llu <<<\n",ifname, ifname_desc, counter[0], counter[1], ifname_desc2, rx2, tx2);
 #ifdef RTCONFIG_QTN		
 		if (!strcmp(ifname, nvram_safe_get("wl_ifname")))
 			strcpy(ifname_desc2, "WIRELESS1");
@@ -905,6 +1061,14 @@ loopagain:
 
 #endif
 	}
+
+#ifdef RTCONFIG_LANTIQ
+	if ((nvram_get_int("switch_stb_x") == 0 || nvram_get_int("switch_stb_x") > 6) && ppa_support(WAN_UNIT_FIRST)) {
+		unlink(RS_PPACMD_WAN_PATH);
+		unlink(RS_PPACMD_LAN_PATH);
+		unlink(RS_PPACMD_TRAFFIC_PATH);
+	}
+#endif
 	fclose(f);
 
 	for (t = 0, tmp = tmp_speed; t < ARRAY_SIZE(tmp_speed); ++t, ++tmp) {
@@ -921,8 +1085,6 @@ loopagain:
 		if (i == 0) {
 			if (speed_count >= MAX_SPEED_IF) continue;
 
-			//_dprintf("%s: add %s as #%d\n", __FUNCTION__, ifname_desc, speed_count);
-
 			i = speed_count++;
 			sp = &speed[i];
 			memset(sp, 0, sizeof(*sp));
@@ -931,7 +1093,6 @@ loopagain:
 			sp->utime = current_uptime;
 		}
 		if (sp->sync) {
-			//_dprintf("%s: sync %s\n", __FUNCTION__, ifname_desc);
 			sp->sync = -1;
 
 			memcpy(sp->last, tmp->counter, sizeof(sp->last));
@@ -945,13 +1106,12 @@ loopagain:
 			n = tick / INTERVAL;
 	
 			sp->utime += (n * INTERVAL);
-			//_dprintf("%s: %s n=%d tick=%d\n", __FUNCTION__, ifname, n, tick);
 
 			for (i = 0; i < MAX_COUNTER; ++i) {
 				c = tmp->counter[i];
 				sc = sp->last[i];
 				if (c < sc) {
-					diff = (0xFFFFFFFF - sc + 1) + c;
+					diff = ((~0ULL) - sc + 1) + c;
 					if (diff > MAX_ROLLOVER) diff = 0;
 				}
 				else {
@@ -1032,6 +1192,14 @@ _dprintf("CUR MONTH Tx= %lu = %lu + %llu - %lu\n",month_tx,last_month_tx,(histor
 		save_utime = current_uptime + get_stime();
 		_dprintf("%s: uptime = %dm, save_utime = %dm\n", __FUNCTION__, current_uptime / 60, save_utime / 60);
 	}
+
+ exit_calc:
+	if (exclude != buf_exclude)
+		free(exclude);
+	if (nv_lan_ifname != buf_lan_ifname)
+		free(nv_lan_ifname);
+	if (nv_lan_ifnames != buf_lan_ifnames)
+		free(nv_lan_ifnames);
 }
 
 static void sig_handler(int sig)

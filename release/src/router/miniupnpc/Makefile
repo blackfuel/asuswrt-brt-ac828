@@ -58,7 +58,11 @@ JNAERATORARGS = -mode StandaloneJar -runtime JNAerator -library miniupnpc
 JNAERATORBASEURL = http://jnaerator.googlecode.com/files/
 
 CFLAGS += -I$(TOP)/shared -I$(SRCBASE)/include -I$(TOP)/networkmap
-LDFLAGS += -L$(TOP)/shared -lshared  -L$(TOP)/nvram${BCMEX} -lnvram
+LDFLAGS += -L$(TOP)/shared -lshared  -L$(TOP)/nvram${BCMEX}${EX7} -lnvram
+
+ifeq ($(HND_ROUTER),y)
+LDFLAGS += -L$(TOP)/wlcsm -lwlcsm
+endif
 
 ifeq ($(RTCONFIG_BCMARM),y)
 LDFLAGS += -lgcc_s

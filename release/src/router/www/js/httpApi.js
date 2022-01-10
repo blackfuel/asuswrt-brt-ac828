@@ -9,21 +9,6 @@ var asyncData = {
 }
 
 var httpApi ={
-	"hookGetAsync": function(q){
-		if(!q.success || !q.hook) return false;
-
-		var queryString = q.hook.split("-")[0] + "(" + (q.hook.split("-")[1] || "") + ")";
-
-		$.ajax({
-			url: '/appGet.cgi?hook=' + queryString,
-			dataType: 'json',
-			error: q.error,
-			success: function(res){
-				q.success(res[q.hook]);
-			}
-		});
-	},
-
 	"nvramGetAsync": function(q){
 		if(!q.success || !q.data) return false;
 
@@ -37,8 +22,23 @@ var httpApi ={
 			error: q.error,
 			success: function(encNvram){
 				var decNvram = {};
-				for (var nvram in encNvram){decNvram[nvram] = decodeURIComponent(encNvram[nvram]);}
+				for (var name in encNvram){decNvram[name] = decodeURIComponent(encNvram[name]);}
 				q.success(decNvram);
+			}
+		});
+	},
+
+	"hookGetAsync": function(q){
+		if(!q.success || !q.data) return false;
+
+		var queryString = q.data.split("-")[0] + "(" + (q.data.split("-")[1] || "") + ")";
+
+		$.ajax({
+			url: '/appGet.cgi?hook=' + queryString,
+			dataType: 'json',
+			error: q.error,
+			success: function(res){
+				q.success(res[q.data]);
 			}
 		});
 	},
@@ -163,14 +163,9 @@ var httpApi ={
 			return _nvrams.map(function(elem){return "nvram_char_to_ascii(" + elem + "," + elem + ")";}).join("%3B");
 		};
 
-		if(forceUpdate) cachedData.clear(objItems);
-
 		objItems.forEach(function(key){
-			if(cachedData.get.hasOwnProperty(key)){
-				retData[key] = cachedData.get[key];
-			}
-			else if(asyncData.get.hasOwnProperty(key)){
-				retData[key] = cachedData.get[key] = asyncData.get[key];
+			if(asyncData.get.hasOwnProperty(key)){
+				retData[key] = asyncData.get[key];
 				if(forceUpdate) delete asyncData.get[key];
 			}
 			else{
@@ -199,7 +194,7 @@ var httpApi ={
 					});
 				},
 				success: function(response){
-					Object.keys(response).forEach(function(key){retData[key] = cachedData.get[key] = response[key];})
+					Object.keys(response).forEach(function(key){retData[key] = response[key];})
 					retData.isError = false;
 				}
 			});
@@ -218,9 +213,7 @@ var httpApi ={
 			url: '/applyapp.cgi',
 			dataType: 'json',
 			data: postData,
-			error: function(response){
-				if(handler) handler.call(response);
-			},
+			error: function(){},
 			success: function(response){
 				if(handler) handler.call(response);
 			}
@@ -328,11 +321,12 @@ var httpApi ={
 	},
 
 	"detwanGetRet": function(){
-		var wanInfo = httpApi.nvramGet(["wan0_state_t", "wan0_sbstate_t", "wan0_auxstate_t", "autodet_state", "autodet_auxstate", "wan0_proto", "link_internet", "x_Setting"], true);
-	
+		var wanInfo = httpApi.nvramGet(["wan0_state_t", "wan0_sbstate_t", "wan0_auxstate_t", "autodet_state", "autodet_auxstate", "wan0_proto",
+										 "link_internet", "x_Setting", "usb_modem_act_sim"], true);
+
 		var wanTypeList = {
 			"dhcp": "DHCP",
-			"static": "Static",
+			"static": "STATIC",
 			"pppoe": "PPPoE",
 			"l2tp": "L2TP",
 			"pptp": "PPTP",
@@ -344,20 +338,56 @@ var httpApi ={
 			"noWan": "NOWAN"
 		}
 
+		var simStateList = {
+			"nosim": "NOSIM",
+			"ready": "READY",
+			"pin": "PIN",
+			"puk": "PUK",
+			"pin2": "PIN2",
+			"puk2": "PUK2",
+			"wait": "WAITING",
+			"fail": "FAIL"
+		}
+
 		var retData = {
 			"wanType": "CHECKING",
 			"isIPConflict": (function(){
 				return (wanInfo.wan0_state_t == "4" && wanInfo.wan0_sbstate_t == "4")
 			})(),
+			"simState": "WAITING",
 			"isError": false
 		};
 
 		var hadPlugged = function(deviceType){
-			var usbDeviceList = httpApi.hookGet("show_usb_path")[0] || [];
+			var usbDeviceList = httpApi.hookGet("show_usb_path") || [];
 			return (usbDeviceList.join().search(deviceType) != -1)
 		}
 
-		var iCanUsePPPoE = (wanInfo.autodet_state == "6" || wanInfo.autodet_auxstate == "6")
+		var iCanUsePPPoE = (wanInfo.autodet_state == "6" || wanInfo.autodet_auxstate == "6");
+		var sim_state = parseInt(wanInfo.usb_modem_act_sim);
+
+		if(isSupport("gobi") && (sim_state >= 1 && sim_state <= 6)){
+			switch(wanInfo.usb_modem_act_sim){
+				case "1":
+					retData.simState = simStateList.ready;
+					break;
+				case "2":
+					retData.simState = simStateList.pin;
+					break;
+				case "3":
+					retData.simState = simStateList.puk;
+					break;
+				case "4":
+					retData.simState = simStateList.pin2;
+					break;
+				case "5":
+					retData.simState = simStateList.puk2;
+					break;
+				case "6":
+					retData.simState = simStateList.wait;
+					break;
+			}
+		}
 
 		if(wanInfo.isError){
 			retData.wanType = wanTypeList.check;
@@ -373,12 +403,12 @@ var httpApi ={
 			retData.wanType = (iCanUsePPPoE && wanInfo.x_Setting  == "0") ? wanTypeList.pppdhcp : wanTypeList.connected;
 		}
 		else if(wanInfo.autodet_state == ""){
-			retData.wanType = wanTypeList.check;			
+			retData.wanType = wanTypeList.check;
 		}
 		else if(iCanUsePPPoE){
 			retData.wanType = wanTypeList.pppoe;
 		}
-		else if(hadPlugged("modem")){
+		else if(!isSupport("gobi") && hadPlugged("modem")){
 			retData.wanType = wanTypeList.modem;
 		}
 		else if(wanInfo.wan0_auxstate_t == "1"){
@@ -401,6 +431,9 @@ var httpApi ={
 			else{
 				retData.wanType = wanTypeList.noWan;
 			}
+		}
+		else if(wanInfo.autodet_state == "2"){
+			retData.wanType = wanTypeList.dhcp;
 		}
 		else{
 			retData.wanType = wanTypeList.check;
@@ -533,11 +566,32 @@ var httpApi ={
 		return retData;
 	},
 
+	"enableEula": function(_eulaType, enable, callback){
+		var eulaType = _eulaType.toUpperCase()
+
+		$.ajax({
+			url: '/set_' + eulaType + '_EULA.cgi?' + eulaType + '_EULA=' + enable,
+			error: function(){},
+			success: callback
+		});
+	},
+
+	"unregisterAsusDDNS": function(callback){
+		$.ajax({
+			url: '/unreg_ASUSDDNS.cgi',
+			error: function(){},
+			success: callback
+		});
+	},
+
 	"uiFlag": {
-		//the list defined as nvram order, the nvram value define the status.
-		//the value defined as status, you can use 0~9 to define any status that to used.
-		//ex. nvram uiFlag=011, defined as feature1/feature2/feature3..., value defined as disable/enable/enable
-		//"list": { "feature" : 0, "feature1" : 1, "feature2" : 2, ...},
+	/*
+		the list defined as nvram order, the nvram value define the status.
+		the value defined as status, you can use 0~9 to define any status that to used.
+		ex. nvram uiFlag=011, defined as feature1/feature2/feature3..., value defined as disable/enable/enable
+		"list": { "feature" : 0, "feature1" : 1, "feature2" : 2, ...},
+	*/
+
 		"list": {
 			"AiMeshHint" : 0
 		},
@@ -555,5 +609,269 @@ var httpApi ={
 			var uiFlag_update = replaceValue(uiFlag_ori, httpApi.uiFlag.list[_name], _value);
 			httpApi.nvramSet({"action_mode": "apply", "uiFlag" : uiFlag_update});
 		}
+	},
+
+	"update_wlanlog": function(){
+		$.get("/update_wlanlog.cgi");
+	},
+
+	"boostKey_support": function(){
+		var retData = {
+				"GAME_BOOST": {
+					"value": 3,
+					"text": "Enable GameBoost",
+					"desc": "<#BoostKey_Boost_desc#>"
+				},
+				"ACS_DFS": {
+					"value": 1,
+					"text": "<#WLANConfig11b_EChannel_dfs#>",
+					"desc": "<#BoostKey_DFS_desc#>"
+				},
+				"LED": {
+					"value": 0,
+					"text": "LED On/Off",
+					"desc": "The LED on/off control is used to turn off all LEDs includes Aura light."
+				},
+				"AURA_RGB": {
+					"value": 2,
+					"text": "Aura RGB",
+					"desc": "Aura sync control is used to get Aura control from other ROG devices, if disabled, it will be customized Aura RGB."
+				}
+		};
+
+		var productid = httpApi.nvramGet(["productid"]).productid;
+		if(productid == "GT-AC2900"){
+			delete retData.LED;
+			delete retData.AURA_RGB;
+
+			retData.AURA_SHUFFLE = {
+				"value": 4,
+				"text": "Aura Shuffle",
+				"desc": "<#BoostKey_AURA_Shuffle_desc#>"				
+			}
+
+			retData.GEFORCE_NOW = {
+				"value": 5,
+				"text": "GeForce Now",
+				"desc": "<#BoostKey_GeForce_desc#>"				
+			}
+		}
+
+		var sw_mode = (window.hasOwnProperty("qisPostData") && qisPostData.hasOwnProperty("sw_mode")) ? qisPostData.sw_mode : httpApi.nvramGet(["sw_mode"]).sw_mode;
+		if(sw_mode != "1"){
+			delete retData.GAME_BOOST;
+		}
+
+		if(sw_mode == "1" || sw_mode == "3"){
+			var ch_5g1 = httpApi.hookGet("channel_list_5g");
+			var ch_5g2 = httpApi.hookGet("channel_list_5g_2");
+			var ch = ch_5g1.concat(ch_5g2).toString().split(",");
+
+			if((ch.indexOf("52") == -1 && ch.indexOf("56") == -1 && ch.indexOf("60") == -1 && ch.indexOf("64") == -1 && ch.indexOf("100") == -1 && ch.indexOf("104") == -1 && ch.indexOf("108") == -1 && ch.indexOf("112") == -1 && ch.indexOf("116") == -1 && ch.indexOf("120") == -1 && ch.indexOf("124") == -1 && ch.indexOf("128") == -1 && ch.indexOf("132") == -1 && ch.indexOf("136") == -1 && ch.indexOf("140") == -1 && ch.indexOf("144") == -1)){
+				delete retData.ACS_DFS;
+			}
+		}
+		else{
+			delete retData.ACS_DFS;
+		}
+
+		return retData;
+	},
+
+	"getPAPStatus": function(_band){
+		var papStatus = "";
+		var get_ssid = function(_band){
+			var ssid = "";
+			if(_band == undefined)
+				ssid = decodeURIComponent(httpApi.nvramCharToAscii(["wlc_ssid"], true).wlc_ssid);
+			else
+				ssid = decodeURIComponent(httpApi.nvramCharToAscii(["wlc" + _band + "_ssid"], true)["wlc" + _band + "_ssid"]);
+
+			ssid = ssid.replace(/\</g, "&lt;").replace(/\>/g, "&gt;");
+			return ssid;
+		};
+		var dpsta_rep = (httpApi.nvramGet(["wlc_dpsta"]).wlc_dpsta == "") ? false : true;
+		if(isSupport("proxysta") && !dpsta_rep){
+			var wlc_psta_state = httpApi.hookGet("wlc_psta_state", true);
+			if(wlc_psta_state.wlc_state == "1" && wlc_psta_state.wlc_state_auth == "0")
+				papStatus = get_ssid(_band);
+			else if(wlc_psta_state.wlc_state == "2" && wlc_psta_state.wlc_state_auth == "1")
+				papStatus = "<#APSurvey_action_ConnectingStatus1#>";
+			else
+				papStatus = "<#Disconnected#>";
+		}
+		else{
+			var wlc_state = "0";
+			if(_band == undefined)
+				wlc_state = httpApi.nvramGet(["wlc_state"]).wlc_state;
+			else
+				wlc_state = httpApi.nvramGet(["wlc" + _band + "_state"])["wlc" + _band + "_state"];
+			switch(wlc_state){
+				case "0":
+					papStatus = "<#Disconnected#>";
+					break;
+				case "1":
+					papStatus = "<#APSurvey_action_ConnectingStatus1#>";
+					break;
+				case "2":
+					papStatus = get_ssid(_band);
+					break;
+				default:
+					papStatus = "<#Disconnected#>";
+					break;
+			}
+		}
+		return papStatus;
+	},
+
+	"getISPProfile": function(isp){
+		var isp_profiles = httpApi.hookGet("get_iptvSettings").isp_profiles;
+		var specified_profile = [];
+
+		$.each(isp_profiles, function(i, isp_profile) {
+			if(isp_profile.switch_wantag == isp){
+				specified_profile = isp_profile;
+			}
+		});
+
+		return specified_profile;
+	},
+
+	"checkCloudModelIcon": function(modelName, callBackSuccess, callBackError){
+		var getCloudModelIconSrc = function(modelName){
+			var handle_cloud_icon_model_name = function(_modelName) {
+				var transformName = _modelName;
+				if(transformName == "RT-AC66U_B1" || transformName == "RT-AC1750_B1" || transformName == "RT-N66U_C1" || transformName == "RT-AC1900U" || transformName == "RT-AC67U")
+					transformName = "RT-AC66U_V2";
+				else if(transformName == "BLUE_CAVE")
+					transformName = "BLUECAVE";
+				else if(transformName == "Lyra")
+					transformName = "MAP-AC2200";
+				else if(transformName == "Lyra_Mini" || transformName == "LyraMini")
+					transformName = "MAP-AC1300";
+				else if(transformName == "Lyra_Trio")
+					transformName = "MAP-AC1750";
+				else if(transformName == "LYRA_VOICE")
+					transformName = "MAP-AC2200V";
+				return transformName;
+			};
+			var server = "http://nw-dlcdnet.asus.com";
+			var fileName = "/plugin/productIcons/" + handle_cloud_icon_model_name(modelName) + ".png";
+
+			return server + fileName;
+		};
+
+		$("<img>")
+			.attr('src', getCloudModelIconSrc(modelName))
+			.on("load", function(e){
+				if(callBackSuccess) callBackSuccess($(this).attr("src"));
+				$(this).remove();
+			})
+			.on("error", function(e){
+				if(callBackError) callBackError();
+				$(this).remove();
+			});
+	},
+
+	"getAiMeshLabelMac": function(modelName, macAddr, callBackSuccess, callBackError){
+		var _modelName = modelName.trim();
+		var _macAddr = macAddr.trim().toUpperCase();
+		if(_modelName == "" || _macAddr == ""){
+			if(callBackError)
+				callBackError();
+			return;
+		}
+
+		if(modelName != "Lyra" && modelName != "Lyra_Mini" && modelName != "LyraMini" && modelName != "LYRA_VOICE" && modelName != "Lyra_Trio" && modelName != "GT-AXY16000")
+			return;
+
+		var isMac = function(_mac){
+			var hwaddr = new RegExp("(([a-fA-F0-9]{2}(\:|$)){6})", "gi");
+			if(hwaddr.test(_mac))
+				return true;
+			else
+				return false;
+		};
+
+		if(!isMac(_macAddr)){
+			if(callBackError)
+				callBackError();
+			return;
+		}
+
+		var macToHex = function(_mac){
+			return _mac.replace(/:/g, "").toString(16);
+		};
+		var hexToDec = function(_hex){
+			return parseInt(_hex, 16);
+		};
+		var decToHex = function(_dec){
+			if(_dec < 0)
+				_dec = 0xFFFFFFFFFFFF + _dec + 1;
+			return _dec.toString(16).toUpperCase();
+		};
+		var hexToMac = function(_hex){
+			var add_char_before = function(_value, _length, _char) {
+				_char = _char || "0";
+				_value = _value + "";
+				return _value.length >= _length ? _value : new Array(_length - _value.length + 1).join(_char) + _value;
+			};
+			if(_hex.length < 12)
+				_hex = add_char_before(_hex, 12, 0);
+			return _hex.match(/.{1,2}/g).join(":").toUpperCase();
+		};
+		var returnMacAddr = "";
+		var offset = 0;
+		switch(modelName){
+			case "Lyra":
+				{
+					var last_mac = _macAddr.substr(-1);
+				        if (last_mac == "9") offset = -9;
+				        else if (last_mac == "5" || last_mac == "D") offset = -5;
+				        else offset = -3;
+				}
+				break;
+			case "LYRA_VOICE":
+			case "Lyra_Mini":
+			case "LyraMini":
+				offset = -3;
+				break;
+			case "Lyra_Trio":
+				offset = -1;
+				break;
+			case "GT-AXY16000":
+			case "RT-AX89U":
+				offset = -5;
+				break;
+			default:
+				offset = 0;
+				break;
+		}
+
+		returnMacAddr = hexToMac(decToHex((hexToDec(macToHex(_macAddr)) + offset)));
+		if(isMac(returnMacAddr)){
+			if(callBackSuccess)
+				callBackSuccess(returnMacAddr);
+		}
+		else{
+			if(callBackError)
+				callBackError();
+		}
+	},
+
+	"updateClientList": function(){
+		$.post("/applyapp.cgi?action_mode=update_client_list");
+	},
+
+	"hasAiMeshNode": function(){
+		var status = false;
+		if(amesh_support && (isSwMode("rt") || isSwMode("ap")) && ameshRouter_support) {
+			var get_cfg_clientlist = httpApi.hookGet("get_cfg_clientlist", true);
+			get_cfg_clientlist.shift();//filter CAP
+			var online_node_list = get_cfg_clientlist.filter(function(item) { return item.online == "1"; });
+			if(online_node_list.length > 0)
+				status = true;
+		}
+		return status;
 	}
 }

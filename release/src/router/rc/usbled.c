@@ -49,8 +49,8 @@ static int model = MODEL_UNKNOWN;
 
 static int usb_busy, count = 0;
 static struct itimerval itv;
-static char *usb_path1 = NULL;
-static char *usb_path2 = NULL;
+static char usb_path1[16];
+static char usb_path2[16];
 static int status_usb = 0;
 static int status_usb_old = 0;
 
@@ -62,7 +62,7 @@ static int got_usb3_old = 0;
 #endif
 
 #if defined(RTCONFIG_M2_SSD)
-static char *usb_path3 = NULL;
+static char usb_path3[16];
 static int got_m2ssd = 0, got_m2ssd_old = 0;
 #endif
 
@@ -141,7 +141,7 @@ static void no_blink(int sig)
 		nvram_unset("usb_led_id");
 }
 
-#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN)
+#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN) || defined(RTCONFIG_TURBO_BTN)
 static void reset_status(int sig)
 {
 	status_usb_old = -1;
@@ -183,10 +183,10 @@ static void usbled_exit(int sig)
 
 static void usbled(int sig)
 {
-	usb_path1 = nvram_safe_get("usb_path1");
-	usb_path2 = nvram_safe_get("usb_path2");
+	snprintf(usb_path1, sizeof(usb_path1), "%s", nvram_safe_get("usb_path1"));
+	snprintf(usb_path2, sizeof(usb_path2), "%s", nvram_safe_get("usb_path2"));
 #if defined(RTCONFIG_M2_SSD)
-	usb_path3 = nvram_safe_get("usb_path3");
+	snprintf(usb_path3, sizeof(usb_path3), "%s", nvram_safe_get("usb_path3"));
 #endif
 	status_usb_old = status_usb;
 	status_usb = usb_status();
@@ -204,17 +204,9 @@ static void usbled(int sig)
 	got_m2ssd = check_m2_ssd();
 #endif
 
-	if (nvram_match("asus_mfg", "1")
-#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN)
-			|| !nvram_get_int("AllLED")
-#endif
-			)
+	if (nvram_match("asus_mfg", "1") || inhibit_led_on())
 		no_blink(sig);
-	else if (!usb_busy
-#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN)
-			&& nvram_get_int("AllLED")
-#endif
-			)
+	else if (!usb_busy && !inhibit_led_on())
 	{
 #ifdef RTCONFIG_USB_XHCI
 		if (have_usb3_led(model)) {
@@ -259,10 +251,7 @@ static void usbled(int sig)
 				led_control(LED_USB, LED_OFF);
 		}
 	}
-	else
-#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN)
-	if (nvram_get_int("AllLED"))
-#endif
+	else if (!inhibit_led_on())
 	{
 		if (strcmp(usb_path1, "storage") && strcmp(usb_path2, "storage"))
 		{
@@ -313,7 +302,7 @@ usbled_main(int argc, char *argv[])
 	sigaddset(&sigs_to_catch, SIGTERM);
 	sigaddset(&sigs_to_catch, SIGUSR1);
 	sigaddset(&sigs_to_catch, SIGUSR2);
-#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN)
+#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN) || defined(RTCONFIG_TURBO_BTN)
 	sigaddset(&sigs_to_catch, SIGTSTP);
 #endif
 	sigprocmask(SIG_UNBLOCK, &sigs_to_catch, NULL);
@@ -322,7 +311,7 @@ usbled_main(int argc, char *argv[])
 	signal(SIGTERM, usbled_exit);
 	signal(SIGUSR1, blink);
 	signal(SIGUSR2, no_blink);
-#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN)
+#if defined(RTCONFIG_LED_BTN) || defined(RTCONFIG_WPS_ALLLED_BTN) || defined(RTCONFIG_TURBO_BTN)
 	signal(SIGTSTP, reset_status);
 #endif
 	alarmtimer(USBLED_NORMAL_PERIOD, 0);

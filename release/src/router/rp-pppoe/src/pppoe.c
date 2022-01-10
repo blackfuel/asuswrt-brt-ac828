@@ -16,6 +16,12 @@
 static char const RCSID[] =
 "$Id$";
 
+/* For vsnprintf prototype */
+#define _ISOC99_SOURCE 1
+
+/* For clock_gettime & CLOCK_* prototype */
+#define _POSIX_C_SOURCE 200809L
+
 #include "pppoe.h"
 
 #ifdef HAVE_SYSLOG_H
@@ -33,6 +39,9 @@ static char const RCSID[] =
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
+
+#include <time.h>
+#include <sys/syscall.h>
 
 #ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
@@ -69,6 +78,45 @@ int optFloodDiscovery    = 0;   /* Flood server with discovery requests.
 
 PPPoEConnection *Connection = NULL; /* Must be global -- used
 				       in signal handler */
+
+/***********************************************************************
+*%FUNCTION: get_time
+*%ARGUMENTS:
+* tv -- timeval
+*%RETURNS:
+* 0 if time was obtained; -1 otherwise.
+*%DESCRIPTION:
+* Get current time, monotonic if possible.
+***********************************************************************/
+int
+get_time(struct timeval *tv)
+{
+    static int monotonic = -1;
+
+    if (monotonic) {
+#if defined(__NR_clock_gettime) && defined(CLOCK_MONOTONIC)
+	struct timespec ts;
+	int ret = syscall(__NR_clock_gettime, CLOCK_MONOTONIC, &ts);
+
+	if (tv && ret == 0) {
+	    tv->tv_sec = ts.tv_sec;
+	    tv->tv_usec = ts.tv_nsec / 1000;
+	}
+
+	if (monotonic < 0)
+	    monotonic = (ret == 0);
+	if (monotonic)
+	    return ret;
+#else
+	monotonic = 0;
+#endif
+	syslog(LOG_WARNING,
+	    "Couldn't use monotonic clock source: %s",
+	    strerror(errno));
+    }
+
+    return gettimeofday(tv, NULL);
+}
 
 /***********************************************************************
 *%FUNCTION: sendSessionPacket
@@ -406,6 +454,7 @@ main(int argc, char *argv[])
     FILE *pidfile;
     unsigned int discoveryType, sessionType;
     char const *options;
+    char pidbuf[5];
 
     PPPoEConnection conn;
 
@@ -432,9 +481,9 @@ main(int argc, char *argv[])
     openlog("pppoe", LOG_PID, LOG_DAEMON);
 
 #ifdef DEBUGGING_ENABLED
-    options = "I:VAT:D:hS:C:Usm:np:e:kdf:F:t:";
+    options = "I:VAT:D:hS:C:UW:sm:np:e:kdf:F:t:";
 #else
-    options = "I:VAT:hS:C:Usm:np:e:kdf:F:t:";
+    options = "I:VAT:hS:C:UW:sm:np:e:kdf:F:t:W:";
 #endif
     while((opt = getopt(argc, argv, options)) != -1) {
 	switch(opt) {
@@ -522,8 +571,22 @@ main(int argc, char *argv[])
 	    conn.synchronous = 1;
 	    break;
 	case 'U':
-	    conn.useHostUniq = 1;
+	    if (conn.hostUniq.length) {
+		fprintf(stderr, "-U and -W are mutually exclusive\n");
+		exit(EXIT_FAILURE);
+	    }
+	    snprintf(pidbuf, sizeof(pidbuf), "%04x", getpid());
+	    parseHostUniq(pidbuf, &conn.hostUniq);
 	    break;
+	case 'W':
+	    if (conn.hostUniq.length) {
+		fprintf(stderr, "-U and -W are mutually exclusive\n");
+		exit(EXIT_FAILURE);
+	    }
+	    if (!parseHostUniq(optarg, &conn.hostUniq)) {
+		fprintf(stderr, "Invalid host-uniq argument: %s\n", optarg);
+		exit(EXIT_FAILURE);
+	    }
 #ifdef DEBUGGING_ENABLED
 	case 'D':
 	    switchToRealID();

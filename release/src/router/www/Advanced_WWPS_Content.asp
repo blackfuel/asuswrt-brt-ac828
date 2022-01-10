@@ -17,11 +17,12 @@
 <script type="text/javascript" src="/popup.js"></script>
 <script type="text/javascript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
-<script>
-
-</script>
 <script><% wl_get_parameter(); %>
-
+$(function () {
+	if(amesh_support && (isSwMode("rt") || isSwMode("ap")) && ameshRouter_support) {
+		addNewScript('/require/modules/amesh.js');
+	}
+});
 var wsc_config_state_old = '<% nvram_get("wsc_config_state"); %>';
 var wps_enable_old = '<% nvram_get("wps_enable"); %>';
 var wl_wps_mode_old = '<% nvram_get("wl_wps_mode"); %>';
@@ -83,6 +84,10 @@ function initial(){
 			
 			document.getElementById("wps_band_word").innerHTML = band0 + " / " + band1;
 		}
+	}
+
+	if(lantiq_support){
+		checkWLReady();
 	}
 	
 	if(!ValidateChecksum(document.form.wps_sta_pin.value) || document.form.wps_sta_pin.value == "00000000"){
@@ -200,6 +205,11 @@ function enableWPS(){
 }
 
 function configCommand(){
+	if(lantiq_support && wave_ready != 1){
+		alert("Please wait a minute for wireless ready");
+		return false;
+	}
+
 	if(document.form.wps_method[1].checked == true){
 		if(PIN_PBC_Check()){
 			FormActions("apply.cgi", "wps_apply", "", "");
@@ -216,9 +226,16 @@ function configCommand(){
 }
 
 function resetWPS(){
+	if(lantiq_support && wave_ready != 1){
+		alert("Please wait a minute for wireless ready");
+		return false;
+	}
+
 	var sec = 5;
+	if(based_modelid == "BLUECAVE")
+		sec = 30;
 	if (Qcawifi_support)
-		sec += 7;
+		sec = 20;
 	showLoading(sec);
 	FormActions("apply.cgi", "wps_reset", "", sec.toString());
 	document.form.submit();
@@ -325,7 +342,7 @@ function loadXML(){
 }
 
 function refresh_wpsinfo(xhr){
-	if(xhr.responseText.search("Main_Login.asp") !== -1) top.location.href = "/index.asp";
+	if(xhr.responseText.search("Main_Login.asp") !== -1) top.location.href = "/";
 
 	var wpss = xhr.responseXML.getElementsByTagName("wps");
 	if(wpss == null || wpss[0] == null){
@@ -460,14 +477,19 @@ function show_wsc_status(wps_infos){
 	document.getElementById("wpsmethod_tr").style.display = "";
 	if(wps_enable_old == "1"){
 		inputCtrl(document.form.wps_sta_pin, 1);
-		if(wps_infos[1].firstChild.nodeValue == "Yes")
+		if(wps_infos[1].firstChild.nodeValue == "Yes"){
 			document.getElementById("Reset_OOB").style.display = "";
-		else
+			document.getElementById("Reset_OOB_desc").style.display = "";
+		}
+		else{
 			document.getElementById("Reset_OOB").style.display = "none";
+			document.getElementById("Reset_OOB_desc").style.display = "none";
+		}
 	}
 	else{
 		inputCtrl(document.form.wps_sta_pin, 0);
 		document.getElementById("Reset_OOB").style.display = "none";
+		document.getElementById("Reset_OOB_desc").style.display = "none";
 	}
 	
 	// show connecting btn
@@ -598,14 +620,19 @@ function show_wsc_status2(wps_infos0, wps_infos1){
 	document.getElementById("wpsmethod_tr").style.display = "";
 	if(wps_enable_old == "1"){
 		inputCtrl(document.form.wps_sta_pin, 1);
-		if(wps_infos0[1].firstChild.nodeValue == "Yes" || wps_infos1[1].firstChild.nodeValue == "Yes")
+		if(wps_infos0[1].firstChild.nodeValue == "Yes" || wps_infos1[1].firstChild.nodeValue == "Yes"){
 			document.getElementById("Reset_OOB").style.display = "";
-		else
+			document.getElementById("Reset_OOB_desc").style.display = "";
+		}
+		else{
 			document.getElementById("Reset_OOB").style.display = "none";
+			document.getElementById("Reset_OOB_desc").style.display = "none";
+		}
 	}
 	else{
 		inputCtrl(document.form.wps_sta_pin, 0);
 		document.getElementById("Reset_OOB").style.display = "none";
+		document.getElementById("Reset_OOB_desc").style.display = "none";
 	}
 
 	if(wps_infos0[0].firstChild.nodeValue == "Start WPS Process" || wps_infos1[0].firstChild.nodeValue == "Start WPS Process")
@@ -646,10 +673,30 @@ function _change_wl_advanced_unit_status(__unit){
 	document.titleForm.next_page.value = "Advanced_WAdvanced_Content.asp?af=wl_radio";
 	change_wl_unit_status(__unit);
 }
+
+function checkWLReady(){
+	$.ajax({
+	    url: '/ajax_wl_ready.asp',
+	    dataType: 'script',	
+	    error: function(xhr) {
+			setTimeout("checkWLReady();", 1000);
+	    },
+	    success: function(response){
+	    	if(wave_ready != 1){
+	    		$("#lantiq_ready").show();
+	    		setTimeout("checkWLReady();", 1000);
+	    	}
+	    	else{
+	    		$("#lantiq_ready").hide();
+	    	}
+			
+	    }
+  	});
+}
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
@@ -701,8 +748,9 @@ function _change_wl_advanced_unit_status(__unit){
 		  <td bgcolor="#4D595D" valign="top"  >
 		  <div>&nbsp;</div>
 		  <div class="formfonttitle"><#menu5_1#> - <#menu5_1_2#></div>
-		  <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+		  <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 		  <div class="formfontdesc"><#WLANConfig11b_display6_sectiondesc#></div>
+		  <div id="lantiq_ready" style="display:none;color:#FC0;margin-left:5px;font-size:13px;">Wireless is setting...</div>
 		  <div id="WPS_hideSSID_hint" class="formfontdesc" style="display:none;color:#FFCC00;"></div>		  
 
 		<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0"  class="FormTable">
@@ -731,6 +779,8 @@ function _change_wl_advanced_unit_status(__unit){
 										if(	document.form.wl0_auth_mode_x.value == "shared" ||	document.form.wl1_auth_mode_x.value == "shared"
 										||	document.form.wl0_auth_mode_x.value == "psk"	||	document.form.wl0_auth_mode_x.value == "wpa"
 										||	document.form.wl1_auth_mode_x.value == "psk"	||	document.form.wl1_auth_mode_x.value == "wpa"
+										||	document.form.wl0_auth_mode_x.value == "wpa2"    ||	document.form.wl0_auth_mode_x.value == "wpa2"
+										||	document.form.wl1_auth_mode_x.value == "wpawpa2"    ||	document.form.wl1_auth_mode_x.value == "wpawpa2"
 										||	document.form.wl0_auth_mode_x.value == "open" && (document.form.wl0_wep_x.value == "1" || document.form.wl0_wep_x.value == "2")
 										||	document.form.wl1_auth_mode_x.value == "open" && (document.form.wl1_wep_x.value == "1" || document.form.wl1_wep_x.value == "2")){
 											alert("<#note_auth_wpa_WPS#>");
@@ -741,7 +791,8 @@ function _change_wl_advanced_unit_status(__unit){
 									else{		//Broadcom, Ralink normal case
 										if(document.form.wps_band.value == 0){
 											if(	document.form.wl0_auth_mode_x.value == "shared"
-											||	document.form.wl0_auth_mode_x.value == "psk"	||	document.form.wl0_auth_mode_x.value == "wpa"
+											||	document.form.wl0_auth_mode_x.value == "psk"
+											||	document.form.wl0_auth_mode_x.value == "wpa" ||	document.form.wl0_auth_mode_x.value == "wpa2" || document.form.wl0_auth_mode_x.value == "wpawpa2"
 											||	document.form.wl0_auth_mode_x.value == "open" && (document.form.wl0_wep_x.value == "1" || document.form.wl0_wep_x.value == "2")){
 												alert(band_string + " : <#note_auth_wpa_WPS#>");
 												$('#iphone_switch').animate({backgroundPosition: -37}, "slow", function() {});
@@ -756,7 +807,8 @@ function _change_wl_advanced_unit_status(__unit){
 										}
 										else if(document.form.wps_band.value == 1){			//5G
 											if(	document.form.wl1_auth_mode_x.value == "shared"
-											||	document.form.wl1_auth_mode_x.value == "psk"	||	document.form.wl1_auth_mode_x.value == "wpa"
+											||	document.form.wl1_auth_mode_x.value == "psk"
+											||	document.form.wl1_auth_mode_x.value == "wpa" ||	document.form.wl1_auth_mode_x.value == "wpa2" || document.form.wl1_auth_mode_x.value == "wpawpa2"
 											||	document.form.wl1_auth_mode_x.value == "open" && (document.form.wl1_wep_x.value == "1" || document.form.wl1_wep_x.value == "2")){
 												alert(band_string + " : <#note_auth_wpa_WPS#>");
 												$('#iphone_switch').animate({backgroundPosition: -37}, "slow", function() {});
@@ -772,7 +824,8 @@ function _change_wl_advanced_unit_status(__unit){
 										}
 										else if(document.form.wps_band.value == 2){		//5G-2
 											if(	document.form.wl2_auth_mode_x.value == "shared"
-											||	document.form.wl2_auth_mode_x.value == "psk"	||	document.form.wl2_auth_mode_x.value == "wpa"
+											||	document.form.wl2_auth_mode_x.value == "psk"
+											||	document.form.wl2_auth_mode_x.value == "wpa" ||	document.form.wl2_auth_mode_x.value == "wpa2" || document.form.wl2_auth_mode_x.value == "wpawpa2"
 											||	document.form.wl2_auth_mode_x.value == "open" && (document.form.wl2_wep_x.value == "1" || document.form.wl2_wep_x.value == "2")){
 												alert(band_string + " : <#note_auth_wpa_WPS#>");
 												$('#iphone_switch').animate({backgroundPosition: -37}, "slow", function() {});
@@ -805,7 +858,7 @@ function _change_wl_advanced_unit_status(__unit){
 				
 				<td id="wps_switch">
 						<span class="devicepin" style="color:#FFF;" id="wps_band_word"></span>&nbsp;&nbsp;
-						<input type="button" class="button_gen_long" name="switchWPSbtn" id="switchWPSbtn" value="<#Switch_band#>" class="button" onClick="SwitchBand();">
+						<input type="button" class="button_gen" name="switchWPSbtn" id="switchWPSbtn" value="<#Switch_band#>" class="button" onClick="SwitchBand();">
 						<br><span id="wps_band_hint"></span>
 		  	</td>
 				<td  id="wps_select" style="display:none">
@@ -835,6 +888,7 @@ function _change_wl_advanced_unit_status(__unit){
 							</td>
 							<td style="border:0px">
 								<input class="button_gen" type="button" onClick="resetWPS();" id="Reset_OOB" name="Reset_OOB" value="<#CTL_Reset_OOB#>" style="padding:0 0.3em 0 0.3em;" >
+								<br><span id="Reset_OOB_desc"><#WLANConfig11b_x_ResetWPS_desc#></span>
 							</td>
 						</tr></table>
 					</div>

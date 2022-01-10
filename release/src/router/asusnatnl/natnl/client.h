@@ -22,6 +22,9 @@
 #ifndef AA_CLIENT_H
 #define AA_CLIENT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef WIN32
 #include <inttypes.h>
@@ -150,7 +153,12 @@ typedef struct client
 	char im_dest_deviceid[128];   /* The device_id of destination for sending message. */
 	void *im_user_data;
 	int im_timeout_sec;			  /* The timeout value in second unit for sending message. */
+	char *im_req_buf;
+	char *im_res_buf;
+	int im_res_len;
 	struct timeval      im_request_timeout;     // for check timeout.
+
+	int sleep_while_data_sent;
 } client_t;
 
 /* Call specific data */
@@ -160,14 +168,13 @@ typedef struct call_data
 
 	fd_set              client_fds;
 	int					nfds;
-	list_t             *clients;
-	list_t             *client_locks;
+	natnl_list_t             *clients;
 
     /* for UDP_CLIENT */
-    list_t             *conn_clients;
+    natnl_list_t             *conn_clients;
 
 	//socket_t           *tcp_serv;
-    list_t             *sock_servs;
+    natnl_list_t             *sock_servs;
 
     char *lhost, *lport, *phost, *pport, *rhost, *rport;
 
@@ -195,7 +202,7 @@ client_t *client_create(uint16_t id, socket_t *tcp_sock, pjmedia_transport *tp,
 client_t *client_copy(client_t *dst, client_t *src, size_t len);
 int client_cmp(client_t *c1, client_t *c2, size_t len);
 void client_free(client_t **c);
-void disconnect_and_remove_client(uint16_t id, list_t *clients,
+void disconnect_and_remove_client(client_t *c, natnl_list_t *clients,
 								  fd_set *fds, int full_disconnect, int type);
 void mutex_free(pj_mutex_t **c);
 int client_connect_tcp(client_t *c);
@@ -210,6 +217,7 @@ int client_recv_udp_msg(client_t *client, char *data, int data_len,
 #endif
 
 int client_send_lo_data(client_t *c);
+int client_send_lo_im_data(client_t *c);
 int client_recv_lo_data(client_t *c, struct call_data *cd);
 int client_recv_lo_whole_data(client_t *c, struct call_data *cd);
 int client_send_tnl_data(client_t *c);
@@ -229,9 +237,9 @@ int client_im_timed_out(client_t *client);
 void client_set_status(client_t *client, enum client_status status);
 int client_is_working(client_t *client);
 int client_suspend_all(int inst_id, int call_id);
-int client_rtsp_teardown_session(client *rtsp_c);
-int client_rtsp_request_check(client *c);
-int client_rtsp_response_check(client *c);
+int client_rtsp_teardown_session(client_t *rtsp_c);
+int client_rtsp_request_check(client_t *c);
+int client_rtsp_response_check(client_t *c);
 
 /* Function pointers to use when making a list_t of clients */
 #define p_client_copy ((void* (*)(void *, const void *, size_t))&client_copy)
@@ -320,6 +328,10 @@ static _inline_ int client_ready_to_disconnect(client_t *c)
 	return ((c->to_disconn_remote_request /*|| 
 		c->to_disconn_tcp_srv_no_data*/) /*&& c->tcp2udp_len == 0*/);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CLIENT_H */
 

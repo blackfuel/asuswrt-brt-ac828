@@ -1549,7 +1549,10 @@ static int parse_mtdparts(const char *const mtdparts)
 	}
 
 	/* re-read 'mtdparts' variable, mtd_devices_init may be updating env */
-	p = getenv("mtdparts");
+	if (!(p = getenv("mtdparts"))) {
+		printf("mtdparts not found \n");
+		return err;
+	}
 
 	if (strncmp(p, "mtdparts=", 9) != 0) {
 		printf("mtdparts variable doesn't start with 'mtdparts='\n");

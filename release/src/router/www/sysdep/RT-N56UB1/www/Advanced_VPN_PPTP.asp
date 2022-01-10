@@ -19,6 +19,7 @@
 <script language="JavaScript" type="text/javascript" src="/validator.js"></script>
 <script type="text/javascript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <style>
 .contentM_qis{
 	position:absolute;
@@ -58,8 +59,9 @@ function initial(){
 	var pptpd_wins2_orig = '<% nvram_get("pptpd_wins2"); %>';
 	var pptpd_clients = '<% nvram_get("pptpd_clients"); %>';
 	
-	show_menu();		
-	addOnlineHelp(document.getElementById("faq"), ["ASUSWRT", "VPN"]);
+	show_menu();
+	// https://www.asus.com/US/support/FAQ/1033906
+	httpApi.faqURL("1033906", function(url){document.getElementById("faq").href=url;});
 	//if support pptpd and openvpnd then show switch button
 	if(pptpd_support && openvpnd_support) {
 		document.getElementById("divSwitchMenu").style.display = "";
@@ -840,7 +842,7 @@ function check_vpn_conflict() {		//if conflict with LAN ip & DHCP ip pool & stat
 											</a>
 										</div>
 									</div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div id="privateIP_notes" class="formfontdesc" style="display:none;color:#FC0;"><#vpn_privateIP_hint#></div>
 									<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
 										<thead>
@@ -908,7 +910,7 @@ function check_vpn_conflict() {		//if conflict with LAN ip & DHCP ip pool & stat
 											</thead>								
 											<tr>
 												<th><#PPPConnection_x_WANLink_itemname#></th>
-												<th><#HSDPAConfig_Username_itemname#></th>
+												<th><#Username#></th>
 												<th><#HSDPAConfig_Password_itemname#></th>
 												<th><#list_add_delete#></th>
 												<th><#pvccfg_edit#></th>
@@ -942,7 +944,7 @@ function check_vpn_conflict() {		//if conflict with LAN ip & DHCP ip pool & stat
 											<td>
 												<input type="radio" value="1" name="pptpd_broadcast_option" onClick="setBroadcast(this);"/><#checkbox_Yes#>
 												<input type="radio" value="0" name="pptpd_broadcast_option" onClick="setBroadcast(this);"/><#checkbox_No#>
-												<span id="pptpd_broadcast_hint" style="font-family: Lucida Console;color: #FFCC00;display: none;">When Network Place enabled, this must be enabled</span>
+												<span id="pptpd_broadcast_hint" style="font-family: Lucida Console;color: #FFCC00;display: none;"><#PPTP_broadcast_hint#></span>
 											</td>
 										</tr>
 										<tr>

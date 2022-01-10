@@ -30,6 +30,7 @@ obj-$(CONFIG_NF_NAT_PPTP) += nf_nat_pptp.o
 obj-$(CONFIG_NF_NAT_QUAKE3) += nf_nat_quake3.o
 obj-$(CONFIG_NF_NAT_RTSP) += nf_nat_rtsp.o
 obj-$(CONFIG_NF_NAT_SIP) += nf_nat_sip.o
+obj-$(CONFIG_NF_NAT_CISCO_SIP) += nf_nat_cisco_sip.o
 obj-$(CONFIG_NF_NAT_SNMP_BASIC) += nf_nat_snmp_basic.o
 obj-$(CONFIG_NF_NAT_TFTP) += nf_nat_tftp.o
 

@@ -22,6 +22,7 @@
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
 <script type="text/javascript" src="/form.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <script>
 window.onresize = function() {
 	if(document.getElementById("folderTree_panel").style.display == "block") {
@@ -31,6 +32,9 @@ window.onresize = function() {
 
 function initial(){
 	show_menu();
+	//	https://www.asus.com/support/FAQ/1004458
+	httpApi.faqURL("1011283", function(url){document.getElementById("faq").href=url;});
+	httpApi.faqURL("1004458", function(url){document.getElementById("faq2").href=url;});
 
 	if('<% nvram_get("tm_device_name"); %>' != '')
 		document.getElementById("tmPath").innerHTML = '/mnt/<% nvram_get("tm_device_name"); %>';
@@ -158,7 +162,7 @@ function applyRule(){
 </script>
 </head>
 
-<body onload="initial();" onunLoad="return unload_body();">
+<body onload="initial();" onunLoad="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <!-- floder tree-->
 <div id="folderTree_panel" class="panel_folder">
@@ -244,7 +248,7 @@ function applyRule(){
 						</tr>
 					</table>
 				</div>
-				<div style="margin:5px;"><img src="/images/New_ui/export/line_export.png"></div>
+				<div style="margin:5px;" class="splitLine"></div>
 				<div class="formfontdesc" style="line-height:20px;font-style:italic;font-size: 14px;">
 					<table>
 						<tr>
@@ -255,8 +259,8 @@ function applyRule(){
 								1. <#TimeMach_enable#><br>
 								2. <#TimeMach_target#> <br>
 								3. <#TimeMach_usage_limit#><br>
-								4. <#TimeMach_backup#> ( <a href="http://www.asus.com/support/Knowledge-Detail/11/2/RTAC68U/3FEED048-5AC2-4B97-ABAE-DE609DDBC151/" target="_blank" style="text-decoration:underline;"><#TimeMach_AppleURL#></a> )<br>								
-								5. <a href="http://www.asus.com/support/Knowledge-Detail/11/2/RTAC68U/25DFAE22-873C-4796-91C4-5CF1F08A2064/" target="_blank" style="text-decoration:underline;"><#TimeMach_FAQ#></a><br>
+								4. <#TimeMach_backup#> ( <a id="faq2" href="" target="_blank" style="text-decoration:underline;"><#TimeMach_AppleURL#></a> )<br>								
+								5. <a id="faq" href="" target="_blank" style="text-decoration:underline;"><#TimeMach_FAQ#></a><br>
 								<span style="color:#FC0">
 									* <#TimeMach_recommand1#> <br>
 									* <#TimeMach_recommand2#> <br>

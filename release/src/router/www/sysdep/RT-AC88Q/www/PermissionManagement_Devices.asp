@@ -316,7 +316,7 @@ function add_device(flag, target){
 		return false;
 	}
 
-	if(!check_macaddr(document.getElementById("device_mac"), check_hwaddr_flag(document.getElementById("device_mac")))){
+	if(!check_macaddr(document.getElementById("device_mac"), check_hwaddr_flag(document.getElementById("device_mac"), 'inner'))){
 		document.getElementById("device_mac").focus();
 		document.getElementById("device_mac").select();
 		return false;	
@@ -518,7 +518,7 @@ function enable_group_all(obj){
 					<input id="device_name" type="text" maxlength="32"class="input_32_table" style="height: 23px;" value="" autocorrect="off" autocapitalize="off">
 					<img id="pull_arrow" height="14px;" src="/images/arrow-down.gif" style="position:absolute;" onclick="pullLANIPList(this);" title="<#select_client#>">
 					<div id="ClientList_Block_PC" style="margin:0 0 0 2px" class="clientlist_dropdown"></div>
-					<div style="color:#FC0;padding: 3px 0 0 2px">Note: You can add the clients which connect in default LAN (VID = 1) for managing on related functions.<a id="faq" target="_blank" style="padding-left:5px;color: #FFF;text-decoration: underline;">Device Management FAQ</a></div>		
+					<div style="color:#FC0;padding: 3px 0 0 2px"><#ADSL_FW_note#> <#ShareNode_WorkGroup_note#><a id="faq" target="_blank" style="padding-left:5px;color: #FFF;text-decoration: underline;"><#ShareNode_WorkGroup_faq#></a></div>
 				</td>
 			</tr>
 			<tr>
@@ -576,7 +576,7 @@ function enable_group_all(obj){
 								<td bgcolor="#4D595D" valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#Permission_Management#> - <#Permission_Management_Devices#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin: 10px 0 10px 5px" class="splitLine"></div>
 									<div style="margin-top:20px;" class="formfontdesc"><#PM_Devices_desc#></div>								
 									<div>
 										<div style="display:flex">

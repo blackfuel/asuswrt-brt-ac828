@@ -1371,7 +1371,8 @@ static int do_bootm_netbsd(int flag, int argc, char * const argv[],
 
 		for (i = 2, len = 0; i < argc; i += 1)
 			len += strlen(argv[i]) + 1;
-		cmdline = malloc(len);
+		if (!(cmdline = malloc(len)))
+			return 1;
 
 		for (i = 2, len = 0; i < argc; i += 1) {
 			if (i > 2)

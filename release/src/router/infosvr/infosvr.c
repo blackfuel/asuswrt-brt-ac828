@@ -21,6 +21,8 @@
 
 #include <rtconfig.h>
 #include <shutils.h>
+#include <wlutils.h>
+#include <shared.h>
 
 #define SRV_PORT 9999
 #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
@@ -31,7 +33,7 @@
 #define PRODUCTCFG "/etc/linuxigd/general.log"
 #define LAN_DEV "br0"
 
-DWORD RECV(int sockfd , PBYTE pRcvbuf , DWORD dwlen , struct sockaddr *from, int *fromlen , DWORD timeout);
+DWORD RECV(int sockfd , PBYTE pRcvbuf , DWORD dwlen , struct sockaddr *from, socklen_t *fromlen , DWORD timeout);
 int waitsock(int sockfd , int sec , int usec);
 int closesocket(int sockfd);
 void readPrnID(char *prninfo);
@@ -41,6 +43,8 @@ int check_par_usb_prn(void);
 int  set_pid(int pid);	//deliver process id to driver
 void sig_usr1(int sig);	//signal handler to handle signal send from driver
 void sig_usr2(int sig);
+int processReq(int sockfd);
+extern char *processPacket(int sockfd, char *pdubuf, unsigned short cli_port);
 
 int timeup=0;
 
@@ -58,6 +62,7 @@ char netmask_g[32];
 char productid_g[32];
 char firmver_g[16];
 unsigned char mac[6] = { 0x00, 0x0c, 0x6e, 0xbd, 0xf3, 0xc5};
+unsigned char label_mac[6] = { 0x00, 0x0c, 0x6e, 0xbd, 0xf3, 0xc5};
 
 void sig_do_nothing(int sig)
 {
@@ -65,37 +70,21 @@ void sig_do_nothing(int sig)
 
 void load_sysparam(void)
 {
-	char *p, macstr[32];
-#if defined(RTCONFIG_WIRELESSREPEATER) || defined(RTCONFIG_PROXYSTA)
-	char tmp[100], prefix[] = "wlXXXXXXXXXXXXXX";
-#endif
-#ifdef RTCONFIG_WIRELESSREPEATER
-	if (nvram_get_int("sw_mode") == SW_MODE_REPEATER)
-	{
-		snprintf(prefix, sizeof(prefix), "wl%d.1_", nvram_get_int("wlc_band"));
-		strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), sizeof(ssid_g));
-	}
-	else
-#endif
-#ifdef RTCONFIG_BCMWL6
-#ifdef RTCONFIG_PROXYSTA
-	if (is_psta(nvram_get_int("wlc_band")) || is_psr(nvram_get_int("wlc_band")))
-	{
-		snprintf(prefix, sizeof(prefix), "wl%d_", nvram_get_int("wlc_band"));
-		strncpy(ssid_g, nvram_safe_get(strcat_r(prefix, "ssid", tmp)), 32);
-	}
-	else
-#endif
-#endif
-	strncpy(ssid_g, nvram_safe_get("wl0_ssid"), sizeof(ssid_g));
+	char macstr[32], label_macstr[32];
+
+	get_discovery_ssid(ssid_g, sizeof(ssid_g));
 	strncpy(netmask_g, nvram_safe_get("lan_netmask"), sizeof(netmask_g));
 	strncpy(productid_g, get_productid(), sizeof(productid_g));
 
 	snprintf(firmver_g, sizeof(firmver_g), "%s.%s", nvram_safe_get("firmver"), nvram_safe_get("buildno"));
 
-	strcpy(macstr, nvram_safe_get("lan_hwaddr"));
+	strlcpy(macstr, nvram_safe_get("lan_hwaddr"), sizeof(macstr));
 //	printf("mac: %d\n", strlen(macstr));
 	if (strlen(macstr)!=0) ether_atoe(macstr, mac);
+
+	strlcpy(label_macstr, get_label_mac(), sizeof(label_macstr));
+//	printf("label_mac: %d\n", strlen(label_macstr));
+	if (strlen(label_macstr)!=0) ether_atoe(label_macstr, label_mac);
 }
 
 int main(int argc , char* argv[])
@@ -197,7 +186,7 @@ int processReq(int sockfd)
 {
 //    IBOX_COMM_PKT_HDR*  phdr;
     int		 /*iLen , iRes , iCount , */iRcv;
-    int		 fromlen;
+    socklen_t		 fromlen;
     char		*hdr;
     char		pdubuf[INFO_PDU_LENGTH];
     struct sockaddr_in  from_addr;
@@ -230,13 +219,14 @@ int processReq(int sockfd)
 /*						J++
     closesocket(sockfd);
 */
+    return 0;
 }
 
 /************************************/
 /***  Receive the socket	  ***/
 /***  with a timeout value	***/
 /************************************/
-DWORD RECV(int sockfd , PBYTE pRcvbuf , DWORD dwlen , struct sockaddr *from, int *fromlen , DWORD timeout)
+DWORD RECV(int sockfd , PBYTE pRcvbuf , DWORD dwlen , struct sockaddr *from, socklen_t *fromlen , DWORD timeout)
 {
     if ( waitsock(sockfd , timeout , 0) == 0)
     {
@@ -330,7 +320,7 @@ void deCR(char *str)
 	len = strlen(str);
 	for (i=0; i<len; i++)
 	{
-		if (*(str+i) == '\r' || *(str+i) == '\n', *(str+i) == '"')
+		if (*(str+i) == '\r' || *(str+i) == '\n' || *(str+i) == '"')
 		{
 			*(str+i) = 0;
 			break;

@@ -28,6 +28,8 @@
 #include "upnpglobalvars.h"
 #include "log.h"
 
+#include "utils.h"
+
 static FILE *log_fp = NULL;
 static const int _default_log_level = E_WARN;
 int log_level[L_MAX];

@@ -29,7 +29,7 @@
 #elif defined(CONFIG_RTAC42U)
 #define RESERVED_BLOCK_SIZE	0
 #undef SPI_NAND
-#elif defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_QCA_AP148)
+#elif defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_ASUS_RTAD7200) || defined(CONFIG_QCA_AP148)
 #define RESERVED_BLOCK_SIZE	(UBOOT_CFG_ENV_SIZE)
 #else
 #error "Define nvram by model!!!"
@@ -113,6 +113,9 @@ static uint8_t *nvram_buf;
 static uint8_t nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
 #endif	// ASUS_NVRAM
 
+#define READ_BUF_SIZE	(NVRAM_SPACE + 1)
+static DEFINE_MUTEX(read_buf_lock);	/* protect read_buf */
+static char *read_buf = NULL;
 static uint8_t *commit_buf = NULL;
 
 #ifdef WL_NVRAM
@@ -791,7 +794,10 @@ nvram_set(const char *name, const char *value)
 {
 	unsigned long flags;
 	int ret;
-	struct nvram_header *header;
+	static struct nvram_header *header = NULL;
+
+	if (!header)
+		header = kzalloc(NVRAM_SPACE, GFP_KERNEL);
 
 	spin_lock_irqsave(&nvram_lock, flags);
 
@@ -816,12 +822,8 @@ nvram_set(const char *name, const char *value)
 
 	if ((ret = _nvram_set(name, value))) {
 		/* Consolidate space and try again */
-		if ((header = kzalloc(NVRAM_SPACE, GFP_ATOMIC))) {
-			if (_nvram_commit(header) == 0)		{
-				ret = _nvram_set(name, value);
-			}
-			kfree(header);
-		}
+		if (header && _nvram_commit(header) == 0)
+			ret = _nvram_set(name, value);
 	}
 	spin_unlock_irqrestore(&nvram_lock, flags);
 
@@ -1128,14 +1130,17 @@ EXPORT_SYMBOL(nvram_commit);
 static ssize_t
 dev_nvram_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
-	char tmp[100], *name = tmp, *value;
+	char *name = read_buf, *value;
 	ssize_t ret;
 	unsigned long off;
 	
-	if ((count+1) > sizeof(tmp)) {
+	if ((count+1) > READ_BUF_SIZE) {
 		if (!(name = kmalloc(count+1, GFP_KERNEL)))
 			return -ENOMEM;
 	}
+
+	if (name == read_buf)
+		mutex_lock(&read_buf_lock);
 
 	if (copy_from_user(name, buf, count)) {
 		ret = -EFAULT;
@@ -1173,7 +1178,9 @@ dev_nvram_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 	flush_cache_all();	
  
 done:
-	if (name != tmp)
+	if (name == read_buf)
+		mutex_unlock(&read_buf_lock);
+	else
 		kfree(name);
 
 	return ret;
@@ -1218,7 +1225,7 @@ nvram_xfr(const char *buf)
 	ssize_t ret=0;
 
 	//printk("nvram xfr 1: %s\n", buf);	// tmp test
-	if (copy_from_user(name, buf, strlen(buf)+1)) {
+	if (copy_from_user(name, buf, sizeof(tmpbuf))) {
 		ret = -EFAULT;
 		goto done;
 	}
@@ -1227,7 +1234,7 @@ nvram_xfr(const char *buf)
 	{
 		asusnls_u2c(tmpbuf);
 	}
-	else if (strncmp(buf, NLS_NVRAM_C2U, strlen(NLS_NVRAM_C2U))==0)
+	else if (strncmp(tmpbuf, NLS_NVRAM_C2U, strlen(NLS_NVRAM_C2U))==0)
 	{
 		asusnls_c2u(tmpbuf);
 	}
@@ -1237,7 +1244,7 @@ nvram_xfr(const char *buf)
 		//printk("nvram xfr 2: %s\n", tmpbuf);	// tmp test
 	}
 	
-	if (copy_to_user((char*)buf, tmpbuf, strlen(tmpbuf)+1))
+	if (copy_to_user((char*)buf, tmpbuf, sizeof(tmpbuf)))
 	{
 		ret = -EFAULT;
 		goto done;
@@ -1403,6 +1410,7 @@ dev_nvram_exit(void)
 #endif
 
 	kfree(commit_buf);
+	kfree(read_buf);
 
 	if (nvram_mtd)
 		put_mtd_device(nvram_mtd);
@@ -1435,7 +1443,7 @@ dev_nvram_init(void)
 	size_t erasesize;
 
 #ifdef ASUS_NVRAM
-	nvram_buf = kzalloc (NVRAM_SPACE, GFP_ATOMIC);
+	nvram_buf = kzalloc (NVRAM_SPACE, GFP_KERNEL);
 	if (nvram_buf == NULL) {
 		printk(KERN_ERR "%s(): Allocate %d bytes fail!\n", __func__, NVRAM_SPACE);
 		return -ENOMEM;
@@ -1486,6 +1494,13 @@ dev_nvram_init(void)
 	if (rsv_blk_size >= nvram_mtd->erasesize) {
 		printk("%s: Size of reserved area must not exceed block size.\n", __func__);
 		ret = -EINVAL;
+		goto err;
+	}
+
+	/* buffer for dev_nvram_read() */
+	if (!(read_buf = kzalloc(NVRAM_SPACE, GFP_KERNEL))) {
+		printk("%s: out of memory\n", __func__);
+		ret = -ENOMEM;
 		goto err;
 	}
 

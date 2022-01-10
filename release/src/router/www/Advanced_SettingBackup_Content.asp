@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <html xmlns:v>
 <head>
@@ -25,16 +25,30 @@ var lan_ipaddr = '<% nvram_get("lan_ipaddr"); %>';
 var ddns_enable = '<% nvram_get("ddns_enable_x"); %>';	//0: disable, 1: enable
 var ddns_server = '<% nvram_get("ddns_server_x"); %>';	//WWW.ASUS.COM
 
-
 function initial(){
 	show_menu();
 	if(ddns_enable == 1 && ddns_server == "WWW.ASUS.COM")
 		document.getElementById("transfer_ddns_field").style.display = "";
-		
+	else
+		document.getElementById("transfer_ddns_field").style.display = "none";
+
+	document.form.file.onchange = function() {
+		uploadSetting();
+	};
+
+	if(!bwdpi_support){
+		$("#factorydefault_hint").attr("onclick", "").unbind("click");
+		$("#factorydefault_hint").attr("onclick", "openHint(19, 1);");
+		$("#restoreInit_div").css("display", "none");
+		$("#restoreInit").attr("disabled", "disabled");
+		$("#restoreInit").prop("checked", false);
+	}
 }
 
-function restoreRule(){
+function restoreRule(_flag){
 	var alert_string = "<#Setting_factorydefault_hint1#>";
+	if($('#restoreInit').prop("checked") && bwdpi_support)
+		alert_string = "<#Setting_initialize_hint1#>";
 
 	if(lan_ipaddr != '<% nvram_default_get("lan_ipaddr"); %>')
 		alert_string += "<#Setting_factorydefault_iphint#>\n\n".replace("192.168.1.1", '<% nvram_default_get("lan_ipaddr"); %>');
@@ -42,6 +56,10 @@ function restoreRule(){
 	alert_string += "<#Setting_factorydefault_hint2#>";
 	if(confirm(alert_string)){
 		document.form.action1.blur();
+		if($('#restoreInit').prop("checked") && bwdpi_support)
+			document.restoreform.action_mode.value = "restore_erase";
+		else
+			document.restoreform.action_mode.value = "Restore";
 		showtext(document.getElementById("loading_block2"), "<#SAVE_restart_desc#>");
 		document.getElementById('loading_block3').style.display = "none";
 		showLoading();
@@ -51,28 +69,31 @@ function restoreRule(){
 		return false;
 }
 
-function saveSetting(){
+function saveSetting(mode){
 	var flag = 0;
+	var remove_passwd = 0;
 	if(ddns_enable == 1 && ddns_server != "WWW.ASUS.COM"){
 		flag = 1;
 	}
 	else{	//ASUS DDNS
 		flag = document.getElementById("transfer_ddns").checked ? 1 : 0;
 	}
-	
-	location.href='Settings_'+productid+'.CFG?path=' + flag;
+	remove_passwd = document.getElementById("remove_passwd").checked ? 1 : 0;
+
+	location.href='Settings_'+productid+'.CFG?path=' + flag+'&remove_passwd='+remove_passwd;
 }
 
 function uploadSetting(){
-  var file_obj = document.form.file;
+	var file_obj = document.form.file;
+	var file_obj_name = file_obj.value.toUpperCase();
 	
-	if(file_obj.value == ""){
+	if(file_obj_name == ""){
 		alert("<#JS_fieldblank#>");
 		file_obj.focus();
 	}
-	else if(file_obj.value.length < 6 ||
-					file_obj.value.lastIndexOf(".CFG")  < 0 || 
-					file_obj.value.lastIndexOf(".CFG") != (file_obj.value.length)-4){		
+	else if(file_obj_name.length < 6 ||
+					file_obj_name.lastIndexOf(".CFG")  < 0 || 
+					file_obj_name.lastIndexOf(".CFG") != (file_obj_name.length)-4){		
 		alert("<#Setting_upload_hint#>");
 		file_obj.focus();
 	}
@@ -99,26 +120,28 @@ function detect_httpd(){
     						document.getElementById('loading_block1').style.display = "none";
     						document.getElementById('loading_block2').style.display = "none";
     						document.getElementById('loading_block3').style.display = "";
-						if(findasus_support){
+						/*if(findasus_support){
     							document.getElementById('loading_block3').innerHTML = "<div><#OP_AP_hint#></div>";
-						}else{
+						}else{*/
 							document.getElementById('loading_block3').innerHTML = "<div><#Main_alert_proceeding_desc3#>.<#LANConfig_ChangedLANIP#></div>";
-						}
+						//}
 							
     				}
     		},
 
     		success: function(){
     				setTimeout("hideLoadingBar();",1000);
-      			location.href = "index.asp";
+    				location.href = "/";
   			}
   		});
 }
-
+function selectSetting() {
+	document.form.file.click();
+}
 </script>
 </head>
 
-<body onload="initial();">
+<body onload="initial();" class="bg">
 <div id="TopBanner"></div>
 
 <div id="LoadingBar" class="popup_bar_bg">
@@ -186,40 +209,68 @@ function detect_httpd(){
 			  						<td bgcolor="#4D595D" valign="top">
 				  						<div>&nbsp;</div>
 				  						<div class="formfonttitle"><#menu5_6#> - <#menu5_6_4#></div>
-										<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+										<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 										<div class="formfontdesc"><#Setting_save_upload_desc#></div>
-
 										<table width="100%" border="1" align="center" cellpadding="6" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
 	          								<tr>
 	            								<th width="25%" align="right">
-	            									<a class="hintstyle"  href="javascript:void(0);" onclick="openHint(19,1)"><#Setting_factorydefault_itemname#></a>
+											<a id="factorydefault_hint" class="hintstyle"  href="javascript:void(0);" onclick="openHint(19,4)"><#Setting_factorydefault_itemname#></a>
 	            								</th>
-	            								<td>
-									            	<input class="button_gen" onclick="restoreRule();" type="button" value="<#CTL_restore#>" name="action1" />
-	              									<input type="hidden" name="wl_gmode_protection_x" value="<% nvram_get("wl_gmode_protection_x"); %>" />
+	            								<td colspan = "4">
+													<div style="float:left;">
+														<input class="button_gen" onclick="restoreRule('restore');" type="button" value="<#CTL_restore#>" name="action1" />
+													</div>
+													<div id="restoreInit_div">
+														<div style="float:left;margin-left:5px;">
+															<input type="checkbox" id="restoreInit">
+														</div>
+														<div style="float:left;width:65%;">
+															<span><label for="restoreInit"><#Setting_initialize_desc#></label></span>
+														</div>
+													</div>
+													<input type="hidden" name="wl_gmode_protection_x" value="<% nvram_get("wl_gmode_protection_x"); %>" />
 	              								</td>
 	          								</tr>
 											<tr>
-												<th align="right">
+												<th align="right" style="border-bottom:none">
 													<a class="hintstyle"  href="javascript:void(0);" onclick="openHint(19,2)"><#Setting_save_itemname#></a>
 												</th>
 												<td>
-													<input class="button_gen" onclick="saveSetting();" type="button" value="<#CTL_onlysave#>" name="action2" />
-													<span id="transfer_ddns_field" style="display:none"><input id="transfer_ddns" type="checkbox">Transfer ASUS DDNS name</span>
+													<div style="float:left;display:table-cell">
+														<input class="button_gen" onclick="saveSetting('Router');" type="button" value="<#Setting_save_itemname#>" name="action2" />
+													</div>
+													<div style="display:table-cell">
+														<div id="remove_passwd_field" style="display:table-row">
+															<div style="float:left;margin-left:5px;">
+																<input id="remove_passwd" type="checkbox">
+															</div>
+															<div style="float:left;width:80%;">
+																<span><label for="remove_passwd"><#Setting_remove_passwd#></span></label>
+															</div>
+														</div>
+														<div id="transfer_ddns_field" style="display:table-row">
+															<div style="float:left;margin-left:5px;">
+																<input id="transfer_ddns" type="checkbox">
+															</div>
+															<div style="float:left;width:80%;">
+																<span><label for="transfer_ddns"><#DDNS_transfer#></span></label>
+															</div>
+														</div>
+													</div>
 												</td>
 											</tr>
 											<tr>
 												<th align="right">
 													<a class="hintstyle" href="javascript:void(0);" onclick="openHint(19,3)"><#Setting_upload_itemname#></a>
 												</th>
-												<td>
+												<td colspan = "4">
 													<div style="margin-left:-10px;">
 														<table>
 															<tr>
 																<td style="border:0px">
-																	<input type="button" class="button_gen" onclick="uploadSetting();" value="<#CTL_upload#>"/>
+																	<input type="button" class="button_gen" onclick="selectSetting();" value="<#CTL_upload#>"/>
 																</td>
-																<td style="border:0px">
+																<td style="display:none;">
 																	<input type="file" name="file" class="input" style="color:#FFCC00;"/>
 																</td>
 															</tr>

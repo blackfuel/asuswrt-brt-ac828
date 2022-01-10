@@ -22,6 +22,9 @@
 #include <pjmedia/transport_sctp.h>
 #include <pjsua-lib/pjsua.h>
 #include <pjsua-lib/pjsua_internal.h>
+#if defined(ENABLE_MEMWATCH) && ENABLE_MEMWATCH != 0
+#include <memwatch.h>
+#endif
 
 
 #define THIS_FILE		"pjsua_media.c"
@@ -922,8 +925,8 @@ static void on_sctp_connection_complete(pjmedia_transport *tp,
 
 	for (id=0; id<pjsua_var[tp->inst_id].ua_cfg.max_calls; ++id) {
 		if (pjsua_var[tp->inst_id].calls[id].med_tp == tp ||
-			pjsua_var[tp->inst_id].calls[id].med_orig == tp || 
-			pjmedia_transport_dtls_get_member(pjsua_var[tp->inst_id].calls[id].med_orig) == tp) // Must check deeper to find transport_ice.
+			pjsua_var[tp->inst_id].calls[id].med_orig == tp /*|| 
+			pjmedia_transport_dtls_get_member(pjsua_var[tp->inst_id].calls[id].med_orig) == tp*/) // No need to checker deeper. To avoid crash.
 		{
 			found = PJ_TRUE;
 			break;
@@ -945,8 +948,8 @@ static void on_dtls_handshake_complete(pjmedia_transport *tp,
 
 	for (id=0; id<pjsua_var[tp->inst_id].ua_cfg.max_calls; ++id) {
 		if (pjsua_var[tp->inst_id].calls[id].med_tp == tp ||
-			pjsua_var[tp->inst_id].calls[id].med_orig == tp || 
-			pjmedia_transport_dtls_get_member(pjsua_var[tp->inst_id].calls[id].med_orig) == tp) // Must check deeper to find transport_ice.
+			pjsua_var[tp->inst_id].calls[id].med_orig == tp /*|| 
+			pjmedia_transport_dtls_get_member(pjsua_var[tp->inst_id].calls[id].med_orig) == tp*/) // No need to checker deeper. To avoid crash.
 		{
 			found = PJ_TRUE;
 			break;
@@ -954,8 +957,9 @@ static void on_dtls_handshake_complete(pjmedia_transport *tp,
 	}
 
 	// Perform SCTP connect.
-	if (pjsua_var[tp->inst_id].calls[id].use_sctp ||
-		pjsua_var[tp->inst_id].calls[id].med_tp->use_sctp) {
+	if (!status && 
+		(pjsua_var[tp->inst_id].calls[id].use_sctp ||
+		pjsua_var[tp->inst_id].calls[id].med_tp->use_sctp)) {
 		if (found)
 			pjmedia_sctp_session_create(pjsua_var[tp->inst_id].calls[id].med_tp, turn_mapped_addr);
 	} else {
@@ -981,9 +985,25 @@ static void on_ice_complete(pjmedia_transport *tp,
 
     for (id=0; id<pjsua_var[tp->inst_id].ua_cfg.max_calls; ++id) {
 		if (pjsua_var[tp->inst_id].calls[id].med_tp == tp ||
-			pjsua_var[tp->inst_id].calls[id].med_orig == tp ||
-			pjmedia_transport_dtls_get_member(pjsua_var[tp->inst_id].calls[id].med_orig) == tp) // Must check deeper to find transport_ice.
+			pjsua_var[tp->inst_id].calls[id].med_orig == tp /*||
+			pjmedia_transport_dtls_get_member(pjsua_var[tp->inst_id].calls[id].med_orig) == tp*/) // No need to checker deeper. To avoid crash.
 	{
+			if (pjsua_var[tp->inst_id].calls[id].med_tp) {
+				if (!pjsua_var[tp->inst_id].calls[id].med_tp->stun_last_status &&
+					tp->stun_last_status)
+					pjsua_var[tp->inst_id].calls[id].med_tp->stun_last_status = tp->stun_last_status;
+				if (!pjsua_var[tp->inst_id].calls[id].med_tp->turn_last_status &&
+					tp->turn_last_status)
+					pjsua_var[tp->inst_id].calls[id].med_tp->turn_last_status = tp->turn_last_status;
+			}
+			if (pjsua_var[tp->inst_id].calls[id].med_orig) {
+				if (!pjsua_var[tp->inst_id].calls[id].med_orig->stun_last_status &&
+					tp->stun_last_status)
+					pjsua_var[tp->inst_id].calls[id].med_orig->stun_last_status = tp->stun_last_status;
+				if (!pjsua_var[tp->inst_id].calls[id].med_orig->turn_last_status &&
+					tp->turn_last_status)
+					pjsua_var[tp->inst_id].calls[id].med_orig->turn_last_status = tp->turn_last_status;
+			}
 	    found = PJ_TRUE;
 	    break;
 	}
@@ -1047,7 +1067,11 @@ static void on_ice_complete(pjmedia_transport *tp,
 	// DEAN
 #if defined(PJMEDIA_HAS_DTLS) && (PJMEDIA_HAS_DTLS != 0)
 	if (result == PJ_SUCCESS) {
+#if defined(PJMEDIA_DISABLE_SCTP) && (PJMEDIA_DISABLE_SCTP!=0)
+		pjmedia_transport *dtls = pjsua_var[tp->inst_id].calls[id].med_tp;
+#else
 		pjmedia_transport *dtls = pjmedia_transport_sctp_get_member(pjsua_var[tp->inst_id].calls[id].med_tp);
+#endif
 		pjmedia_dtls_do_handshake(dtls,
 			turn_mapped_addr);
 	} else {
@@ -1375,10 +1399,12 @@ static pj_status_t create_ice_media_transports2(pjsua_inst_id inst_id,
 	pj_ice_strans_cfg ice_cfg;
 	pj_status_t status;
 	pj_turn_tp_type turn_conn_type = pjsua_var[inst_id].media_cfg.turn_conn_type;
+	pj_status_t stun_status = 0;
 
 	/* Make sure STUN server resolution has completed */
 	status = resolve_stun_server(inst_id, PJ_TRUE);
 	if (status != PJ_SUCCESS) {
+	stun_status = status;
 	pjsua_perror(THIS_FILE, "Error resolving STUN server", status);
 	//return status; //DEAN. Ignore stun failed situation to meet UDP packet blocked environment.
 	turn_conn_type = PJ_TURN_TP_TCP;  // change turn transport type to TCP
@@ -1533,6 +1559,12 @@ static pj_status_t create_ice_media_transports2(pjsua_inst_id inst_id,
 			goto on_error;
 		}
 
+		// Prepare stun and turn status.
+		if (pjsua_var[inst_id].ua_cfg.stun_srv_cnt)
+			pjsua_var[inst_id].calls[idx].med_tp->stun_last_status = stun_status;
+		else
+			pjsua_var[inst_id].calls[idx].med_tp->stun_last_status = PJNATH_ESTUNINSERVER;
+
 		/* Wait until transport is initialized, or time out */
 		PJSUA_UNLOCK(inst_id);
 		while (pjsua_var[inst_id].calls[idx].med_tp_ready == PJ_EPENDING) {
@@ -1560,13 +1592,15 @@ static pj_status_t create_ice_media_transports2(pjsua_inst_id inst_id,
 			goto on_error;
 		}
 
-		pjmedia_transport_simulate_lost(pjsua_var[inst_id].calls[idx].med_tp,
-			PJMEDIA_DIR_ENCODING,
-			pjsua_var[inst_id].media_cfg.tx_drop_pct);
+		if (pjsua_var[inst_id].calls[idx].med_tp != NULL) {
+			pjmedia_transport_simulate_lost(pjsua_var[inst_id].calls[idx].med_tp,
+				PJMEDIA_DIR_ENCODING,
+				pjsua_var[inst_id].media_cfg.tx_drop_pct);
 
-		pjmedia_transport_simulate_lost(pjsua_var[inst_id].calls[idx].med_tp,
-			PJMEDIA_DIR_DECODING,
-			pjsua_var[inst_id].media_cfg.rx_drop_pct);
+			pjmedia_transport_simulate_lost(pjsua_var[inst_id].calls[idx].med_tp,
+				PJMEDIA_DIR_DECODING,
+				pjsua_var[inst_id].media_cfg.rx_drop_pct);
+		}
 	}
 
 	return PJ_SUCCESS;
@@ -1816,7 +1850,6 @@ pj_status_t pjsua_media_channel_init(pjsua_inst_id inst_id,
 #endif
 		/* Always create DTLS transport */
 		pjmedia_dtls_setting_default(&dtls_opt);
-		dtls_opt.close_member_tp = PJ_FALSE;
 		if (use_custom_med_tp)
 			custom_med_tp_flags |= PJSUA_MED_TP_CLOSE_MEMBER;
 		/* If media session has been ever established, let's use remote's 
@@ -1867,7 +1900,8 @@ pj_status_t pjsua_media_channel_init(pjsua_inst_id inst_id,
 			pj_memcpy(call->med_tp->dest_uri->ptr, call->med_orig->dest_uri->ptr, call->med_tp->dest_uri->slen);
 		}
 
-		/* Always create SCTP transport */
+#if !defined(PJMEDIA_DISABLE_SCTP) || (PJMEDIA_DISABLE_SCTP == 0)  // enable sctp
+		/* Create SCTP transport */
 		pjmedia_sctp_setting_default(&sctp_opt);
 		sctp_opt.use = call->use_sctp ? PJMEDIA_SCTP_MANDATORY : PJMEDIA_SCTP_DISABLED;
 
@@ -1900,6 +1934,7 @@ pj_status_t pjsua_media_channel_init(pjsua_inst_id inst_id,
 			call->med_tp->dest_uri->slen = call->med_orig->dest_uri->slen;
 			pj_memcpy(call->med_tp->dest_uri->ptr, call->med_orig->dest_uri->ptr, call->med_tp->dest_uri->slen);
 		}
+#endif
     }
 #elif defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
     /* This function may be called when SRTP transport already exists 
@@ -2561,7 +2596,7 @@ static pj_status_t audio_channel_update(pjsua_inst_id inst_id,
 
 	// 2013-10-20 DEAN, we must create natnl stream before creating media session.
 	// Because media session must know the pointer value of natnl stream.
-	status = pjmedia_natnl_stream_create(pjsua_var[inst_id].pool, call, si, &call->tnl_stream);
+	status = pjmedia_natnl_stream_create( pjsua_var[inst_id].med_endpt, call, si, &call->tnl_stream);
 	if (status != PJ_SUCCESS)
 		return status;
     

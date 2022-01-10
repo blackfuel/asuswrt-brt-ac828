@@ -20,11 +20,19 @@
 <script type="text/javascript" src="/js/jquery.js"></script>
 <script type="text/javascript" src="/js/httpApi.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
+<style>
+.charToUpperCase{
+	text-transform: uppercase;
+}
+</style>
 <script type="text/javascript">
 
 <% get_AiDisk_status(); %>
 <% get_permissions_of_account(); %>
 <% get_permissions_of_group(); %>
+
+var lan_hostname = "<% nvram_get("lan_hostname"); %>";
+var lan_domain = "<% nvram_get("lan_domain"); %>".split('.')[0];
 
 var PROTOCOL = "cifs";
 
@@ -33,7 +41,7 @@ var FTP_status = get_ftp_status(); // FTP
 var AM_to_cifs = get_share_management_status("cifs");  // Account Management for Network-Neighborhood
 var AM_to_ftp = get_share_management_status("ftp");  // Account Management for FTP
 
-var accounts = [<% get_all_accounts(); %>];
+var accounts = [<% get_all_accounts(); %>][0];
 var groups = [<% get_all_groups(); %>];
 var lastClickedAccount = 0;
 var selectedAccount = null;
@@ -71,6 +79,8 @@ function initial(){
 	
 	// show the kinds of permission
 	showPermissionTitle();
+	document.getElementById("computer_name").placeholder = lan_hostname.toUpperCase();
+	document.getElementById("st_samba_workgroup").placeholder = lan_domain.toUpperCase();
 	
 	// show mask
 	if(get_manage_type(PROTOCOL)){
@@ -260,10 +270,10 @@ function showPermissionTitle(){
 var controlApplyBtn = 0;
 function showApplyBtn(){
 	if(this.controlApplyBtn == 1){
-		document.getElementById("changePermissionBtn").className = "button_gen_long";
+		document.getElementById("changePermissionBtn").className = "button_gen";
 		document.getElementById("changePermissionBtn").disabled = false;
 	}else{
-		document.getElementById("changePermissionBtn").className = "button_gen_long_dis";
+		document.getElementById("changePermissionBtn").className = "button_gen_dis";
 		document.getElementById("changePermissionBtn").disabled = true;
 	}
 }
@@ -471,8 +481,14 @@ function onEvent(){
 	if(1){
 		changeActionButton(document.getElementById("createAccountBtn"), 'User', 'Add', 0);
 		
+		var accounts_length = this.accounts.length;
 		document.getElementById("createAccountBtn").onclick = function(){
-				popupWindow('OverlayMask','/aidisk/popCreateAccount.asp');
+				if(accounts_length >= 6) {
+					alert("<#JS_itemlimit1#> 6 <#JS_itemlimit2#>");
+					return false;
+				}
+				else
+					popupWindow('OverlayMask','/aidisk/popCreateAccount.asp');
 			};
 		document.getElementById("createAccountBtn").onmouseover = function(){
 				changeActionButton(this, 'User', 'Add', 1);
@@ -663,15 +679,8 @@ function applyRule(){
 
 function validForm(){
 	
-	if(document.form.computer_name.value.length == 0){
-		showtext(document.getElementById("alert_msg1"), "<#JS_fieldblank#>");
-		document.form.computer_name.focus();
-		document.form.computer_name.select();
-		return false;
-	}
-	else{
-		
-		var alert_str = validator.hostName(document.form.computer_name);
+	if(document.form.computer_name.value.length > 0){
+		var alert_str = validator.samba_name(document.form.computer_name);
 		if(alert_str != ""){
 			showtext(document.getElementById("alert_msg1"), alert_str);
 			document.getElementById("alert_msg1").style.display = "";
@@ -682,23 +691,24 @@ function validForm(){
 		else
 			document.getElementById("alert_msg1").style.display = "none";
 
-		document.form.computer_name.value = trim(document.form.computer_name.value);
+		document.form.computer_name.value = trim(document.form.computer_name.value).toUpperCase();
 	}
 				  
-	if(document.form.st_samba_workgroup.value.length == 0){
+	if(document.form.st_samba_workgroup.value.length == 0 && !lan_domain){
 		alert("<#JS_fieldblank#>");
 		document.form.st_samba_workgroup.focus();
 		document.form.st_samba_workgroup.select();
 		return false;	
 	}
-	else{
-		var workgroup_check = new RegExp('^[a-zA-Z0-9][a-zA-Z0-9\-\_\.]+$','gi');	  	
-  		if(!workgroup_check.test(document.form.st_samba_workgroup.value)){
-			alert("<#JS_validchar#>");               
+	else if(document.form.st_samba_workgroup.value.length > 0){
+		var alert_str = validator.samba_name(document.form.st_samba_workgroup);
+		if(alert_str != ""){
+			alert(alert_str);
 			document.form.st_samba_workgroup.focus();
 			document.form.st_samba_workgroup.select();
 			return false;
-		}   
+		}
+		document.form.st_samba_workgroup.value = trim(document.form.st_samba_workgroup.value).toUpperCase();
 	}
 
 	return true;
@@ -721,7 +731,7 @@ function switchUserType(flag){
 </script>
 </head>
 
-<body onLoad="initial();" onunload="unload_body();">
+<body onLoad="initial();" onunload="unload_body();" class="bg">
 <div id="TopBanner"></div>
 
 <div id="Loading" class="popup_bg"></div>
@@ -783,8 +793,7 @@ function switchUserType(flag){
 					</tr>
 				</table>
 			</div>
-			<div style="margin:5px;"><img src="/images/New_ui/export/line_export.png"></div>
-
+			<div style="margin:5px;" class="splitLine"></div>
 			<div class="formfontdesc"><#Samba_desc#></div>
 			<div class="formfontdesc"><#ADSL_FW_note#>&nbsp;<#SMBv1_enable_hint#></div>
 
@@ -832,7 +841,8 @@ function switchUserType(flag){
 						<a class="hintstyle" href="javascript:void(0);" onClick="openHint(17,2);"><#ShareNode_DeviceName_itemname#></a>
 					</th>
 					<td>
-						<div><input type="text" name="computer_name" id="computer_name" class="input_20_table" maxlength="15" value="<% nvram_get("computer_name"); %>" autocorrect="off" autocapitalize="off"><br/><span id="alert_msg1" style="color:#FC0;"></span></div>
+						<div><input type="text" name="computer_name" id="computer_name" class="input_20_table charToUpperCase" maxlength="15" value="<% nvram_get("computer_name"); %>" autocorrect="off" autocapitalize="on"><br/>
+						<span id="alert_msg1" style="color:#FC0;"></span></div>
 					</td>
 				</tr>
 				<tr>
@@ -840,7 +850,7 @@ function switchUserType(flag){
 						<a class="hintstyle" href="javascript:void(0);" onClick="openHint(17,3);"><#ShareNode_WorkGroup_itemname#></a>
 					</th>
 					<td>
-						<input type="text" name="st_samba_workgroup" class="input_32_table" maxlength="32" value="<% nvram_get("st_samba_workgroup"); %>" autocorrect="off" autocapitalize="off">
+						<input type="text" name="st_samba_workgroup" id="st_samba_workgroup" class="input_20_table charToUpperCase" maxlength="15" value="<% nvram_get("st_samba_workgroup"); %>" autocorrect="off" autocapitalize="on">
 					</td>
 				</tr>
 				<tr id="ntfs_sparse_files" style="">
@@ -918,7 +928,7 @@ function switchUserType(flag){
 			    <table width="480"  border="0" cellspacing="0" cellpadding="0" class="FileStatusTitle">
 		  	    <tr>
 		    	  		<td width="290" height="20" align="left">
-				    		<div class="machineName"><% nvram_get("computer_name"); %></div>
+				    		<div id="machine_name" class="machineName"><#Web_Title2#></div>
 				    	</td>
 				  <td>
 				    <div id="permissionTitle"></div>
@@ -930,7 +940,7 @@ function switchUserType(flag){
 			  <div id="e0" style="font-size:10pt; margin-top:2px;"></div>
 			  
 			  <div style="text-align:center; margin:10px auto; border-top:1px dotted #CCC; width:95%; padding:2px;">
-			    <input name="changePermissionBtn" id="changePermissionBtn" type="button" value="<#CTL_save_permission#>" class="button_gen_long_dis" disabled="disabled">
+				<input name="changePermissionBtn" id="changePermissionBtn" type="button" value="<#CTL_onlysave#>" class="button_gen_dis" disabled="disabled">
 			  </div>
 		    </td>
           </tr>

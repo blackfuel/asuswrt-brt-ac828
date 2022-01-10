@@ -14,12 +14,14 @@
 <style type="text/css"> 
 	div.wrapper { margin: 0 auto; width: 730px;}
 	td.sidenav { width:200px;}
-	body {font-family: Verdana, Tohoma, Arial, Helvetica, sans-serif;padding:0;margin:0;}
+	body {font-family: Verdana, Tohoma, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;padding:0;margin:0;}
 	.wrapperDesc { margin: 0 auto; width: 570px;}
 </style> 
 <script type="text/javascript" src="/state.js"></script>
 <script type="text/javascript" src="/popup.js"></script>
 <script type="text/javascript" src="/help.js"></script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <style type="text/css">
 .printerServer_table{
 	width:740px;
@@ -66,10 +68,12 @@
 <script>
 function initial(){
 	show_menu();
-	addOnlineHelp(document.getElementById("faq1"), ["ASUSWRT", "ez","printer"]);
-	addOnlineHelp(document.getElementById("faq2"), ["ASUSWRT", "lpr"]);
-	addOnlineHelp(document.getElementById("faq3"), ["mac", "lpr"]);
-	//setTimeout("showMethod('','none');", 100);
+	//id="faq" href="https://www.asus.com/US/support/FAQ/114046"
+        httpApi.faqURL("114046", function(url){document.getElementById("faq1").href=url;});
+	//id="faq" href="https://www.asus.com/US/support/FAQ/114024"
+        httpApi.faqURL("114024", function(url){document.getElementById("faq2").href=url;});
+	//id="faq" href="https://www.asus.com/US/support/FAQ/113661"
+        httpApi.faqURL("113661", function(url){document.getElementById("faq3").href=url;});
 }
 
 function showMethod(flag1, flag2){
@@ -89,7 +93,7 @@ function showMethod(flag1, flag2){
 </script>
 </head>
 
-<body onload="initial();" onunload="unload_body();">
+<body onload="initial();" onunload="unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -128,7 +132,7 @@ function showMethod(flag1, flag2){
 		</td>
   </tr> 
   <tr>
-  	<td class="line_export"><img src="images/New_ui/export/line_export.png" /></td>
+  	<td><div class="splitLine"></div></td>
   </tr>
   <tr>
    	<td><div class="formfontdesc"><#Network_Printer_desc#></div></td> 
@@ -146,14 +150,14 @@ function showMethod(flag1, flag2){
 										<div class="">
 											<ul class="">
 												<li>
-														<a id="faq1" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#asus_ez_print_share#> FAQ</a>&nbsp;&nbsp;
-														<a href="http://dlcdnet.asus.com/pub/ASUS/LiveUpdate/Release/Wireless/Printer.zip" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FC0"">Download Now!</a>
+													<a id="faq1" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#asus_ez_print_share#> FAQ</a>&nbsp;&nbsp;
+													<a href="http://dlcdnet.asus.com/pub/ASUS/LiveUpdate/Release/Wireless/Printer.zip" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FC0"><#Download_now#></a>
 												</li>
 												<li style="margin-top:10px;">
-														<a id="faq2" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#LPR_print_share#> FAQ (Windows)</a>&nbsp;&nbsp;
+													<a id="faq2" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#LPR_print_share#> FAQ (Windows)</a>&nbsp;&nbsp;
 												</li>
 												<li style="margin-top:10px;">
-														<a id="faq3" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#LPR_print_share#> FAQ (MAC)</a>&nbsp;&nbsp;
+													<a id="faq3" href="" target="_blank" style="text-decoration:underline;font-size:14px;font-weight:bolder;color:#FFF"><#LPR_print_share#> FAQ (MAC)</a>&nbsp;&nbsp;
 												</li>
 											</ul>	
 										</div>	

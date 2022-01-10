@@ -110,6 +110,8 @@ DEPFLAGS=-MMD
 XCFLAGS=$(CFLAGS) $(DEPFLAGS) $(WARN) $(HEADERS) $(WELIB_FLAG) $(WEDEF_FLAG)
 PICFLAG=-fPIC
 
+# QCA NEW DRIVER
+CFLAGS += $(if $(RTCONFIG_QCA_BIGRATE_WIFI),-DQCA_NEW_DRIVER)
 
 # Standard compilation targets
 all: $(STATIC) $(IWLIB) $(PROGS)
@@ -173,7 +175,11 @@ install: all #$(IWLIB_INSTALL) install-bin install-hdr install-man
 ifneq ($(or $(RTN56U),$(DSLN55U)),y)
 	install -D iwlist $(INSTALLDIR)/bin/iwlist
 endif
+#ifeq ($(RPAC87),y)
+#	install -D iwevent $(INSTALLDIR)/bin/iwevent
+#endif	
 	install -D $(IWLIB) $(INSTALLDIR)/lib/$(IWLIB)
+
 
 # Install the dynamic library
 install-dynamic:: $(DYNAMIC)

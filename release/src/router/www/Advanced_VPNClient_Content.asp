@@ -20,6 +20,7 @@
 <script type="text/javascript" src="/validator.js"></script>
 <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
 <script type="text/javascript" src="form.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <style type="text/css">
 .contentM_qis{
 	position:absolute;
@@ -111,6 +112,7 @@ var ipsec_profile_client_4_ext = decodeURIComponent('<% nvram_char_to_ascii("","
 var ipsec_profile_client_5_ext = decodeURIComponent('<% nvram_char_to_ascii("","ipsec_profile_client_5_ext"); %>');
 var all_profile_subnet_list = "";
 var control_profile_flag = true;
+var openvpnc_max = 5;
 
 function parseNvramToArray(_oriNvram, _arrayLength) {
 	var parseArray = [];
@@ -134,7 +136,7 @@ function initial(){
 	vpnc_pptp_options_x_list_array = parseNvramToArray('<% nvram_char_to_ascii("","vpnc_pptp_options_x_list"); %>', 1);
 	show_vpnc_rulelist();
 
-	if(ipsec_support) {
+	if(ipsec_cli_support) {
 		update_connect_status();
 		document.getElementById("ipsec_profile_client_1").value = ipsec_profile_client_1;
 		document.getElementById("ipsec_profile_client_2").value = ipsec_profile_client_2;
@@ -179,7 +181,8 @@ function initial(){
 			option.text = wan_type_list[i][1];
 			selectobject.add(option);
 		}
-		$("#ipsec_vpn_type_faq").attr("href", "https://www.asus.com/support/FAQ/1033578");
+		$("#ipsec_vpn_type_faq").html("IPSec Net-to-Net FAQ");/*untranslated*/
+		httpApi.faqURL("1033578", function(url){document.getElementById("ipsec_vpn_type_faq").href=url;});
 	}
 }
 var add_profile_flag = false;
@@ -217,7 +220,7 @@ function Add_profile(upper){
 	tabclickhandler(0);
 	document.getElementById("cancelBtn").style.display = "";
 	document.getElementById("cancelBtn_openvpn").style.display = "";
-	if(ipsec_support)
+	if(ipsec_cli_support)
 		initialIPSecProfile();
 }
 
@@ -229,31 +232,7 @@ function cancel_add_rule(){
 }
 
 function addRow_Group(upper, flag, idx){
-	document.openvpnManualForm.vpn_crt_client1_ca.disabled = true;
-	document.openvpnManualForm.vpn_crt_client1_crt.disabled = true;
-	document.openvpnManualForm.vpn_crt_client1_key.disabled = true;
-	document.openvpnManualForm.vpn_crt_client1_static.disabled = true;
-	document.openvpnManualForm.vpn_crt_client1_crl.disabled = true;
-	document.openvpnManualForm.vpn_crt_client2_ca.disabled = true;
-	document.openvpnManualForm.vpn_crt_client2_crt.disabled = true;
-	document.openvpnManualForm.vpn_crt_client2_key.disabled = true;
-	document.openvpnManualForm.vpn_crt_client2_static.disabled = true;
-	document.openvpnManualForm.vpn_crt_client2_crl.disabled = true;
-	document.openvpnManualForm.vpn_crt_client3_ca.disabled = true;
-	document.openvpnManualForm.vpn_crt_client3_crt.disabled = true;
-	document.openvpnManualForm.vpn_crt_client3_key.disabled = true;
-	document.openvpnManualForm.vpn_crt_client3_static.disabled = true;
-	document.openvpnManualForm.vpn_crt_client3_crl.disabled = true;
-	document.openvpnManualForm.vpn_crt_client4_ca.disabled = true;
-	document.openvpnManualForm.vpn_crt_client4_crt.disabled = true;
-	document.openvpnManualForm.vpn_crt_client4_key.disabled = true;
-	document.openvpnManualForm.vpn_crt_client4_static.disabled = true;
-	document.openvpnManualForm.vpn_crt_client4_crl.disabled = true;
-	document.openvpnManualForm.vpn_crt_client5_ca.disabled = true;
-	document.openvpnManualForm.vpn_crt_client5_crt.disabled = true;
-	document.openvpnManualForm.vpn_crt_client5_key.disabled = true;
-	document.openvpnManualForm.vpn_crt_client5_static.disabled = true;
-	document.openvpnManualForm.vpn_crt_client5_crl.disabled = true;
+	disableOpenVpnManualformItem();
 	idx = parseInt(idx);
 
 	if(flag == 'PPTP' || flag == 'L2TP') {
@@ -558,7 +537,7 @@ function tabclickhandler(_type){
 	document.getElementById('l2tpcTitle_' + tab_id + '').className = "vpnClientTitle_td_unclick";
 	if(openvpnd_support)
 		document.getElementById('opencTitle_' + tab_id + '').className = "vpnClientTitle_td_unclick";
-	if(ipsec_support)
+	if(ipsec_cli_support)
 		document.getElementById('ipsecTitle_' + tab_id + '').className = "vpnClientTitle_td_unclick";
 	document.getElementById('openvpnc_setting').style.display = "none";
 	document.getElementById('openvpnc_setting_openvpn').style.display = "none";	
@@ -616,12 +595,12 @@ function tabclickhandler(_type){
 		$("#tr_" + _type + "_limit_hint").css("display", "none");
 		$("#openvpnc_setting_" + _type + "").find("input,button,textarea,select").attr("disabled", false);
 	}
-	if (openvpn_arrayLength == 5 && openvpnd_support && add_profile_flag)
+	if (openvpn_arrayLength == openvpnc_max && openvpnd_support && add_profile_flag)
 		set_limit_hint("openvpn", openvpn_arrayLength, "OpenVPN");
 	else
 		reset_limit_hint("openvpn");
 
-	if(ipsec_arrayLength == 5 && ipsec_support && add_profile_flag)
+	if(ipsec_arrayLength == 5 && ipsec_cli_support && add_profile_flag)
 		set_limit_hint("ipsec", ipsec_arrayLength, "IPSec");
 	else
 		reset_limit_hint("ipsec");
@@ -629,7 +608,7 @@ function tabclickhandler(_type){
 
 function update_unit_option(){
 	var vpnc_openvpn_unit_array = [];
-	for(var i = 1; i <= 5; i += 1) {
+	for(var i = 1; i <= openvpnc_max; i += 1) {
 		vpnc_openvpn_unit_array["unit_" + i] = i;
 	}
 	for(var i = 0; i < vpnc_clientlist_array.length; i += 1) {
@@ -661,7 +640,7 @@ function show_vpnc_rulelist(){
 	ipsec_arrayLength = 0;
 	openvpn_arrayLength = 0;
 
-	if(ipsec_support) {
+	if(ipsec_cli_support) {
 	//create ipsec profile array start
 		var ipsec_profilelist_arraylist = new Array();
 		var temp_array = [];
@@ -738,6 +717,8 @@ function show_vpnc_rulelist(){
 							code +="<td width='10%'><div title='<#vpn_openvpn_conflict#>' class='vpnc_ipconflict_icon'></div></td>";
 						else if(client_errno == 4 || client_errno == 5 || client_errno == 6)
 							code +="<td width='10%'><img title='<#qis_fail_desc1#>' src='/images/button-close2.png' style='width:25px;'></td>";
+						else if(client_errno == 7)
+							code +="<td width='10%'><img title='Certification Authentication / Server certification / Server Key field error! \nPlease check the Keys and Certification contents on the Manual Setting.' src='/images/button-close2.png' style='width:25px;'></td>";
 						else		//Stop connection
 							code +="<td width='10%'><img title='<#ConnectionFailed#>' src='/images/button-close2.png' style='width:25px;'></td>";
 				}
@@ -799,7 +780,7 @@ function show_vpnc_rulelist(){
 			}
 		}
 
-		if(ipsec_support) {
+		if(ipsec_cli_support) {
 			//creat ipsec profile row start
 			control_profile_flag = true;
 			for(var i = 0; i < ipsec_arrayLength; i += 1) {
@@ -860,6 +841,7 @@ function connect_Row(rowdata, flag){
 	var vpnc_openvpn_idx = vpnc_clientlist_array[idx][2];
 	var vpnc_username = vpnc_clientlist_array[idx][3];
 	var vpnc_userpwd = vpnc_clientlist_array[idx][4];
+	document.form.ctf_nonat_force.disabled = true;
 	
 	if(flag == "disconnect"){	//Disconnect the connected rule 
 		
@@ -904,6 +886,36 @@ function connect_Row(rowdata, flag){
 		}			
 	}
 	else{		//"vpnc" making connection
+		if(isSupport("sdk7114")) {
+			var pppoe_flag = false;
+			var wanMax = isSupport("wanMax");
+			for(var i = 0; i < wanMax; i += 1) {
+				var wan_proto = httpApi.nvramGet(["wan" + i + "_proto"], true)["wan" + i + "_proto"];
+				if(wan_proto == "pppoe") {
+					pppoe_flag = true;
+					break;
+				}
+			}
+			var ctf_disable = httpApi.nvramGet(["ctf_disable"], true).ctf_disable;
+			if(pppoe_flag && ctf_disable == "0") {
+				var vpncoppp = httpApi.nvramGet(["vpncoppp"], true).vpncoppp;
+				if(vpncoppp == "" || vpncoppp == "0") {
+					if(confirm("<#vpnc_pppoe_dis_nat_confirm#>")) {
+						document.form.ctf_nonat_force.disabled = false;
+						document.form.ctf_nonat_force.value = "1";
+						document.form.flag.value = "";
+						document.form.action_script.value = "reboot";
+						document.form.action_wait.value = httpApi.hookGet("get_default_reboot_time");
+					}
+					else
+						return false;
+				}
+				else if(vpncoppp == "1") {
+					document.form.ctf_nonat_force.disabled = false;
+					document.form.ctf_nonat_force.value = "1";
+				}
+			}
+		}
 		document.form.vpnc_des_edit.value = vpnc_desc;
 
 		if(vpnc_proto == "PPTP")
@@ -1087,7 +1099,7 @@ function Edit_Row(rowdata, flag){
 		document.getElementById("l2tpcTitle_pptp").style.display = "none";
 		if(openvpnd_support)
 			document.getElementById("opencTitle_pptp").style.display = "none";
-		if(ipsec_support)
+		if(ipsec_cli_support)
 			document.getElementById("ipsecTitle_pptp").style.display = "none";
 		if(vpnc_proto == "PPTP") {
 			document.getElementById("pptpcTitle_pptp").style.display = "";
@@ -1103,7 +1115,7 @@ function Edit_Row(rowdata, flag){
 		document.getElementById("pptpcTitle_openvpn").style.display = "none";
 		document.getElementById("l2tpcTitle_openvpn").style.display = "none";
 		document.getElementById("opencTitle_openvpn").style.display = "";
-		if(ipsec_support)
+		if(ipsec_cli_support)
 			document.getElementById("ipsecTitle_openvpn").style.display = "none";
 	}
 
@@ -1274,7 +1286,22 @@ function cancel_Key_panel(){
 	document.getElementById("manualFiled_panel").style.display = "none";
 }
 
+function disableOpenVpnManualformItem(){
+	for(var i = 1; i <= openvpnc_max; i += 1){
+		if(document.openvpnManualForm["vpn_crt_client" + i + "_ca"] != undefined)
+			document.openvpnManualForm["vpn_crt_client" + i + "_ca"].disabled = true;
+		if(document.openvpnManualForm["vpn_crt_client" + i + "_crt"] != undefined)
+			document.openvpnManualForm["vpn_crt_client" + i + "_crt"].disabled = true;
+		if(document.openvpnManualForm["vpn_crt_client" + i + "_key"] != undefined)
+			document.openvpnManualForm["vpn_crt_client" + i + "_key"].disabled = true;
+		if(document.openvpnManualForm["vpn_crt_client" + i + "_static"] != undefined)
+			document.openvpnManualForm["vpn_crt_client" + i + "_static"].disabled = true;
+		if(document.openvpnManualForm["vpn_crt_client" + i + "_crl"] != undefined)
+			document.openvpnManualForm["vpn_crt_client" + i + "_crl"].disabled = true;
+	}
+}
 function saveManual(unit){
+	disableOpenVpnManualformItem();
 	switch (unit) {
 		case "1" :
 			document.openvpnManualForm.vpn_crt_client1_ca.value = document.getElementById('edit_vpn_crt_client_ca').value;
@@ -1377,7 +1404,7 @@ function gen_vpnc_tab_list(_type) {
 	if(openvpnd_support) {
 		code += "<td align='center' id='opencTitle_" + _type + "' onclick='tabclickhandler(2);'>OpenVPN</td>";
 	}
-	if(ipsec_support)
+	if(ipsec_cli_support)
 		code += "<td align='center' id='ipsecTitle_" + _type + "' onclick='tabclickhandler(3);'>IPSec</td>";
 	code += "</tr>";
 	code += "</table>";
@@ -2415,7 +2442,7 @@ function changePFS() {
 </script>
 </head>
 
-<body onload="initial();" onunload="unload_body();">
+<body onload="initial();" onunload="unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" width="0" height="0" frameborder="0"></iframe>
@@ -2451,6 +2478,7 @@ function changePFS() {
 <input type="hidden" name="vpn_clientx_eas" value="<% nvram_get("vpn_clientx_eas"); %>">
 <input type="hidden" name="vpnc_pptp_options_x" value="<% nvram_get("vpnc_pptp_options_x"); %>">
 <input type="hidden" name="vpnc_pptp_options_x_list" value="<% nvram_get("vpnc_pptp_options_x_list"); %>">
+<input type="hidden" name="ctf_nonat_force" value="<% nvram_get("ctf_nonat_force"); %>" disabled>
 <div id="openvpnc_setting"  class="contentM_qis pop_div_bg" style="box-shadow: 1px 5px 10px #000;">
 	<table class="QISform_wireless" border=0 align="center" cellpadding="5" cellspacing="0">
 		<tr style="height:32px;">
@@ -2534,7 +2562,7 @@ function changePFS() {
 						<td bgcolor="#4D595D" valign="top">
 							<div>&nbsp;</div>
 							<div class="formfonttitle">VPN - <#vpnc_title#></div>
-							<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+							<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 							<div class="formfontdesc">
 								<#vpnc_desc1#><br>
 								<#vpnc_desc2#><br>
@@ -2642,7 +2670,7 @@ function changePFS() {
 					<br>
 					<#vpnc_net_client_peer_desc2#>
 					<br>
-					<a id="ipsec_vpn_type_faq" href="" target="_blank" style="text-decoration:underline;color:#FC0;">IPSec Net-to-Net FAQ</a><!-- untranslated -->
+					<a id="ipsec_vpn_type_faq" href="" target="_blank" style="text-decoration:underline;color:#FC0;"></a>
 				</div>
 				<!-- VPN Type table start-->
 				<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3"  class="FormTable">
@@ -3155,7 +3183,7 @@ function changePFS() {
 												<p><#vpn_openvpn_KC_Edit1#> <span style="color:#FC0;">----- BEGIN xxx ----- </span>/<span style="color:#FC0;"> ----- END xxx -----</span> <#vpn_openvpn_KC_Edit2#>
 												<p><#vpn_openvpn_KC_Limit#>
 											</div>													
-											<div style="margin:5px;*margin-left:-5px;"><img style="width: 700px; height: 2px;" src="/images/New_ui/export/line_export.png"></div>
+											<div style="margin:5px;*margin-left:-5px;width: 700px;" class="splitLine"></div>
 										</td>	
 									</tr>
 									<tr>

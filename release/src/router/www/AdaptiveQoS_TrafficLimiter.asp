@@ -29,7 +29,7 @@ window.onresize = function() {
 	}
 } 
 var wans_caps = '<% nvram_get("wans_cap"); %>';
-var wan_unit = '<% nvram_get("wan_unit"); %>';
+var wan_unit = '<% nvram_get("wan_primary"); %>';
 var wans_dualwan_orig = '<% nvram_get("wans_dualwan"); %>';
 var dualwan_enable = wans_dualwan_orig.search("none") == -1 ? true:false;
 var dualwan_type = wans_dualwan_orig.split(" ");
@@ -117,6 +117,9 @@ $(document).ready(function (){
 	showclock();
 	collect_info();
 	check_date();
+
+	// focus on the right switch button
+	check_switch_button();
 	
 	$("#wan_type").html(info.current_wan.ifname.toUpperCase());
 	if(info.current_wan.alert_enable != 0){
@@ -215,6 +218,20 @@ function showclock(){
 	setTimeout("showclock()", 1000);
 }
 
+function check_switch_button() {
+	if(wan_unit == 1){
+		$("#primary_div").attr("class", "block_filter");
+		$("#primary_tab").attr("class", "block_filter_name_table");
+		$("#secondary_div").attr("class", "block_filter_pressed");
+		$("#secondary_tab").attr("class", "block_filter_name_table_pressed");
+	}
+	else{
+		$("#primary_div").attr("class", "block_filter_pressed");
+		$("#primary_tab").attr("class", "block_filter_name_table_pressed");
+		$("#secondary_div").attr("class", "block_filter");
+		$("#secondary_tab").attr("class", "block_filter_name_table");
+	}
+}
 
 function render_bar(flag){
 	var total_traffic = 0;
@@ -819,13 +836,13 @@ function apply_alert_preference(){
 		}
 		
 		if(document.form.PM_MY_EMAIL.value == "" || document.form.PM_MY_EMAIL.value != address_temp)
-			document.form.action_script.value += ";reset_tl_count";
+			document.form.action_script.value += ";reset_tl_count;email_conf;send_confirm_mail";
 				
 		document.form.PM_MY_EMAIL.value = address_temp;	
 	}
 	else{	
 		if(document.form.PM_MY_EMAIL.value == "" || document.form.PM_MY_EMAIL.value != address_temp)
-			document.form.action_script.value += ";reset_tl_count";
+			document.form.action_script.value += ";reset_tl_count;email_conf;send_confirm_mail";
 			
 		document.form.PM_MY_EMAIL.value = account_temp[0] + "@" +smtpList[server_index].smtpDomain;
 	}
@@ -947,7 +964,7 @@ function handle_value(){
 }
 </style>
 </head>
-<body>
+<body class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -995,10 +1012,10 @@ function handle_value(){
 					<div style="display:table;width:100%;">
 						<div style="display:table-cell;font-size:14px;font-weight:bolder;text-shadow:1px 1px 0px #000;padding:10px;width:85%"><#Traffic_Analyzer#> - Traffic Limiter</div>
 						<div style="display:table-cell">
-							<input class="button_gen_long" type="button" onclick="show_alert_preference();" value="Notification">
+							<input class="button_gen" type="button" onclick="show_alert_preference();" value="Notification">
 						</div>
 					</div>
-						<div><img src="images/New_ui/export/line_export.png" /></div>
+						<div class="splitLine"></div>
 						<div style="line-height:20px;font-size:14px;padding:10px;color:#DBDBDB">
 							Traffic Limiter allows you to monitor your networking traffic and set limited monthly traffic usage. You can receive notification if traffic reach alert traffic and limit you access to Internet while it get max.
 							<div>*Carrier data accounting may differ from your device</div>
@@ -1204,7 +1221,7 @@ function handle_value(){
 			<td>
 				<div style="text-align:center;margin-top:20px;">
 					<input class="button_gen" type="button" onclick="close_alert_preference();" value="<#CTL_close#>">
-					<input class="button_gen_long" type="button" onclick="apply_alert_preference();" value="<#CTL_apply#>">
+					<input class="button_gen" type="button" onclick="apply_alert_preference();" value="<#CTL_apply#>">
 				</div>
 			</td>		
 		</tr>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 
 #ifndef  _IPQ806X_CDP_H_
 #define  _IPQ806X_CDP_H_
+#define MAX_CONF_NAME		5
 
 #include <configs/ipq806x_cdp.h>
 #include <phy.h>
@@ -160,11 +161,14 @@ typedef struct {
 #endif
 #ifdef CONFIG_IPQ806X_PCI
 	pcie_params_t	pcie_cfg[PCI_MAX_DEVICES];
+	unsigned int wifi_pcie_power_gpio_cnt;
+	gpio_func_data_t *wifi_pcie_power_gpio[PCI_MAX_DEVICES];
 #endif
 #ifdef CONFIG_IPQ_MMC
 	gpio_func_data_t *emmc_gpio;
 	unsigned int emmc_gpio_count;
 #endif
+	const char *dtb_config_name[MAX_CONF_NAME];
 } __attribute__ ((__packed__)) board_ipq806x_params_t;
 
 extern board_ipq806x_params_t *gboard_param;

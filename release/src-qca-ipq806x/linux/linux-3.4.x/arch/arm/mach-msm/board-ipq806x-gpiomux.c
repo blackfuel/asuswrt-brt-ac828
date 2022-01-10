@@ -495,7 +495,7 @@ static struct gpiomux_setting reset_control = {
 	.dir = GPIOMUX_OUT_LOW,
 };
 
-#if defined(CONFIG_ASUS_BRTAC828)
+#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_ASUS_RTAD7200)
 static struct gpiomux_setting rtk_switch_intr = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_16MA,
@@ -720,7 +720,7 @@ static struct msm_gpiomux_config ipq806x_db147_gpiomux[] = {
 };
 
 static struct msm_gpiomux_config ipq806x_ap148_gpiomux[] = {
-#if defined(CONFIG_ASUS_BRTAC828)
+#if defined(CONFIG_ASUS_BRTAC828) || defined(CONFIG_ASUS_RTAD7200)
 
 #if defined(BRTAC828_SR1)
 	/* BRT-AC828 SR1 */

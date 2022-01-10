@@ -16,6 +16,8 @@
 <script language="JavaScript" type="text/javascript" src="/popup.js"></script>
 <script type="text/javascript" language="JavaScript" src="/help.js"></script>
 <script type="text/javascript" language="JavaScript" src="/validator.js"></script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/httpApi.js"></script>
 <script>
 
 var wans_mode ='<% nvram_get("wans_mode"); %>';
@@ -81,7 +83,8 @@ function done_validating(action){
 
 function initial(){
 	show_menu();
-	addOnlineHelp(document.getElementById("faq"), ["ASUSWRT", "DMZ"]);
+	// https://www.asus.com/US/support/FAQ/1011723
+	httpApi.faqURL("1011723", function(url){document.getElementById("faq").href=url;});
 	dmz_enable_check();
 
 	//if(dualWAN_support && wans_mode == "lb")
@@ -134,7 +137,7 @@ function dmz_on_off(){
 }
 </script>
 </head>
-<body onload="initial();">
+<body onload="initial();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -168,9 +171,28 @@ function dmz_on_off(){
 							<tr>
 								<td bgcolor="#4D595D" valign="top" >
 									<div>&nbsp;</div>
-									<div class="formfonttitle"><#menu5_3#> - <#menu5_3_5#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
-									<div class="formfontdesc"><#IPConnection_ExposedIP_sectiondesc#><br/><#IPConnection_BattleNet_sectionname#>: <#IPConnection_BattleNet_sectiondesc#></div>
+									<div class="formfonttitle">
+										<#menu5_3#> - <#menu5_3_5#>
+									</div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
+									<div class="formfontdesc">
+										<#IPConnection_ExposedIP_sectiondesc#>
+										<br/>
+										<br/>
+										<#IPConnection_BattleNet_sectionname#>:
+										<ul>
+											<li><#IPConnection_BattleNet_sectiondesc#></li>
+											<li><#IPConnection_BattleNet_sectiondesc2#></li>
+											<script>
+												document.getElementById("addVtsRule_ftp").onclick = function(){
+													/* untranslated */
+													if(confirm("Are you sure you want to add a port forwarding rule on FTP service?")){
+														location.href = "/Advanced_VirtualServer_Content.asp?af=KnownApps&item=ftp";
+													}
+												}
+											</script>
+										</ul>
+									</div>
 									<div class="formfontdesc" style="margin-top:-10px;">
 										<a id="faq" href="" target="_blank" style="font-family:Lucida Console;text-decoration:underline;">DMZ FAQ</a>
 									</div>

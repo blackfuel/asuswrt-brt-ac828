@@ -111,7 +111,7 @@ function getWANStatus(){
 		success: function(response){
 			parent.wan_autodet_state = autodet_state;
 			RetryCountDown_fail = 10;
-			if(based_modelid == "4G-AC55U"){
+			if(based_modelid == "4G-AC53U" || based_modelid == "4G-AC55U" || based_modelid == "4G-AC68U"){
 				getDualWANState();
 				if(wans_mode == 'lb'){
 					if(wan_wanstate == 2){
@@ -142,7 +142,7 @@ function getWANStatus(){
 					setTimeout('getWANStatus();', 500);
 				}
 			}
-			else if(autodet_state == "2" && autodet_auxstate == "6"){
+			else if(autodet_state == "6" || autodet_auxstate == "6"){
 				redirect_page("internet_type");
 			}
 			else if(now_flag != "sim" && autodet_state == "5" && autodet_auxstate != "4"){
@@ -152,7 +152,7 @@ function getWANStatus(){
 				parent.location.href = "../error_page.htm?flag=6";
 			}
 			else if(wanstate  == 2 && wansbstate == 0 && wanauxstate == 0){
-				if(based_modelid == "4G-AC55U")
+				if(based_modelid == "4G-AC53U" || based_modelid == "4G-AC55U" || based_modelid == "4G-AC68U")
 				{
 					if((wan_wanstate == 2 && wan_wansbstate == 0 && wan_wanauxstate == 0) &&
 					   (usb_wanstate == 2 && usb_wansbstate == 0 && usb_wanauxstate == 0)){
@@ -242,8 +242,8 @@ function getWANStatus(){
 				   setTimeout('redirect_page("wireless");', 1000);
 				}
 			}			
-			else if(autodet_state == 4 && parent.hadPlugged("modem")){ // ethernet did not plug
-				if(based_modelid == "4G-AC55U"){
+			else if(autodet_state == 4 && parent.hadModem){ // ethernet did not plug
+				if(based_modelid == "4G-AC53U" || based_modelid == "4G-AC55U" || based_modelid == "4G-AC68U"){
 					if(sim_state == 1){
 						if(modem_autoapn == "1"){
 							if(run_update_apn){
@@ -318,17 +318,17 @@ function getWANStatus(){
 				}
 			}	
 			else if(autodet_state == "2" && wanauxstate != "1"){
-				if(parent.hadPlugged("modem")){
+				if(parent.hadModem){
 					redirect_page("modem");
 				}	
 				else{
 					redirect_page("wireless");
 				}
 			}
-			else if(autodet_state == "6"){
+			/*else if(autodet_state == "6"){
 				document.getElementById("tblsetting_1").style.display = "none";
 				document.getElementById("pppoe_detected").style.display = "";
-			}
+			}*/
 			else
 				redirect_page("internet_type");
 		}

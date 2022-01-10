@@ -25,7 +25,7 @@ function initial(){
 }
 </script>
 </head>
-<body onload="initial();" onunload="return unload_body();">
+<body onload="initial();" onunload="return unload_body();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 <iframe name="hidden_frame" id="hidden_frame" width="0" height="0" frameborder="0" scrolling="no"></iframe>
@@ -57,7 +57,7 @@ function initial(){
 							  <td bgcolor="#4D595D" valign="top">
 								<div>&nbsp;</div>
 								<div class="formfonttitle">AiCloud 2.0 - <#Log#></div>
-								<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+								<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 								<div class="formfontdesc" style="font-style: italic;font-size: 14px;"><#AiCloud_Log_desc#></div>
 
 								<table width="100%" style="border-collapse:collapse;">

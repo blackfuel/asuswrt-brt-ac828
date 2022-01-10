@@ -1562,7 +1562,11 @@ int redir_reply(struct redir_t *redir, struct redir_socket_t *sock,
    /* 
     if(!is_wan_connect(wan_primary_ifunit())){   //John add for redir error page
 
-      bcatcstr(buffer, "http://192.168.1.1:8083/error_page.html\r\n"); 
+#if defined(RT4GAC68U)
+      bcatcstr(buffer, "http://192.168.1.1:8082/error_page.html\r\n");
+#else
+      bcatcstr(buffer, "http://192.168.1.1:8083/error_page.html\r\n");
+#endif
     
     }else if (strstr(userurl, "generate_204")){
       bcatcstr(buffer, "http://192.168.1.1:8083/reidr.html\r\n"); 
@@ -2988,7 +2992,7 @@ int is_local_user(struct redir_t *redir, struct redir_conn_t *conn) {
 	    match = 1;
 	  }
 	  else if((spwd = getspnam(u)) != NULL){	/* compare passwords */
-		crypt_password = crypt(user_password, spwd->sp_pwdp);
+		crypt_password = crypt((char*)user_password, spwd->sp_pwdp);
 		if(strcmp(crypt_password, spwd->sp_pwdp) == 0){
 			log_dbg("AUTH Success!!");
 			match = 1;

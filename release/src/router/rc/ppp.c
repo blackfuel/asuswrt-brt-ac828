@@ -40,7 +40,7 @@ int
 ppp_ifunit(char *ifname)
 {
 	int unit;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 
 	for (unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; unit++) {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
@@ -70,7 +70,7 @@ ipup_main(int argc, char **argv)
 	FILE *fp;
 	char *wan_ifname = safe_getenv("IFNAME");
 	char *wan_linkname = safe_getenv("LINKNAME");
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	char buf[256], *value;
 	int unit;
 
@@ -129,25 +129,16 @@ ipup_main(int argc, char **argv)
 	if ((value = getenv("DNS1")))
 		snprintf(buf, sizeof(buf), "%s", value);
 	if ((value = getenv("DNS2")))
-		snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "%s%s", strlen(buf) ? " " : "", value);
+		snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "%s%s", *buf ? " " : "", value);
 
 	/* empty DNS means they either were not requested or peer refused to send them.
 	 * for this case static DNS can be used, if they are configured */
-	if (strlen(buf) == 0 && !nvram_get_int(strcat_r(prefix, "dnsenable_x", tmp))) {
-		value = nvram_safe_get(strcat_r(prefix, "dns1_x", tmp));
-		if (*value && inet_addr_(value) != INADDR_ANY)
-			snprintf(buf, sizeof(buf), "%s", value);
-		value = nvram_safe_get(strcat_r(prefix, "dns2_x", tmp));
-		if (*value && inet_addr_(value) != INADDR_ANY)
-			snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "%s%s", *buf ? " " : "", value);
-	}
+	if (strlen(buf) == 0 && !nvram_get_int(strcat_r(prefix, "dnsenable_x", tmp)))
+		get_userdns_r(prefix, buf, sizeof(buf));
 
 	nvram_set(strcat_r(prefix, "dns", tmp), buf);
 
 	wan_up(wan_ifname);
-
-	nvram_set(strcat_r(prefix, "auth_ok", tmp), "1");
-	nvram_commit();
 
 	_dprintf("%s:: done\n", __FUNCTION__);
 	return 0;
@@ -161,7 +152,7 @@ ipdown_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
 	char *wan_linkname = safe_getenv("LINKNAME");
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
 	_dprintf("%s():: %s\n", __FUNCTION__, argv[0]);
@@ -194,8 +185,8 @@ ippreup_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
 	char *wan_linkname = safe_getenv("LINKNAME");
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	int unit;
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	int unit, ppp_unit;
 
 	_dprintf("%s():: %s\n", __FUNCTION__, argv[0]);
 
@@ -204,6 +195,15 @@ ippreup_main(int argc, char **argv)
 		return 0;
 
 	_dprintf("%s: unit=%d ifname=%s\n", __FUNCTION__, unit, wan_ifname);
+
+	/* Clear obsolete interfaces */
+	for (ppp_unit = WAN_UNIT_FIRST; ppp_unit < WAN_UNIT_MAX; ppp_unit++) {
+		if (ppp_unit != unit) {
+			snprintf(prefix, sizeof(prefix), "wan%d_", ppp_unit);
+			if (nvram_match(strcat_r(prefix, "pppoe_ifname", tmp), wan_ifname))
+				nvram_set(strcat_r(prefix, "pppoe_ifname", tmp), "");
+		}
+	}
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	/* Set wanX_pppoe_ifname to real interface name */
@@ -222,21 +222,33 @@ int ip6up_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
 	char *wan_linkname = safe_getenv("LINKNAME");
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	int unit;
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
+	char *value;
+	int unit, ppp_unit;
 
-	if (!wan_ifname || strlen(wan_ifname) <= 0)
-		return 0;
+	_dprintf("%s():: %s\n", __FUNCTION__, argv[0]);
 
 	/* Get unit from LINKNAME: ppp[UNIT] */
 	if ((unit = ppp_linkunit(wan_linkname)) < 0)
 		return 0;
 
 	_dprintf("%s: unit=%d ifname=%s\n", __FUNCTION__, unit, wan_ifname);
+
+	/* Clear obsolete interfaces */
+	for (ppp_unit = WAN_UNIT_FIRST; ppp_unit < WAN_UNIT_MAX; ppp_unit++) {
+		if (ppp_unit != unit) {
+			snprintf(prefix, sizeof(prefix), "wan%d_", ppp_unit);
+			if (nvram_match(strcat_r(prefix, "pppoe_ifname", tmp), wan_ifname))
+				nvram_set(strcat_r(prefix, "pppoe_ifname", tmp), "");
+		}
+	}
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	/* share the same interface with pppoe ipv4 connection */
 	nvram_set(strcat_r(prefix, "pppoe_ifname", tmp), wan_ifname);
+
+	if ((value = getenv("LLREMOTE")))
+		nvram_set(ipv6_nvname("ipv6_llremote"), value);
 
 	wan6_up(wan_ifname);
 
@@ -246,6 +258,16 @@ int ip6up_main(int argc, char **argv)
 int ip6down_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
+	char *wan_linkname = safe_getenv("LINKNAME");
+	int unit;
+
+	_dprintf("%s():: %s\n", __FUNCTION__, argv[0]);
+
+	/* Get unit from LINKNAME: ppp[UNIT] */
+	if ((unit = ppp_linkunit(wan_linkname)) < 0)
+		return 0;
+
+	_dprintf("%s: unit=%d ifname=%s\n", __FUNCTION__, unit, wan_ifname);
 
 	wan6_down(wan_ifname);
 
@@ -261,7 +283,7 @@ authfail_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
 	char *wan_linkname = safe_getenv("LINKNAME");
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp[100], prefix[sizeof("wanXXXXXXXXXX_")];
 	int unit;
 
 	_dprintf("%s():: %s\n", __FUNCTION__, argv[0]);

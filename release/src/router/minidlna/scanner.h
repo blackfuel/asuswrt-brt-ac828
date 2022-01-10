@@ -75,7 +75,13 @@ int64_t
 insert_directory(const char *name, const char *path, const char *base, const char *parentID, int objectID);
 
 int
-insert_file(char *name, const char *path, const char *parentID, int object, media_types dir_types);
+insert_file(const char *name, const char *path, const char *parentID, int object, media_types dir_types);
+
+int64_t
+insert_directory0(const char *name, const char *path, const char *base, const char *parentID, int objectID);
+
+int
+insert_file0(const char *name, const char *path, const char *parentID, int object, media_types dir_types);
 
 int
 CreateDatabase(void);
@@ -83,4 +89,9 @@ CreateDatabase(void);
 void
 start_scanner();
 
+int
+path_is_dir(const char *path);
+
+int
+is_sys_dir(const char *dirname);
 #endif

@@ -3,7 +3,7 @@
  * Simple telnet server
  * Bjorn Wesen, Axis Communications AB (bjornw@axis.com)
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * ---------------------------------------------------------------------------
  * (C) Copyright 2000, Axis Communications AB, LUND, SWEDEN
@@ -20,9 +20,31 @@
  * Vladimir Oleynik <dzo@simtreas.ru> 2001
  * Set process group corrections, initial busybox port
  */
+
+//usage:#define telnetd_trivial_usage
+//usage:       "[OPTIONS]"
+//usage:#define telnetd_full_usage "\n\n"
+//usage:       "Handle incoming telnet connections"
+//usage:	IF_NOT_FEATURE_TELNETD_STANDALONE(" via inetd") "\n"
+//usage:     "\n	-l LOGIN	Exec LOGIN on connect"
+//usage:     "\n	-f ISSUE_FILE	Display ISSUE_FILE instead of /etc/issue"
+//usage:     "\n	-K		Close connection as soon as login exits"
+//usage:     "\n			(normally wait until all programs close slave pty)"
+//usage:	IF_FEATURE_TELNETD_STANDALONE(
+//usage:     "\n	-p PORT		Port to listen on"
+//usage:     "\n	-b ADDR[:PORT]	Address to bind to"
+//usage:     "\n	-F		Run in foreground"
+//usage:     "\n	-i		Inetd mode"
+//usage:	IF_FEATURE_TELNETD_INETD_WAIT(
+//usage:     "\n	-w SEC		Inetd 'wait' mode, linger time SEC"
+//usage:     "\n	-S		Log to syslog (implied by -i or without -F and -w)"
+//usage:	)
+//usage:	)
+
 #define DEBUG 0
 
 #include "libbb.h"
+#include "common_bufsiz.h"
 #include <syslog.h>
 
 #if DEBUG
@@ -30,10 +52,6 @@
 # define TELOPTS
 #endif
 #include <arpa/telnet.h>
-
-#if ENABLE_FEATURE_UTMP
-# include <utmp.h> /* LOGIN_PROCESS */
-#endif
 
 
 struct tsession {
@@ -65,8 +83,9 @@ struct globals {
 	const char *issuefile;
 	int maxfd;
 } FIX_ALIASING;
-#define G (*(struct globals*)&bb_common_bufsiz1)
+#define G (*(struct globals*)bb_common_bufsiz1)
 #define INIT_G() do { \
+	setup_common_bufsiz(); \
 	G.loginpath = "/bin/login"; \
 	G.issuefile = "/etc/issue.net"; \
 } while (0)
@@ -108,6 +127,7 @@ remove_iacs(struct tsession *ts, int *pnum_totty)
 			/* We map \r\n ==> \r for pragmatic reasons.
 			 * Many client implementations send \r\n when
 			 * the user hits the CarriageReturn key.
+			 * See RFC 1123 3.3.1 Telnet End-of-Line Convention.
 			 */
 			if (c == '\r' && ptr < end && (*ptr == '\n' || *ptr == '\0'))
 				ptr++;
@@ -141,7 +161,7 @@ remove_iacs(struct tsession *ts, int *pnum_totty)
 		if (ptr[1] == SB && ptr[2] == TELOPT_NAWS) {
 			struct winsize ws;
 			if ((ptr+8) >= end)
-				break;	/* incomplete, can't process */
+				break;  /* incomplete, can't process */
 			ws.ws_col = (ptr[3] << 8) | ptr[4];
 			ws.ws_row = (ptr[5] << 8) | ptr[6];
 			ioctl(ts->ptyfd, TIOCSWINSZ, (char *)&ws);
@@ -247,7 +267,7 @@ make_new_session(
 	close_on_exec_on(fd);
 
 	/* SO_KEEPALIVE by popular demand */
-	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &const_int_1, sizeof(const_int_1));
+	setsockopt_keepalive(sock);
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 	ts->sockfd_read = sock;
 	ndelay_on(sock);
@@ -273,8 +293,8 @@ make_new_session(
 		static const char iacs_to_send[] ALIGN1 = {
 			IAC, DO, TELOPT_ECHO,
 			IAC, DO, TELOPT_NAWS,
-		/* This requires telnetd.ctrlSQ.patch (incomplete) */
-		/*	IAC, DO, TELOPT_LFLOW, */
+			/* This requires telnetd.ctrlSQ.patch (incomplete) */
+			/*IAC, DO, TELOPT_LFLOW,*/
 			IAC, WILL, TELOPT_ECHO,
 			IAC, WILL, TELOPT_SGA
 		};
@@ -312,8 +332,9 @@ make_new_session(
 	/* Careful - we are after vfork! */
 
 	/* Restore default signal handling ASAP */
-	bb_signals((1 << SIGCHLD) + (1 << SIGPIPE), SIG_DFL);
-	signal(SIGINT, SIG_DFL);
+	bb_signals((1 << SIGCHLD) + (1 << SIGPIPE) + (1 << SIGINT), SIG_DFL);
+
+	pid = getpid();
 
 	if (ENABLE_FEATURE_UTMP) {
 		len_and_sockaddr *lsa = get_peer_lsa(sock);
@@ -326,6 +347,30 @@ make_new_session(
 		free(hostname);
 	}
 
+	if (ENABLE_FEATURE_TELNETD_CLIENT_TO_ENV) {
+		len_and_sockaddr *lsa = get_peer_lsa(sock);
+		if (lsa) {
+			char *host, *addr, *port;
+#if ENABLE_FEATURE_IPV6
+			/* Correct ::ffff:xxx.xxx.xxx.xxx form */
+			if (lsa->u.sa.sa_family == AF_INET6 &&
+			    IN6_IS_ADDR_V4MAPPED(&lsa->u.sin6.sin6_addr)) {
+				lsa->len = sizeof(lsa->u.sin);
+				lsa->u.sa.sa_family = AF_INET;
+				lsa->u.sin.sin_addr.s_addr = lsa->u.sin6.sin6_addr.s6_addr32[3];
+			}
+#endif
+			host = xmalloc_sockaddr2dotted_noport(&lsa->u.sa);
+			addr = xasprintf("%s=%s", "TELNET_ADDR", host);
+			port = xasprintf("%s=%d", "TELNET_PORT",
+					htons(get_nport(&lsa->u.sa)));
+			putenv(addr);
+			putenv(port);
+			free(host);
+			free(lsa);
+		}
+	}
+
 	/* Make new session and process group */
 	setsid();
 
@@ -336,7 +381,6 @@ make_new_session(
 	xopen(tty_name, O_RDWR); /* becomes our ctty */
 	xdup2(0, 1);
 	xdup2(0, 2);
-	pid = getpid();
 	tcsetpgrp(0, pid); /* switch this tty's process group to us */
 
 	/* The pseudo-terminal allocated to the client is configured to operate
@@ -444,15 +488,7 @@ static void handle_sigchld(int sig UNUSED_PARAM)
 		while (ts) {
 			if (ts->shell_pid == pid) {
 				ts->shell_pid = -1;
-// man utmp:
-// When init(8) finds that a process has exited, it locates its utmp entry
-// by ut_pid, sets ut_type to DEAD_PROCESS, and clears ut_user, ut_host
-// and ut_time with null bytes.
-// [same applies to other processes which maintain utmp entries, like telnetd]
-//
-// We do not bother actually clearing fields:
-// it might be interesting to know who was logged in and from where
-				update_utmp(pid, DEAD_PROCESS, /*tty_name:*/ NULL, /*username:*/ NULL, /*hostname:*/ NULL);
+				update_utmp_DEAD_PROCESS(pid);
 				break;
 			}
 			ts = ts->next;
@@ -509,6 +545,10 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		openlog(applet_name, LOG_PID, LOG_DAEMON);
 		logmode = LOGMODE_SYSLOG;
 	}
+#if ENABLE_FEATURE_TELNETD_CLIENT_TO_ENV
+	unsetenv("TELNET_ADDR");
+	unsetenv("TELNET_PORT");
+#endif
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 	if (IS_INETD) {
 		G.sessions = make_new_session(0);
@@ -721,7 +761,7 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		continue;
  kill_session:
 		if (ts->shell_pid > 0)
-			update_utmp(ts->shell_pid, DEAD_PROCESS, /*tty_name:*/ NULL, /*username:*/ NULL, /*hostname:*/ NULL);
+			update_utmp_DEAD_PROCESS(ts->shell_pid);
 		free_session(ts);
 		ts = next;
 	}

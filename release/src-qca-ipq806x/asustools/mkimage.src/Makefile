@@ -28,7 +28,7 @@ OBJS	= mkimage.o
 # Use native tools and options
 #
 CPPFLAGS   = -idirafter ./include -DTEXT_BASE=$(TEXT_BASE) -DUSE_HOSTCC -DTRX_NEW
-CFLAGS     = $(HOST_CFLAGS) $(CPPFLAGS) -O
+CFLAGS     = $(HOST_CFLAGS) $(CPPFLAGS) -m32 -O
 AFLAGS	   = -D__ASSEMBLY__ $(CPPFLAGS)
 MAKEDEPEND = makedepend
 CC	   = gcc

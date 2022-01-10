@@ -55,7 +55,7 @@ body {
 	text-shadow: 1px 1px 0px black;	
 	width:185px;
 	height:48px;
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:12px;
 	text-align:left;
 	position:relative;
@@ -69,7 +69,7 @@ body {
 	text-shadow: 1px 1px 0px black;	
 	width:185px;
 	height:48px;
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:12px;
 	text-align:left;
 	position:relative;
@@ -95,7 +95,7 @@ body {
 .menu_QIS_table {
 	width:185px;
 	height: 53px;
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size: 12px;
 	color:#ffffff;
 	padding-left:0px;
@@ -136,7 +136,7 @@ body {
 	margin-top: -1px; 
 	width:185px;
 	height: 47px;
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size : 12px;
 	color:#ffffff;
 	font-weight:bold;
@@ -184,7 +184,7 @@ body {
 	}	
 }
 
-.submenu {width:187px; font-family:Verdana; font-size:11px; line-height:20px;}
+.submenu {width:187px; font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif; font-size:11px; line-height:20px;}
 .submenu a {height:26px; text-decoration:none; }
 .submenu a:link, .submenu a:visited {
 	color: #94ccf2;	display: block;
@@ -241,7 +241,7 @@ body {
 
 /*==========================Level 3 Tab Class=================================*/
 .Help thead{
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:12px;
 	line-height:19px;
 	font-weight:bold;
@@ -249,7 +249,7 @@ body {
 	background-image:url(images/title-bg-2.gif);
 	}
 .Help tbody{
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:12px;
 	background-color: #FFFFCC;
 	text-align:left;
@@ -257,7 +257,7 @@ body {
 }
 
 .AiHintTitle{
-	font-family :Verdana;
+	font-family : Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:11px; 
 	font-weight:bold;
 	color:#000;
@@ -298,7 +298,7 @@ body {
 
 /**********AiHelp add by Lock*************/
 #helpicon{
-	font-family:Arial black, Arial, Helvetica, sans-serif;
+	font-family: Arial black, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:12px;
 	color: #FF6600;
 	display:block;
@@ -364,7 +364,7 @@ body {
 /**************Add by kcol***************/
 
 .bottom-image {margin:0 auto; width:998px; background:url(images/New_ui/bottom_bg.png) no-repeat; height:30px; }
-.copyright {font-family :Verdana;font-size : 11px;text-align:right;color:#FFFFFF;padding-right:10px; margin:0 auto; width:983px;}
+.copyright {font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;font-size : 11px;text-align:right;color:#FFFFFF;padding-right:10px; margin:0 auto; width:983px;}
 
 .popup_bg{
 	position:absolute;	
@@ -433,7 +433,7 @@ body {
 	font-size:20px;
 	color:#FFFFFF;
 	background-color:#000000;
-	font-family:Arial, Helvetica, sans-serif;
+	font-family: Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	position:absolute;
 	margin:5px 35% 5px;
 }
@@ -446,7 +446,7 @@ body {
 	border: 0px;
 	width:450px;
 	font-size:12px;
-	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-family: Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	color:#FFFFFF;
 	background-color:#000000;
 	position:absolute;
@@ -485,7 +485,7 @@ body {
 	margin-top:0px;
 	margin-left:-148px;
 	background-color:#FFFFFF;
-	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-family: Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:11px;
 	width:120px;
 	border:1px solid #999;
@@ -576,40 +576,6 @@ body {
 
 
 /* ============ new ui =============*/
-.titlebtn {	
-      background: transparent url(images/New_ui/btn.png) no-repeat scroll right top;
-      color: White;
-      display: block;
-      float: left;
-      height: 34px;
-      padding-right: 10px;      
-      margin-right: 10px;
-      text-decoration: none;
-	  width:136px;
-    }
-.titlebtn span {
-      background: transparent url(images/New_ui/btnspan.png) no-repeat;
-      display: block;
-      padding: 5px 1px 5px 11px;
-      line-height: 24px;
-			font-weight: bold;
-    }
-	
-	
-.titlebtn:hover {
-      background-position: right -34px;
-    }
-.titlebtn:hover span {
-      background-position: left -34px;
-    }
-.titlebtn:active {
-      background-position: right -68px;
-	  outline: none;
-    }
-.titlebtn:active span {
-      background-position: left -68px;
-}
-
 .titledropdownbtn {
 	background-image:url(images/dropdown_bt.png);
 	font-size:12px;
@@ -691,7 +657,7 @@ width:122px;
 	background-position: -0px -0px; width: 19px; height: 19px;
 }
 #bottom_help_title{
-	font-family:Arial, Helvetica, sans-serif;
+	font-family: Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	font-weight:bolder;
 	color: #569AC7;
 }
@@ -704,8 +670,9 @@ width:122px;
 	line-height:23px \9;	/*IE*/
 	font-size:12px;
 	font-family: Lucida Console;
-	background-image:url(/images/New_ui/bottom_text.png);
-	border-width:0;
+	background: #090909;
+	border: 1px solid #474747;
+	border-radius: 15px;
 	color:#FFFFFF;
 }
 .bottom_help_FAQ_icon{
@@ -799,12 +766,13 @@ width:122px;
 }
 .menu_Split{
 	background-color: #4E5659;
-	height: 30px;
+	height: auto;
+	min-height: 30px;
 	width: 185px;
 	margin-top: 10px;
 	border: 1px solid #6B7071;
 	text-align: center;
-	font-family: Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	border-radius: 5px 5px 0px 0px;
 }
 .menu_Index{
@@ -937,7 +905,7 @@ width:122px;
 	margin-right: 2px;
 	text-align:center;
 	text-decoration: none;
-	font-family: Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size: 12px;
 	border-radius: 5px;
 }
@@ -953,7 +921,7 @@ width:122px;
 	margin-right: 2px;
 	text-align:center;
 	text-decoration: none;
-	font-family: Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size: 12px;
 	border-radius: 5px;
 }
@@ -965,7 +933,7 @@ width:122px;
 .m_qis_r {
 	width:185px;
 	height: 53px;
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size: 12px;
 	color:#ffffff;
 	padding-left:0px;
@@ -1006,7 +974,7 @@ width:122px;
 .m_qis_r_blocked {
 	width:185px;
 	height: 53px;
-	font-family:Verdana;
+	font-family: Verdana, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size: 12px;
 	color:#ffffff;
 	padding-left:0px;
@@ -1030,5 +998,5 @@ width:122px;
 }
 ._index{
   background: url(images/New_ui/icon_indexes.png);
-  background-position: -0px -40px; width: 43px; height: 43px;
+  background-position: 4px -32px; width: 43px; height: 43px;
 }

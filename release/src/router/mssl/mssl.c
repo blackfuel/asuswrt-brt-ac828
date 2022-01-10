@@ -34,7 +34,7 @@
 #define _dprintf(args...)	while (0) {}
 
 // refer https://mozilla.github.io/server-side-tls/ssl-config-generator/ w/o DES ciphers
-#define SERVER_CIPHERS "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:!DSS"
+#define SERVER_CIPHERS "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA256:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:!DSS"
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 // use reasonable defaults
@@ -253,7 +253,8 @@ FILE *ssl_client_fopen_name(int sd, const char *name)
 	return _ssl_fopen(sd, 1, name);
 }
 
-#if defined(SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS)
+#ifndef SSL_OP_NO_RENEGOTIATION
+#if OPENSSL_VERSION_NUMBER < 0x10100000L && defined(SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS)
 static void ssl_info_cb(const SSL *ssl, int where, int ret)
 {
 	if ((where & SSL_CB_HANDSHAKE_DONE) != 0 && SSL_is_server((SSL *) ssl)) {
@@ -262,10 +263,10 @@ static void ssl_info_cb(const SSL *ssl, int where, int ret)
 	}
 }
 #endif
+#endif
 
-int mssl_init(char *cert, char *priv)
+int mssl_init_ex(char *cert, char *priv, char *ciphers)
 {
-	char *ciphers;
 	int server;
 
 	_dprintf("%s()\n", __FUNCTION__);
@@ -323,7 +324,8 @@ int mssl_init(char *cert, char *priv)
 #endif
 
 	// Setup available ciphers
-	ciphers = server ? SERVER_CIPHERS : CLIENT_CIPHERS;
+	if (ciphers == NULL)
+		ciphers = server ? SERVER_CIPHERS : CLIENT_CIPHERS;
 	if (ciphers && SSL_CTX_set_cipher_list(ctx, ciphers) != 1) {
 		_dprintf("%s: SSL_CTX_set_cipher_list failed\n", __FUNCTION__);
 		mssl_cleanup(1);
@@ -361,7 +363,7 @@ int mssl_init(char *cert, char *priv)
 		// Disable renegotiation
 #ifdef SSL_OP_NO_RENGOTIATION
 		SSL_CTX_set_options(ctx, SSL_OP_NO_RENGOTIATION);
-#elif defined(SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS)
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L && defined(SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS)
 		SSL_CTX_set_info_callback(ctx, ssl_info_cb);
 #endif
 	}
@@ -370,4 +372,9 @@ int mssl_init(char *cert, char *priv)
 
 	_dprintf("%s() success\n", __FUNCTION__);
 	return 1;
+}
+
+int mssl_init(char *cert, char *priv)
+{
+	return mssl_init_ex(cert, priv, NULL);
 }

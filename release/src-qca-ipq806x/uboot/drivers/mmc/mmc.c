@@ -1295,12 +1295,15 @@ int mmc_startup(struct mmc *mmc)
 	mmc->block_dev.type = 0;
 	mmc->block_dev.blksz = mmc->read_bl_len;
 	mmc->block_dev.lba = lldiv(mmc->capacity, mmc->read_bl_len);
-	sprintf(mmc->block_dev.vendor, "Man %06x Snr %08x", mmc->cid[0] >> 8,
+	snprintf(mmc->block_dev.vendor, sizeof(mmc->block_dev.vendor),
+			"Man %06x Snr %08x", mmc->cid[0] >> 8,
 			(mmc->cid[2] << 8) | (mmc->cid[3] >> 24));
-	sprintf(mmc->block_dev.product, "%c%c%c%c%c", mmc->cid[0] & 0xff,
+	snprintf(mmc->block_dev.product, sizeof(mmc->block_dev.product),
+			"%c%c%c%c%c", mmc->cid[0] & 0xff,
 			(mmc->cid[1] >> 24), (mmc->cid[1] >> 16) & 0xff,
 			(mmc->cid[1] >> 8) & 0xff, mmc->cid[1] & 0xff);
-	sprintf(mmc->block_dev.revision, "%d.%d", mmc->cid[2] >> 28,
+	snprintf(mmc->block_dev.revision, sizeof(mmc->block_dev.revision),
+			"%d.%d", mmc->cid[2] >> 28,
 			(mmc->cid[2] >> 24) & 0xf);
 	init_part(&mmc->block_dev);
 

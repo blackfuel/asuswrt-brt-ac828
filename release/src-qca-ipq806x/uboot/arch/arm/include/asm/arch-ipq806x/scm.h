@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 #define SCM_SVC_TZSCHEDULER		0xFC
 #define QFPROM_IS_AUTHENTICATE_CMD	0x7
 
-
+#define TZBSP_BUILD_VER_QUERY_CMD	0x4
 #define KERNEL_AUTH_CMD			0x7
 #define CE_CHN_SWITCH_CMD		0x2
 #define SCM_BOOT_ADDR			0x1

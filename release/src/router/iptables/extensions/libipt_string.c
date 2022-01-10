@@ -39,6 +39,7 @@ help(void)
 "--from                       Offset to start searching from\n"
 "--to                         Offset to stop searching\n"
 "--algo	                      Algorithm\n"
+"--icase                      Ignore case\n"
 "--string [!] string          Match a string in a packet\n"
 "--hex-string [!] string      Match a hex string in a packet\n",
 IPTABLES_VERSION);
@@ -50,6 +51,7 @@ static struct option opts[] = {
 	{ "algo", 1, 0, '3' },
 	{ "string", 1, 0, '4' },
 	{ "hex-string", 1, 0, '5' },
+	{ "icase", 0, 0, '6' },
 	{0}
 };
 
@@ -165,6 +167,7 @@ parse_hex_string(const char *s, struct ipt_string_info *info)
 #define ALGO   0x2
 #define FROM   0x4
 #define TO     0x8
+#define ICASE  0x10
 
 /* Function which parses command options; returns true if it
    ate an option */
@@ -205,7 +208,7 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		check_inverse(optarg, &invert, &optind, 0);
 		parse_string(argv[optind-1], stringinfo);
 		if (invert)
-			stringinfo->invert = 1;
+			stringinfo->flags &= XT_STRING_FLAG_INVERT;
 		stringinfo->patlen=strlen((char *)&stringinfo->pattern);
 		*flags |= STRING;
 		break;
@@ -218,8 +221,13 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		check_inverse(optarg, &invert, &optind, 0);
 		parse_hex_string(argv[optind-1], stringinfo);  /* sets length */
 		if (invert)
-			stringinfo->invert = 1;
+			stringinfo->flags &= XT_STRING_FLAG_INVERT;
 		*flags |= STRING;
+		break;
+
+	case '6':
+		stringinfo->flags |= XT_STRING_FLAG_IGNORECASE;
+		*flags |= ICASE;
 		break;
 
 	default:
@@ -297,10 +305,10 @@ print(const struct ipt_ip *ip,
 	    (const struct ipt_string_info*) match->data;
 
 	if (is_hex_string(info->pattern, info->patlen)) {
-		printf("STRING match %s", (info->invert) ? "!" : "");
+		printf("STRING match %s", (info->flags & XT_STRING_FLAG_INVERT) ? "!" : "");
 		print_hex_string(info->pattern, info->patlen);
 	} else {
-		printf("STRING match %s", (info->invert) ? "!" : "");
+		printf("STRING match %s", (info->flags & XT_STRING_FLAG_INVERT) ? "!" : "");
 		print_string(info->pattern, info->patlen);
 	}
 	printf("ALGO name %s ", info->algo);
@@ -308,6 +316,8 @@ print(const struct ipt_ip *ip,
 		printf("FROM %u ", info->from_offset);
 	if (info->to_offset != 0)
 		printf("TO %u ", info->to_offset);
+	if (info->flags & XT_STRING_FLAG_IGNORECASE)
+		printf("ICASE ");
 }
 
 
@@ -319,10 +329,10 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	    (const struct ipt_string_info*) match->data;
 
 	if (is_hex_string(info->pattern, info->patlen)) {
-		printf("--hex-string %s", (info->invert) ? "! ": "");
+		printf("--hex-string %s", (info->flags & XT_STRING_FLAG_INVERT) ? "! ": "");
 		print_hex_string(info->pattern, info->patlen);
 	} else {
-		printf("--string %s", (info->invert) ? "! ": "");
+		printf("--string %s", (info->flags & XT_STRING_FLAG_INVERT) ? "! ": "");
 		print_string(info->pattern, info->patlen);
 	}
 	printf("--algo %s ", info->algo);
@@ -330,6 +340,8 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 		printf("--from %u ", info->from_offset);
 	if (info->to_offset != 0)
 		printf("--to %u ", info->to_offset);
+	if (info->flags & XT_STRING_FLAG_IGNORECASE)
+		printf("--icase ");
 }
 
 

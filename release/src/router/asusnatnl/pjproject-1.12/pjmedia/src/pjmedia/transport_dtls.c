@@ -30,7 +30,7 @@
 #include <pj/ssl_sock.h>
 #include <pj/math.h>
 
-#ifdef WIN32
+#ifdef PJ_WIN32
 #include <winsock2.h>
 #include <Ws2tcpip.h>
 #define in_port_t u_short
@@ -38,7 +38,6 @@
 #else
 #include <sys/socket.h>
 #endif
-
 /* 
  * Include OpenSSL headers 
  */
@@ -47,6 +46,16 @@
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
 #include <openssl/rand.h>
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define ASN1_STRING_get0_data(x) ASN1_STRING_data(x)
+#define OPENSSL_CONST
+#else
+#define OPENSSL_CONST const
+#endif
+
+#if defined(ENABLE_MEMWATCH) && ENABLE_MEMWATCH != 0
+#include <memwatch.h>
+#endif
 
 //#define BYPASS 1
 //#define DUMP_PACKET 1
@@ -91,10 +100,12 @@ int cookie_initialized=0;
 #error You must define mutex operations appropriate for your platform!
 #endif
 
-static MUTEX_TYPE *mutex_buf = NULL;
 #ifdef USE_GLOBAL_CTX
 static SSL_CTX *g_ctx = NULL;
 #endif
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+static MUTEX_TYPE *mutex_buf = NULL;
 
 static void static_locking_function(int mode, int n, const char *file, int line)
 {
@@ -125,7 +136,7 @@ static void static_thread_setup(void)
 	}
 
 	CRYPTO_THREADID_set_callback(id_function);
-	CRYPTO_set_locking_callback((void (*)(int,int,char *,int))static_locking_function);
+	CRYPTO_set_locking_callback((void (*)(int,int,const char *,int))static_locking_function);
 	/* id callback defined */
 }
 
@@ -186,6 +197,7 @@ static void thread_cleanup() {
 	static_thread_cleanup();
 	dynamic_thread_cleanup();
 }
+#endif
 
 #if 0//!defined(WIN32) && !defined(PJ_ANDROID)
 
@@ -200,7 +212,7 @@ typedef struct ssl_buff
  */
 
 static void *ssl_alloc(size_t size) {
-	//ssl_buff *buf = pj_mem_alloc(sizeof(ssl_buff));
+	//ssl_buff *buf = malloc(sizeof(ssl_buff));
 	//pj_list_push_back(&call->tnl_stream->no_ctl_rbuff, buf);
 	void *buff = malloc(size);
 	PJ_LOG(4, (THIS_FILE, "ssl_alloc		buff=[%p],	size=[%d]", buff, size));
@@ -223,7 +235,8 @@ static void ssl_free(void *buf) {
  * SSL/TLS state enumeration.
  */
 enum ssl_state {
-    SSL_STATE_NULL,
+	SSL_STATE_NULL,
+	SSL_STATE_INITIALIZED,
     SSL_STATE_HANDSHAKING,
     SSL_STATE_ESTABLISHED
 };
@@ -582,7 +595,9 @@ static pj_status_t init_openssl(pj_pool_t *pool)
 
 	/* Init OpenSSL lib */
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	thread_setup();
+#endif
 	SSL_library_init();
 	SSL_load_error_strings();
 	ERR_load_BIO_strings();
@@ -595,7 +610,7 @@ static pj_status_t init_openssl(pj_pool_t *pool)
 		SSL *ssl;
 		STACK_OF(SSL_CIPHER) *sk_cipher;
 		unsigned i, n;
-		meth = (SSL_METHOD*)DTLSv1_server_method();
+		meth = (SSL_METHOD*)DTLS_server_method();
 
 		if (!meth)
 		pj_assert(meth);
@@ -611,10 +626,10 @@ static pj_status_t init_openssl(pj_pool_t *pool)
 			n = PJ_ARRAY_SIZE(openssl_ciphers);
 
 		for (i = 0; i < n; ++i) {
-			SSL_CIPHER *c;
-			c = sk_SSL_CIPHER_value(sk_cipher,i);
+			const SSL_CIPHER *c;
+			c = sk_SSL_CIPHER_value(sk_cipher, i);
 			openssl_ciphers[i].id = (pj_ssl_cipher)
-				(pj_uint32_t)c->id & 0x00FFFFFF;
+				(pj_uint32_t)SSL_CIPHER_get_id(c) & 0x00FFFFFF;
 			openssl_ciphers[i].name = SSL_CIPHER_get_name(c);
 		}
 
@@ -646,7 +661,9 @@ static void shutdown_openssl(void)
 	}
 #endif
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	thread_cleanup();
+#endif
 
 #ifdef USE_GLOBAL_LOCK
 	MUTEX_CLEANUP(global_mutex);
@@ -847,7 +864,7 @@ static int generate_cookie(SSL *ssl, unsigned char *cookie, unsigned int *cookie
 	return 1;
 }
 
-static int verify_cookie(SSL *ssl, unsigned char *cookie, unsigned int cookie_len)
+static int verify_cookie(SSL *ssl, OPENSSL_CONST unsigned char *cookie, unsigned int cookie_len)
 {
 	transport_dtls *dtls = NULL;
 	unsigned char *buffer, result[EVP_MAX_MD_SIZE];
@@ -944,7 +961,7 @@ static pj_status_t create_ssl(transport_dtls *dtls)
 	openssl_ver = SSLeay_version(SSLEAY_VERSION);
 	PJ_LOG(4, (THIS_FILE, "create_ssl() OpenSSL version=[%s]", openssl_ver));
 
-	ssl_method = (SSL_METHOD*)DTLSv1_method();
+	ssl_method = (SSL_METHOD*)DTLS_method();
 	if (!ssl_method)
 		pj_assert(ssl_method);	
 #ifdef USE_GLOBAL_CTX
@@ -1260,22 +1277,22 @@ static pj_status_t set_cipher_list(transport_dtls *dtls)
 	unsigned i;
 	int j, ret;
 
-	if (dtls->setting.ciphers_num == 0)
-		return PJ_SUCCESS;
+	/*if (dtls->setting.ciphers_num == 0)
+		return PJ_SUCCESS;*/
 
 	pj_strset(&cipher_list, buf, 0);
 
 	/* Set SSL with ALL available ciphers */
-	SSL_set_cipher_list(dtls->ossl_ssl, "ALL");
-
+	SSL_set_cipher_list(dtls->ossl_ssl, "HIGH:!MEDIUM:!LOW:!aNULL:!eNULL:!kECDH:!aDH:!RC4:!3DES:!CAMELLIA:!MD5:!PSK:!SRP:!KRB5:@STRENGTH");
+#if 0
 	/* Generate user specified cipher list in OpenSSL format */
 	sk_cipher = SSL_get_ciphers(dtls->ossl_ssl);
 	for (i = 0; i < dtls->setting.ciphers_num; ++i) {
 		for (j = 0; j < sk_SSL_CIPHER_num(sk_cipher); ++j) {
-			SSL_CIPHER *c;
+			const SSL_CIPHER *c;
 			c = sk_SSL_CIPHER_value(sk_cipher, j);
 			if (dtls->setting.ciphers[i] == (pj_ssl_cipher)
-				((pj_uint32_t)c->id & 0x00FFFFFF))
+				((pj_uint32_t)SSL_CIPHER_get_id(c) & 0x00FFFFFF))
 			{
 				const char *c_name;
 
@@ -1306,7 +1323,7 @@ static pj_status_t set_cipher_list(transport_dtls *dtls)
 	if (ret < 1) {
 		return GET_SSL_STATUS(dtls);
 	}
-
+#endif
 	return PJ_SUCCESS;
 }
 
@@ -1407,8 +1424,8 @@ static void get_cert_info(pj_pool_t *pool, pj_ssl_cert_info *ci, X509 *x)
     X509_NAME_oneline(X509_get_issuer_name(x), buf, sizeof(buf));
 
     /* Get serial no */
-    p = (pj_uint8_t*) M_ASN1_STRING_data(X509_get_serialNumber(x));
-    len = M_ASN1_STRING_length(X509_get_serialNumber(x));
+    p = (pj_uint8_t*) ASN1_STRING_get0_data(X509_get_serialNumber(x));
+    len = ASN1_STRING_length(X509_get_serialNumber(x));
     if (len > sizeof(ci->serial_no)) 
 	len = sizeof(ci->serial_no);
     pj_memcpy(serial_no + sizeof(ci->serial_no) - len, p, len);
@@ -1807,6 +1824,7 @@ static pj_bool_t on_handshake_complete(transport_dtls *dtls,
 			}
 			// Call callback
 			if (dtls->setting.cb.on_dtls_handshake_complete) {
+				dtls->base.dtls_retry_count = dtls->handshake_retrans_cnt;
 				(*dtls->setting.cb.on_dtls_handshake_complete)((pjmedia_transport *)dtls->member_tp, 
 					status, dtls->turn_mapped_addr);
 			}
@@ -1834,6 +1852,7 @@ static pj_bool_t on_handshake_complete(transport_dtls *dtls,
 
 	// Call callback
 	if (dtls->setting.cb.on_dtls_handshake_complete) {
+		dtls->base.dtls_retry_count = dtls->handshake_retrans_cnt;
 		(*dtls->setting.cb.on_dtls_handshake_complete)((pjmedia_transport *)dtls->member_tp, 
 			status, dtls->turn_mapped_addr);
 	}
@@ -1864,7 +1883,7 @@ static void on_timer(pj_timer_heap_t *th, struct pj_timer_entry *te)
 				}
 
 				if (dtls->handshake_retrans_cnt >= 7) {
-					dtls->handshake_retrans_cnt = 0;
+					//dtls->handshake_retrans_cnt = 0;
 					PJ_LOG(1, (THIS_FILE, "on_timer() TIMER_HANDSHAKE_RETRANSMISSION exceeds 7 times. Give up!!"));
 				} else {
 					dtls->timer.id = TIMER_HANDSHAKE_RETRANSMISSION;
@@ -1913,6 +1932,11 @@ static pj_status_t do_handshake(transport_dtls *dtls)
 #endif
 
     err = SSL_do_handshake(dtls->ossl_ssl);
+	if (err < 0) {
+		int ssl_err = SSL_get_error(dtls->ossl_ssl, err);
+		PJ_LOG(1,(dtls->pool->obj_name, "SSL_do_handshake failed. err=[%d], ssl_err=[%d], ssl_err=[%d]", 
+			err, ssl_err, GET_SSL_STATUS(dtls)));
+	}
 
     /* SSL_do_handshake() may put some pending data into SSL write BIO, 
      * flush it if any.
@@ -1969,6 +1993,7 @@ PJ_DEF(pj_status_t) pjmedia_dtls_do_handshake(pjmedia_transport *tp,
 		status = PJ_SUCCESS;
 		// Call callback
 		if (dtls->setting.cb.on_dtls_handshake_complete) {
+			dtls->base.dtls_retry_count = dtls->handshake_retrans_cnt;
 			(*dtls->setting.cb.on_dtls_handshake_complete)((pjmedia_transport *)dtls->member_tp, 
 				status, dtls->turn_mapped_addr);
 		}
@@ -1988,7 +2013,7 @@ PJ_DEF(pj_status_t) pjmedia_dtls_do_handshake(pjmedia_transport *tp,
 		if ((dtls->media_type_app && dtls->offerer_side) ||
 			(!dtls->media_type_app && !dtls->offerer_side)) {
 #endif
-				if (dtls->ssl_state == SSL_STATE_NULL) {
+				if (dtls->ssl_state == SSL_STATE_INITIALIZED) {
 					SSL_set_accept_state(dtls->ossl_ssl);  // tls server side.
 					PJ_LOG(4, (THIS_FILE, "pjmedia_dtls_do_handshake SSL_set_accept_state."));
 					dtls->ssl_state = SSL_STATE_HANDSHAKING;
@@ -1999,7 +2024,7 @@ PJ_DEF(pj_status_t) pjmedia_dtls_do_handshake(pjmedia_transport *tp,
 			return PJ_SUCCESS;
 		}
 
-		if (dtls->ssl_state == SSL_STATE_NULL) {
+		if (dtls->ssl_state == SSL_STATE_INITIALIZED) {
 			SSL_set_connect_state(dtls->ossl_ssl);  // tls client side.
 			PJ_LOG(4, (THIS_FILE, "pjmedia_dtls_do_handshake SSL_set_connect_state."));
 			dtls->ssl_state = SSL_STATE_HANDSHAKING;
@@ -2233,7 +2258,7 @@ PJ_DEF(pj_status_t) pjmedia_transport_dtls_start(
 
 					PJ_LOG(4, (THIS_FILE, "pjmedia_transport_dtls_start SSL_set_accept_state."));
 					// Try to do handshaking.
-					dtls->ssl_state = SSL_STATE_HANDSHAKING;
+					dtls->ssl_state = SSL_STATE_INITIALIZED;
 				}
 		} else {
 			if (dtls->ssl_state == SSL_STATE_NULL) {
@@ -2241,7 +2266,7 @@ PJ_DEF(pj_status_t) pjmedia_transport_dtls_start(
 
 				PJ_LOG(4, (THIS_FILE, "pjmedia_transport_dtls_start SSL_set_connect_state."));
 				// Try to do handshaking.
-				dtls->ssl_state = SSL_STATE_HANDSHAKING;
+				dtls->ssl_state = SSL_STATE_INITIALIZED;
 			}
 		}
 
@@ -2614,7 +2639,7 @@ static void dtls_rtp_cb( void *user_data, void *pkt, pj_ssize_t size)
 	return;
 	}
 
-    if (!pkt || size <= 0) {
+    if (!pkt || size <= 0 || dtls->ssl_state == SSL_STATE_INITIALIZED) {
 	return;
 	}
 #ifdef USE_GLOBAL_LOCK
@@ -3130,5 +3155,4 @@ PJ_DEF(pj_status_t) pjmedia_transport_dtls_decrypt_pkt(pjmedia_transport *tp,
 
     return (err==PJ_SUCCESS) ? PJ_SUCCESS : err;
 }
-
 

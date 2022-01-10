@@ -129,7 +129,7 @@ function valid_form(){
 		  <td bgcolor="#4D595D" valign="top"  >
 		  <div>&nbsp;</div>
 		  <div class="formfonttitle"><#menu5_6#> - <#menu_dsl_setting#></div>
-      <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+      <div style="margin: 10px 0 10px 5px;" class="splitLine"></div>
       <div class="formfontdesc"><#dslsetting_disc0#></div>
 
 		<table width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
@@ -180,7 +180,7 @@ function valid_form(){
 		</thead>
 		<tr>
 		<td>
-			<select id="" class="input_option" name="dslx_snrm_offset">
+			<select class="input_option" name="dslx_snrm_offset">
 				<option value="0" <% nvram_match("dslx_snrm_offset", "0", "selected"); %>><#btn_Disabled#></option>
 				<option value="5120" <% nvram_match("dslx_snrm_offset", "5120", "selected"); %>>10 dB</option>
 				<option value="4608" <% nvram_match("dslx_snrm_offset", "4608", "selected"); %>>9 dB</option>
@@ -215,7 +215,7 @@ function valid_form(){
 		</thead>
 		<tr>
 		<td>
-			<select id="" class="input_option" name="dslx_sra">
+			<select class="input_option" name="dslx_sra">
 				<option value="1" <% nvram_match("dslx_sra", "1", "selected"); %>><#btn_Enabled#></option>
 				<option value="0" <% nvram_match("dslx_sra", "0", "selected"); %>><#btn_Disabled#></option>
 			</select>
@@ -231,7 +231,7 @@ function valid_form(){
 		</thead>
 		<tr>
 		<td>
-			<select id="" class="input_option" name="dslx_bitswap">
+			<select class="input_option" name="dslx_bitswap">
 				<option value="1" <% nvram_match("dslx_bitswap", "1", "selected"); %>><#btn_Enabled#></option>
 				<option value="0" <% nvram_match("dslx_bitswap", "0", "selected"); %>><#btn_Disabled#></option>
 			</select>

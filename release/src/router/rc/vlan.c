@@ -23,7 +23,8 @@
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
  */
-#include "rc.h"
+
+#include <rc.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -156,8 +157,7 @@ void clean_vlan_ifnames(void)
 
 void set_vlan_ifnames(int index, int wlmap, char *subnet_name, char *vlan_if)
 {
-	int unit = 0, subunit = 0, subunit_x = 0;
-	int max_mssid = num_of_mssid_support(unit);
+	int unit = 0, subunit = 0, subunit_x = 0, max_mssid;
 	char brif[8] = "brXXX", tmp[100], lan_prefix[] = "lanXXXXXXXXX_";
 	char word[256], *next;
 	char wl_ifnames[32], nv[32];
@@ -182,6 +182,7 @@ void set_vlan_ifnames(int index, int wlmap, char *subnet_name, char *vlan_if)
 	}
 
 	foreach (word, nvram_safe_get("wl_ifnames"), next) {		
+		SKIP_ABSENT_BAND_AND_INC_UNIT(unit);
 		memset(nv, 0x0, sizeof(nv));
 		snprintf(nv, sizeof(nv), "wl%d_radio", unit);
 		wl_radio = nvram_get_int(nv);
@@ -200,6 +201,7 @@ void set_vlan_ifnames(int index, int wlmap, char *subnet_name, char *vlan_if)
 			}
 
 			/* Virtual wl */
+			max_mssid = num_of_mssid_support(unit);
 			for (subunit = 1; subunit < max_mssid + 1; subunit++)
 			{
 				int wl_vif_map = (wlmap >> (unit * 4 + subunit)) & 0x1;
@@ -260,26 +262,25 @@ int check_if_exist_vlan_ifnames(char *ifname)
 void change_lan_ifnames(void)
 {
 	char word[256], *next;
-	char lan_ifnames[32];
-	char *p;
+	char lan_ifnames[128];
 
 	if (!vlan_enable())
 		return;
 
 	nvram_set("lan_ifnames_t", nvram_get("lan_ifnames"));
-	memset(lan_ifnames, 0x0, sizeof(lan_ifnames));
-	p = lan_ifnames;
 
-	foreach (word, nvram_safe_get("lan_ifnames"), next) {		
-		if (strncmp(word, "vlan", 4)) {
-			if (!check_if_exist_vlan_ifnames(word))
-				p += sprintf(p, "%s ", word);
-		}
-		else
-			p += sprintf(p, "%s ", word);
+	strcpy(lan_ifnames, "");
+	foreach (word, nvram_safe_get("lan_ifnames"), next) {
+		SKIP_ABSENT_FAKE_IFACE(word);
+		if (strncmp(word, "vlan", 4) != 0 &&
+		    check_if_exist_vlan_ifnames(word))
+			continue;
+		if (*lan_ifnames)
+			strlcat(lan_ifnames, " ", sizeof(lan_ifnames));
+		strlcat(lan_ifnames, word, sizeof(lan_ifnames));
 	}
-	
-	if (strlen(lan_ifnames))
+
+	if (*lan_ifnames)
 		nvram_set("lan_ifnames", lan_ifnames);
 }
 
@@ -369,6 +370,7 @@ void start_vlan_ifnames(void)
 				while ((ifname = strsep(&p, " ")) != NULL) {
 					while (*ifname == ' ') ++ifname;
 					if (*ifname == 0) break;
+					SKIP_ABSENT_FAKE_IFACE(ifname);
 
 					// bring up interface
 					if (strncmp(ifname, "vlan", 4) == 0) {
@@ -474,6 +476,7 @@ void stop_vlan_ifnames(void)
 				while ((ifname = strsep(&p, " ")) != NULL) {
 					while (*ifname == ' ') ++ifname;
 					if (*ifname == 0) break;
+					SKIP_ABSENT_FAKE_IFACE(ifname);
 
 #ifdef CONFIG_BCMWL5
 #ifdef RTCONFIG_QTN
@@ -535,6 +538,7 @@ void start_vlan_wl_ifnames(void)
 				while ((ifname = strsep(&p, " ")) != NULL) {
 					while (*ifname == ' ') ++ifname;
 					if (*ifname == 0) break;
+					SKIP_ABSENT_FAKE_IFACE(ifname);
 
 					// bring up interface
 					if (strncmp(ifname, "vlan", 4) == 0) {
@@ -599,6 +603,7 @@ void stop_vlan_wl_ifnames(void)
 				while ((ifname = strsep(&p, " ")) != NULL) {
 					while (*ifname == ' ') ++ifname;
 					if (*ifname == 0) break;
+					SKIP_ABSENT_FAKE_IFACE(ifname);
 #ifdef CONFIG_BCMWL5
 #ifdef RTCONFIG_QTN
 					if (!strcmp(ifname, "wifi0")) continue;
@@ -1148,7 +1153,7 @@ void vlan_lanaccess_mssid_ban(const char *limited_ifname, char *ip, char *netmas
 
 	if (limited_ifname == NULL) return;
 
-	if (nvram_get_int("sw_mode") != SW_MODE_ROUTER) return;
+	if (!is_router_mode()) return;
 
 	eval("ebtables", "-A", "FORWARD", "-i", (char*)limited_ifname, "-j", "DROP"); //ebtables FORWARD: "for frames being forwarded by the bridge"
 	eval("ebtables", "-A", "FORWARD", "-o", (char*)limited_ifname, "-j", "DROP"); // so that traffic via host and nat is passed
@@ -1163,6 +1168,9 @@ void vlan_lanaccess_wl(void)
 {
 	int i;
 	int vlan_index = nvram_get_int("vlan_index");
+#ifdef RTCONFIG_WIRELESSREPEATER
+	int wlc_band = nvram_get_int("wlc_band");
+#endif
 
 	if (!vlan_enable())
 		return;
@@ -1186,6 +1194,7 @@ void vlan_lanaccess_wl(void)
 			while ((ifname = strsep(&p, " ")) != NULL) {
 				while (*ifname == ' ') ++ifname;
 				if (*ifname == 0) break;
+				SKIP_ABSENT_FAKE_IFACE(ifname);
 #ifdef CONFIG_BCMWL5
 				if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.')) {
 					if (get_ifname_unit(ifname, &unit, &subunit) < 0)
@@ -1194,7 +1203,8 @@ void vlan_lanaccess_wl(void)
 				else continue;
 
 #ifdef RTCONFIG_WIRELESSREPEATER
-				if(nvram_get_int("sw_mode")==SW_MODE_REPEATER && unit==nvram_get_int("wlc_band") && subunit==1) continue;
+
+				if(sw_mode()==SW_MODE_REPEATER && unit==wlc_band && subunit==1) continue;
 #endif
 #elif defined RTCONFIG_RALINK
 				if (!strncmp(ifname, "ra", 2) && !strchr(ifname, '0'))

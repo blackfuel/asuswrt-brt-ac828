@@ -4,7 +4,7 @@
 	background-color:#2A3539;
 }
 .statusTitle{	
-	font-family: "Times New Roman", Times, serif;
+	font-family: "Times New Roman", Times, MS UI Gothic, MS P Gothic, serif;
 	background: #A5A5A5; /* Old browsers */
 	background: -moz-linear-gradient(top, #A5A5A5  0%, #434343 100%); /* FF3.6+ */
 	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#A5A5A5 ), color-stop(100%,#434343)); /* Chrome,Safari4+ */
@@ -20,12 +20,6 @@
 	height:36px;	
 	width:320px;
 	margin-left:45px;
-	-webkit-border-top-left-radius: 10px;
-	-webkit-border-top-right-radius: 10px;
-	-moz-border-radius-topleft: 10px;
-	-moz-border-radius-topright: 10px;
-	border-top-left-radius: 10px;
-	border-top-right-radius: 10px;
 	-moz-box-shadow: 5px 5px 10px #333;
 	-webkit-box-shadow: 5px 5px 10px #333;
 	box-shadow: 5px 5px 10px #333;
@@ -37,7 +31,7 @@
 .input{color:#3b5f71;border:1px solid #7398ac;background-color:#cae9f3;font-family :Verdana;font-size : 11px;padding-left:5px;}
 
 .NMdesp{
-	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-family: Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:11px;
 	line-height:180%;
 	text-align:left;
@@ -57,8 +51,9 @@
 #diskquota{
 	width:100px;
 	height:13px;
-	/*border:1px solid #999;*/
-	background:url(images/quotabar_bg.gif);
+	background: #596E74;
+	border-top: 1px solid #929EA1;
+	border-bottom: 1px solid #929eA1;
 }
 
 #iconRemote{ background:url(images/map-iconRemote.gif) no-repeat;	width:87px;	height:77px; cursor:pointer; display:none}
@@ -83,6 +78,8 @@
 #iconWebcam{ background:url(images/New_ui/networkmap/map-iconWebcam.png) no-repeat 0% 0%; width:89px; height:89px; cursor:pointer;}
 .iconNo{ background:url(images/New_ui/networkmap/devicebt_default.png) no-repeat; width:91px; height:91px;}
 .iconNoM2{ background:url(images/New_ui/networkmap/M2_default.png) no-repeat; width:91px; height:91px;}
+.iconAMesh{ background:url(images/New_ui/amesh/Amesh_button_light.png) no-repeat 0% 0%; width:90px; height:90px; cursor:pointer;}
+.iconAMesh_dis{ background:url(images/New_ui/amesh/Amesh_button_dark.png) no-repeat 0% 0%; width:90px; height:90px; cursor:pointer;}
 .usb_text {
 	font: bold 16px Sans-Serif;
 	text-shadow: 1px 1px 1px #677C84;
@@ -110,8 +107,8 @@
 }
 
 .table1px tbody td div#wl_nmode_x_hint{color:#FC0;margin-top:3px;line-height:120%;}
-.table1px tbody td{font-size:11px; font-family:Verdana, Arial, Helvetica, sans-serif;}
-.table1px th{font-size:11px; font-family:Verdana, Arial, Helvetica, sans-serif;color:#FFFFFF;  background-color:#4d595d; text-align:left;}
+.table1px tbody td{font-size:11px; font-family:Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;}
+.table1px th{font-size:11px; font-family:Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;color:#FFFFFF;  background-color:#4d595d; text-align:left;}
 
 .Tablehead {font-family :Verdana;font-size : 11px;text-align:center;color:#000000; font-weight:bold;  line-height:190%; background-color:#6692B0;}
 .Tabletitle td{font-family :Verdana;font-size : 11px;text-align:center; color:#000000;line-height:190%;  background-color:#7aa3bd; }
@@ -120,14 +117,14 @@
 .top-message2 {font-family :Verdana;font-size : 11px;text-align:left;color:#23344d;font-weight:normal;background:#a7d2e2;}
 
 .clients{
-	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-family:Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	font-size:13px;
 	line-height:150%;
 	margin-top:10px;
 }
 
 .clients span{
-	font-family:Arial Black, Verdana, Arial, Helvetica, sans-serif;
+	font-family:Arial Black, Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	color:#569AC7;
 	font-size:15px;
 }
@@ -174,7 +171,7 @@
 	overflow:hidden;
 	font-size:12px;
 	color:#FFF;
-	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-family:Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	line-height:20px;
 	padding:2px;
 }
@@ -188,7 +185,7 @@
 	z-index:100;
 	font-size:11px;	
 	line-height:16px;
-	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-family:Verdana, Arial, Helvetica, MS UI Gothic, MS P Gothic, sans-serif;
 	color:#000;	
 }
 .hardware_title{
@@ -299,18 +296,9 @@
 
 .NM_radius_left{
 	width:157px;
-	-webkit-border-top-left-radius: 10px;
-	-webkit-border-bottom-left-radius: 10px;
-	-moz-border-radius-topleft: 10px;
-	-moz-border-radius-bottomleft: 10px;
-	border-top-left-radius: 10px;
-	border-bottom-left-radius: 10px;
-	
 	-moz-box-shadow: 12px 5px 10px #333;
 	-webkit-box-shadow: 12px 5px 10px #333;
 	box-shadow: 12px 5px 10px #333;
-	/*filter: alpha(opacity=98);
-	opacity: .98;*/
 	behavior: url(/PIE.htc);
 	position:relative;
 	-webkit-border-radius: 10px 0 0 10px;
@@ -320,18 +308,9 @@
 .NM_radius_right{
 	width:175px;
 	cursor:pointer;
-	-webkit-border-top-right-radius: 10px;
-	-webkit-border-bottom-right-radius: 10px;
-	-moz-border-radius-topright: 10px;
-	-moz-border-radius-bottomright: 10px;
-	border-top-right-radius: 10px;
-	border-bottom-right-radius: 10px;
-	
 	-moz-box-shadow: 10px 5px 10px #333;
 	-webkit-box-shadow: 10px 5px 10px #333;
 	box-shadow: 10px 5px 10px #333;
-	/*filter: alpha(opacity=98);
-	opacity: .98;*/
 	behavior: url(/PIE.htc);
 	position:relative;
 	-webkit-border-radius: 0 10px 10px 0;
@@ -339,18 +318,9 @@
 	border-radius: 0 10px 10px 0;
 }
 .NM_radius_top{
-	-webkit-border-top-left-radius: 10px;
-	-webkit-border-top-right-radius: 10px;
-	-moz-border-radius-topleft: 10px;
-	-moz-border-radius-topright: 10px;
-	border-top-left-radius: 10px;
-	border-top-right-radius: 10px;
-	
 	-moz-box-shadow: 3px 10px 10px #333;
 	-webkit-box-shadow: 3px 10px 10px #333;
 	box-shadow: 3px 10px 10px #333;
-	/*filter: alpha(opacity=98);
-	opacity: .98;*/
 	behavior: url(/PIE.htc);
 	position:relative;
 	-webkit-border-radius: 10px 10px 0 0;
@@ -362,12 +332,6 @@
 	width: 320px;
 	height: 760px;
 	background-color:#2A3539;
-	-webkit-border-bottom-right-radius: 10px;
-	-webkit-border-bottom-left-radius: 10px;
-	-moz-border-radius-bottomright: 10px;
-	-moz-border-radius-bottomleft: 10px;
-	border-bottom-right-radius: 10px;
-	border-bottom-left-radius: 10px;
 	-moz-box-shadow: 3px 8px 10px #333;
 	-webkit-box-shadow: 3px 8px 10px #333;
 	box-shadow: 3px 8px 10px #333;
@@ -378,12 +342,6 @@
 	border-radius: 0 0 10px 10px;
 }
 .NM_radius_bottom{
-	-webkit-border-bottom-right-radius: 10px;
-	-webkit-border-bottom-left-radius: 10px;
-	-moz-border-radius-bottomright: 10px;
-	-moz-border-radius-bottomleft: 10px;
-	border-bottom-right-radius: 10px;
-	border-bottom-left-radius: 10px;
 	behavior: url(/PIE.htc);
 	position:relative;
 	-webkit-border-radius: 0 0 10px 10px;
@@ -393,15 +351,12 @@
 .NM_radius{
 	-webkit-border-radius: 10px;
 	-moz-border-radius: 10px;
-	border-radius: 10px;
-	
+	border-radius: 10px;	
 	-moz-box-shadow: 12px 5px 10px #333;
 	-webkit-box-shadow: 12px 5px 10px #333;
-	box-shadow: 12px 5px 10px #333;
-	
+	box-shadow: 12px 5px 10px #333;	
 	behavior: url(/PIE.htc);
 	position:relative;
-	border-radius: 10px 10px 10px 10px;
 }
 
 .style1 {
@@ -418,11 +373,11 @@
 	padding-top:15px;
 	position:relative;
 	width:740px;
-	background-color:#606E73;
+	background-color:#7B888D;
 	border-width:0;
-	background: url(/images/wall0.gif) repeat;
 	-webkit-border-radius: 5px;
 	-moz-border-radius: 5px;
 	border-radius: 5px;
 	behavior: url(/PIE.htc);
+	min-height: 810px;
 }

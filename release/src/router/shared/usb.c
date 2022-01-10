@@ -26,6 +26,8 @@
 #include <bcmdevs.h>
 #include <wlutils.h>
 
+#include <disk_io_tools.h>
+
 #include "shutils.h"
 #include "shared.h"
 
@@ -33,109 +35,6 @@
 #ifndef LINUX_KERNEL_VERSION
 #define LINUX_KERNEL_VERSION LINUX_VERSION_CODE
 #endif
-
-/* Serialize using fcntl() calls 
- */
-
-int check_magic(char *buf, char *magic){
-	if(!strncmp(magic, "ext3_chk", 8)){
-		if(!((*buf)&4))
-			return 0;
-		if(*(buf+4) >= 0x40)
-			return 0;
-		if(*(buf+8) >= 8)
-			return 0;
-		return 1;
-	}
- 
-	if(!strncmp(magic, "ext4_chk", 8)){
-		if(!((*buf)&4))
-			return 0;
-		if(*(buf+4) > 0x3F)
-			return 1;
-		if(*(buf+4) >= 0x40)
-			return 0;
-		if(*(buf+8) <= 7)
-			return 0;
-		return 1;
-	}
-
-	return 0;
-}
-
-char *detect_fs_type(char *device)
-{
-	int fd;
-	unsigned char buf[4096];
-
-	if ((fd = open(device, O_RDONLY)) < 0)
-		return NULL;
-
-	if (read(fd, buf, sizeof(buf)) != sizeof(buf))
-	{
-		close(fd);
-		return NULL;
-	}
-
-	close(fd);
-
-	/* first check for mbr */
-	if (*device && device[strlen(device) - 1] > '9' &&
-		buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		((buf[0x1be] | buf[0x1ce] | buf[0x1de] | buf[0x1ee]) & 0x7f) == 0) /* boot flags */ 
-	{
-		return "mbr";
-	} 
-	/* detect swap */
-	else if (memcmp(buf + 4086, "SWAPSPACE2", 10) == 0 ||
-		 memcmp(buf + 4086, "SWAP-SPACE", 10) == 0 ||
-		 memcmp(buf + 4086, "S1SUSPEND", 9) == 0 ||
-		 memcmp(buf + 4086, "S2SUSPEND", 9) == 0 ||
-		 memcmp(buf + 4086, "ULSUSPEND", 9) == 0)
-	{
-		return "swap";
-	}
-	/* detect ext2/3/4 */
-	else if (buf[0x438] == 0x53 && buf[0x439] == 0xEF)
-	{
-		if(check_magic((char *) &buf[0x45c], "ext3_chk"))
-			return "ext3";
-		else if(check_magic((char *) &buf[0x45c], "ext4_chk"))
-			return "ext4";
-		else
-			return "ext2";
-	}
-	/* detect hfs */
-	else if(buf[1024] == 0x48){
-		if(!memcmp(buf+1032, "HFSJ", 4)){
-			if(buf[1025] == 0x58) // with case-sensitive
-				return "hfs+jx";
-			else
-				return "hfs+j";
-		}
-		else
-			return "hfs";
-	}
-	/* detect ntfs */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		memcmp(buf + 3, "NTFS    ", 8) == 0)
-	{
-		return "ntfs";
-	}
-	/* detect vfat */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		buf[11] == 0 && buf[12] >= 1 && buf[12] <= 8 /* sector size 512 - 4096 */ &&
-		buf[13] != 0 && (buf[13] & (buf[13] - 1)) == 0) /* sectors per cluster */
-	{
-		if(buf[6] == 0x20 && buf[7] == 0x20 && !memcmp(buf+71, "EFI        ", 11))
-			return "apple_efi";
-		else
-			return "vfat";
-	}
-
-	return "unknown";
-}
-
 
 /* Execute a function for each disc partition on the specified controller.
  *
@@ -186,6 +85,16 @@ char *detect_fs_type(char *device)
  *
  */
 
+#ifdef RTCONFIG_USB_CDROM
+/* check if the block device is cdrom device */
+int is_cdrom_device(const char *discname)
+{
+	if (strncmp(discname, "sr", 2) == 0 && isdigit(discname[2]))
+		return 1;
+	return 0;
+}
+#endif
+
 /* check if the block device has no partition */
 int is_no_partition(const char *discname)
 {
@@ -193,6 +102,11 @@ int is_no_partition(const char *discname)
 	char line[128], ptname[32];
 	int ma, mi, sz;
 	int count = 0;
+
+#ifdef RTCONFIG_USB_CDROM
+	if (is_cdrom_device(discname))
+		return 1;
+#endif
 
 	if ((procpt = fopen("/proc/partitions", "r"))) {
 		while (fgets(line, sizeof(line), procpt)) {
@@ -232,7 +146,7 @@ int exec_for_host(int host, int obsolete, uint flags, host_exec func)
 	char *mp;	/* Ptr to after any leading ../ path */
 #endif
 
-	_dprintf("exec_for_host(%d, %d, %d, %d)\n", host, obsolete, flags, func);
+	_dprintf("exec_for_host(%d, %d, %d, %p)\n", host, obsolete, flags, func);
 	if (!func)
 		return 0;
 
@@ -473,85 +387,48 @@ void add_remove_usbhost(char *host, int add)
 	unsetenv("ACTION");
 }
 
-
-/****************************************************/
-/* Use busybox routines to get labels for fat & ext */
-/* Probe for label the same way that mount does.    */
-/****************************************************/
-
-#define VOLUME_ID_LABEL_SIZE		64
-#define VOLUME_ID_UUID_SIZE		36
-#define SB_BUFFER_SIZE			0x11000
-
-struct volume_id {
-	int		fd;
-	int		error;
-	size_t		sbbuf_len;
-	size_t		seekbuf_len;
-	uint8_t		*sbbuf;
-	uint8_t		*seekbuf;
-	uint64_t	seekbuf_off;
-	char		label[VOLUME_ID_LABEL_SIZE+1];
-	char		uuid[VOLUME_ID_UUID_SIZE+1];
-};
-
-extern void volume_id_set_uuid();
-extern void *volume_id_get_buffer();
-extern void volume_id_free_buffer();
-extern int volume_id_probe_ext();
-extern int volume_id_probe_vfat();
-extern int volume_id_probe_ntfs();
-extern int volume_id_probe_linux_swap();
-extern int volume_id_probe_hfs_hfsplus(struct volume_id *id);
-
-/* Put the label in *label and uuid in *uuid.
- * Return 0 if no label/uuid found, NZ if there is a label or uuid.
- */
-int find_label_or_uuid(char *dev_name, char *label, char *uuid)
+char *get_usb_storage_path_num(int num, char *path)
 {
-	struct volume_id id;
+	char var_name[64];
+	char *p;
 
-	memset(&id, 0x00, sizeof(id));
-	if (label) *label = 0;
-	if (uuid) *uuid = 0;
-	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
-		return 0;
+	/* check type */
+	snprintf(var_name, sizeof(var_name), "usb_path%d", num);
+	if(!nvram_match(var_name, "storage"))
+		return NULL;
 
-	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
+	/* check removed or not */
+	snprintf(var_name, sizeof(var_name), "usb_path%d_removed", num);
+	if(nvram_match(var_name, "1"))
+		return NULL;
 
-	if (volume_id_probe_linux_swap(&id) == 0 || id.error)
-		goto ret;
-	if (volume_id_probe_vfat(&id) == 0 || id.error)
-		goto ret;
-	if (volume_id_probe_ext(&id) == 0 || id.error)
-		goto ret;
-	if (volume_id_probe_ntfs(&id) == 0 || id.error)
-		goto ret;
-#if defined(RTCONFIG_HFS)
-	if(volume_id_probe_hfs_hfsplus(&id) == 0 || id.error)
-		goto ret;
-#endif
-ret:
-	volume_id_free_buffer(&id);
-	if (label && (*id.label != 0))
-		strcpy(label, id.label);
-	if (uuid && (*id.uuid != 0))
-		strcpy(uuid, id.uuid);
-	close(id.fd);
-	return (label && *label != 0) || (uuid && *uuid != 0);
+	snprintf(var_name, sizeof(var_name), "usb_path%d_fs_path0", num);
+	if((p = nvram_get(var_name)) == NULL || *p == '\0')
+		return NULL;
+	snprintf(path, 128, "%s/%s", POOL_MOUNT_ROOT, p);
+	if(check_if_dir_exist(path))
+		return path;
+
+	snprintf(var_name, sizeof(var_name), "usb_path_%s_label", p);
+	if((p = nvram_get(var_name)) == NULL || *p == '\0')
+		return NULL;
+
+	snprintf(path, 128, "%s/%s", POOL_MOUNT_ROOT, p);
+	if(check_if_dir_exist(path))
+		return path;
+
+	return NULL;
 }
 
-void *xmalloc(size_t siz)
+char *get_usb_storage_path(char *path)
 {
-	return (malloc(siz));
+	int i;
+	char *ret_path = NULL;
+	for(i = 1; i <= 3; ++i){
+		if((ret_path = get_usb_storage_path_num(i, path)) != NULL)
+			break;
+	}
+	return ret_path;
 }
-#if 0
-static void *xrealloc(void *old, size_t size)
-{
-	return realloc(old, size);
-}
-#endif
-ssize_t full_read(int fd, void *buf, size_t len)
-{
-	return read(fd, buf, len);
-}
+
+

@@ -235,7 +235,8 @@ static void setup_commandline_tag(bd_t *bd, char *commandline)
 	params->hdr.size =
 		(sizeof (struct tag_header) + strlen (p) + 1 + 4) >> 2;
 
-	strcpy (params->u.cmdline.cmdline, p);
+	strlcpy (params->u.cmdline.cmdline, p,
+				sizeof(params->u.cmdline.cmdline));
 
 	params = tag_next (params);
 }
@@ -353,7 +354,7 @@ void setup_ipq_partition_tag(struct tag **in_params)
 	if (!rootfs_part_avail) {
 		printf("Setting up atags for msm partition: "
 				IPQ_ROOT_FS_PART_NAME "\n");
-		strncpy(ptn->name, IPQ_ROOT_FS_PART_NAME, sizeof(ptn->name));
+		strlcpy(ptn->name, IPQ_ROOT_FS_PART_NAME, sizeof(ptn->name));
 		/* When active 0 rootfs is at @0 offset */
 		if (get_rootfs_active_partition() == 0)
 			ptn->offset = 0;
@@ -368,7 +369,7 @@ void setup_ipq_partition_tag(struct tag **in_params)
 		nr_parts ++;
 
 		if (smem_bootconfig_info() == 0) {
-			strncpy(ptn->name, IPQ_ROOT_FS_ALT_PART_NAME, sizeof(ptn->name));
+			strlcpy(ptn->name, IPQ_ROOT_FS_ALT_PART_NAME, sizeof(ptn->name));
 
 			/* When active is 0 rootfs_1 will be @0x4000000 offset */
 			if (get_rootfs_active_partition() == 0)
@@ -398,7 +399,7 @@ void setup_ipq_partition_tag(struct tag **in_params)
 				continue;
 
 			printf("Setting up atags for msm partition: %s\n", part->name);
-			strncpy(ptn->name, part->name, sizeof(ptn->name));
+			strlcpy(ptn->name, part->name, sizeof(ptn->name));
 			ptn->offset = part->offset / bs;
 			ptn->size = part->size / bs;
 			ptn->flags = part->mask_flags;

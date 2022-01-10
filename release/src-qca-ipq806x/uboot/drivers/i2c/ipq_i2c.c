@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@ static int gsbi_port;
 static int gsbi_base_addr;
 static int i2c_hw_initialized;
 static int i2c_board_initialized;
+static uint32_t i2c_master_clk_ctl;
 
 /*
  * Reset entire QUP and all mini cores
@@ -172,8 +173,8 @@ static int i2c_hw_init(void)
 		return ret;
 
 	/* Configure the I2C Master clock */
-	cfg = (QUP_INPUT_CLK / (I2C_CLK_100KHZ * 2)) - 3;
-	writel(cfg, GSBI_QUP_BASE(gsbi_port) + QUP_I2C_MASTER_CLK_CTL_OFFSET);
+	i2c_master_clk_ctl = ((QUP_INPUT_CLK / (CONFIG_I2C_CLK_FREQ * 2)) - 3) & 0xff;
+	writel(i2c_master_clk_ctl, GSBI_QUP_BASE(gsbi_port) + QUP_I2C_MASTER_CLK_CTL_OFFSET);
 
 	i2c_hw_initialized = 1;
 
@@ -272,6 +273,9 @@ int i2c_read(uchar chip, uint addr, int alen, uchar *buffer, int len)
 	if (ret != SUCCESS)
 		goto out;
 
+	/* Configure the I2C Master clock */
+	writel(i2c_master_clk_ctl, GSBI_QUP_BASE(gsbi_port) + QUP_I2C_MASTER_CLK_CTL_OFFSET);
+
 	/* Send a write request to the chip */
 	writel((QUP_I2C_START_SEQ | QUP_I2C_ADDR(chip)),
 		GSBI_QUP_BASE(gsbi_port) + QUP_OUTPUT_FIFO_OFFSET);
@@ -346,6 +350,9 @@ int i2c_write(uchar chip, uint addr, int alen, uchar *buffer, int len)
 	ret = config_i2c_state(QUP_STATE_RUN);
 	if (ret != SUCCESS)
 		goto out;
+
+	/* Configure the I2C Master clock */
+	writel(i2c_master_clk_ctl, GSBI_QUP_BASE(gsbi_port) + QUP_I2C_MASTER_CLK_CTL_OFFSET);
 
 	/* Send the write request */
 	writel((QUP_I2C_START_SEQ | QUP_I2C_ADDR(chip)),

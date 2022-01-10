@@ -14,7 +14,12 @@
 	1. traditaional qos
 	2. bandwdith limiter (also for guest network)
 	3. facebook wifi
+
+	NOTE:
+	qos mark bit 8~31 : TrendMicro adaptive qos usage, so ASUS only can use bit 0~7 for different applications
+	ex. Traditional qos / bandwidth limiter / Facebook wifi
 */
+
 #include "rc.h"
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -1267,7 +1272,7 @@ static int start_tqos(void)
 				fprintf(f,
 					"# ingress %d: %u%%\n", i, rate);
 				fprintf(f,"\t$TFA parent ffff: prio %d protocol ip handle %d "
-					  "fw police rate %ukbit burst %ukbit drop flowid ffff:%d\n", , x, x, u, v, x);
+					  "fw police rate %ukbit burst %ukbit drop flowid ffff:%d\n", x, x, u, v, x);
 #endif
 			}
 			free(buf);
@@ -1725,8 +1730,13 @@ static int start_bandwidth_limiter(void)
 			fprintf(f, "\tTQA%d%d=\"tc qdisc add dev $GUEST%d%d\"\n", i, j, i, j);
 			fprintf(f, "\tTCA%d%d=\"tc class add dev $GUEST%d%d\"\n", i, j, i, j);
 			fprintf(f, "\tTFA%d%d=\"tc filter add dev $GUEST%d%d\"\n", i, j, i, j); // 5
+#if defined(RTCONFIG_SOC_IPQ8074)
+			fprintf(f, "\n"
+				   "\t$TQA%d%d root handle %d: htb default %d\n", i, j, guest, guest_mark);
+#else
 			fprintf(f, "\n"
 				   "\t$TQA%d%d root handle %d: htb\n", i, j, guest);
+#endif
 			fprintf(f, "\t$TCA%d%d parent %d: classid %d:1 htb rate %skbit\n", i, j, guest, guest, nvram_pf_safe_get(wlv, "_bw_dl")); //7
 			fprintf(f, "\n"
 				   "\t$TCA%d%d parent %d:1 classid %d:%d htb rate 1kbit ceil %skbit prio %d\n", i, j, guest, guest, guest_mark, nvram_pf_safe_get(wlv, "_bw_dl"), guest_mark);

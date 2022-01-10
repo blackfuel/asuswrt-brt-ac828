@@ -31,7 +31,7 @@
 #include <unistd.h>
 #include <shared.h>
 
-#ifdef RTCONFIG_IPERF
+#if defined(RTCONFIG_IPERF) || defined(RTCONFIG_IPERF3)
 
 #define NORMAL_PERIOD	3
 
@@ -48,8 +48,14 @@ alarmtimer(unsigned long sec, unsigned long usec)
 static void
 keepalive()
 {
+#ifdef RTCONFIG_IPERF
 	if (!pids("iperf"))
 		start_iperf();	
+#endif
+#ifdef RTCONFIG_IPERF3
+	if (!pids("iperf3"))
+		start_iperf3();
+#endif
 }
 
 static void

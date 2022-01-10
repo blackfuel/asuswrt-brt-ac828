@@ -33,6 +33,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <disk_io_tools.h>
+
 #define TIMEMACHINE_BACKUP_NAME	"Backups.backupdb"
 #define CNID_DIR_NAME		"CNID"
 #define AFP_CONFIG_PATH		"/tmp/netatalk"
@@ -49,19 +51,9 @@ int generate_afp_config(char *mpname)
 {
 	FILE *fp;
 	char afp_config[80];
-	char et0macaddr[18];
 	int ret = 0;
 
 	sprintf(afp_config, "%s/%s", AFP_CONFIG_PATH, AFP_CONFIG_FN);
-
-#if defined(RTCONFIG_GMAC3)
-	if (nvram_match("gmac3_enable", "1"))
-		strcpy(et0macaddr, nvram_safe_get("et2macaddr"));
-	else
-		strcpy(et0macaddr, nvram_safe_get("et0macaddr"));
-#else
-	strcpy(et0macaddr, get_lan_hwaddr());
-#endif
 
 	/* Generate afp configuration file */
 	if (!(fp = fopen(afp_config, "w"))) {
@@ -76,8 +68,8 @@ int generate_afp_config(char *mpname)
 	fprintf(fp, "vol dbpath = %s/%s\n", mpname, CNID_DIR_NAME);
 	//fprintf(fp, "server quantum = 32000\n");
 	fprintf(fp, "sleep time = 1\n");
-	fprintf(fp, "hostname = %s-%c%c%c%c.local\n", nvram_safe_get("model"),et0macaddr[12],et0macaddr[13],et0macaddr[15],et0macaddr[16]);
-	fprintf(fp, "signature = %s-%c%c%c%c.local\n",nvram_safe_get("model"),et0macaddr[12],et0macaddr[13],et0macaddr[15],et0macaddr[16]);
+	fprintf(fp, "hostname = %s.local\n", get_lan_hostname());
+	fprintf(fp, "signature = %s\n", get_lan_hostname());
 	if (nvram_match("tm_debug", "1")){
 		fprintf(fp, "log file = %s/netatalk.log\n", mpname);
 		//fprintf(fp, "log file = /var/log/netatalk.log\n");
@@ -483,6 +475,11 @@ int start_timemachine()
 	char prefix[] = "usb_pathXXXXXXXXXXXXXXXXX_", tmp[100];
 	char usb1_vid[8], usb1_pid[8], usb1_serial[64];
 	char usb2_vid[8], usb2_pid[8], usb2_serial[64];
+
+#ifdef RTAC68U
+	if (!hw_usb_cap())
+		return 0;
+#endif
 
 	snprintf(prefix, sizeof(prefix), "usb_path%s", "1");
 	strlcpy(usb1_vid, nvram_safe_get(strcat_r(prefix, "_vid", tmp)), sizeof(usb1_vid));

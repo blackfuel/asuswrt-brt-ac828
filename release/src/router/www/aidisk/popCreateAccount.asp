@@ -45,7 +45,7 @@ function validForm(){
 		return false;
 	}
 	else{
-		var alert_str = validator.hostName(document.getElementById("account"));
+		var alert_str = validator.account_name(document.getElementById("account"));
 
 		if(alert_str != ""){
 			alert(alert_str);			
@@ -136,7 +136,7 @@ function validForm(){
       </td>
     </tr>
 	</tbody>	
-    <tr bgcolor="#E6E6E6">
+    <tr>
     <th colspan="2" align="right"><input id="Submit" type="button" class="button_gen" value="<#CTL_add#>"></td>    </tr>
   </table>
 </form>

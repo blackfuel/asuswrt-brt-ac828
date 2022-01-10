@@ -51,5 +51,8 @@ extern void log_err(int level, enum _log_facility facility, char *fname, int lin
 
 #define DPRINTF(level, facility, fmt, arg...) do { log_err(level, facility, __FILE__, __LINE__, fmt, ##arg); } while (0)
 
+#ifdef MS_IPK
+int log_file;
+#endif
 
 #endif /* __ERR_H__ */

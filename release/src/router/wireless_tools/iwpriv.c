@@ -259,7 +259,7 @@ set_private_cmd(int		skfd,		/* Socket */
 		int		priv_num)	/* Number of descriptions */
 {
   struct iwreq	wrq;
-  u_char	buffer[8192];	/* Only that big in v25 and later */
+  u_char	buffer[8192*2];	/* this buffer size for get_site_survey length */
   int		i = 0;		/* Start with first command arg */
   int		k;		/* Index in private description table */
   int		temp;
@@ -427,6 +427,8 @@ set_private_cmd(int		skfd,		/* Socket */
       wrq.u.data.length = 0L;
     }
 
+  if (strcmp(cmdname,"get_site_survey")==0) wrq.u.data.length=8192;
+  else if (strcmp(cmdname,"asuscmd")==0) wrq.u.data.length=32;
   strncpy(wrq.ifr_name, ifname, IFNAMSIZ);
 
   /* Those two tests are important. They define how the driver

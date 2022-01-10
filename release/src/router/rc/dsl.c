@@ -108,6 +108,7 @@ void convert_dsl_wan()
 		nvram_set("wan_pppoe_mru",nvram_safe_get("dslx_pppoe_mtu"));
 		nvram_set("wan_pppoe_service",nvram_safe_get("dslx_pppoe_service"));
 		nvram_set("wan_pppoe_ac",nvram_safe_get("dslx_pppoe_ac"));
+		nvram_set("wan_pppoe_hostuniq",nvram_safe_get("dslx_pppoe_hostuniq"));
 		nvram_set("wan_pppoe_options_x",nvram_safe_get("dslx_pppoe_options"));
 		nvram_set("wan_hwaddr_x",nvram_safe_get("dslx_hwaddr"));
 
@@ -130,6 +131,7 @@ void convert_dsl_wan()
 		nvram_set("wan0_pppoe_mru",nvram_safe_get("dslx_pppoe_mtu"));
 		nvram_set("wan0_pppoe_service",nvram_safe_get("dslx_pppoe_service"));
 		nvram_set("wan0_pppoe_ac",nvram_safe_get("dslx_pppoe_ac"));
+		nvram_set("wan0_pppoe_hostuniq",nvram_safe_get("dslx_pppoe_hostuniq"));
 		nvram_set("wan0_pppoe_options_x",nvram_safe_get("dslx_pppoe_options"));
 		nvram_set("wan0_hwaddr_x",nvram_safe_get("dslx_hwaddr"));					
 	}
@@ -147,9 +149,10 @@ void convert_dsl_wan()
 				nvram_set("wan0_nat_x","0");
 				nvram_set("wan0_proto","dhcp");
 			}
-			else
+			else if (nvram_match("dsl8_proto","dhcp")) {
 				nvram_set("wan0_proto",nvram_safe_get("dsl8_proto"));
-				nvram_set("wan_proto",nvram_safe_get("wan0_proto"));
+			}
+			nvram_set("wan_proto",nvram_safe_get("wan0_proto"));
 		}
 		else {
 			if (nvram_match("dsl0_proto","pppoe") || nvram_match("dsl0_proto","pppoa")) {
@@ -297,6 +300,7 @@ void dsl_configure(int req)
 void
 dsl_defaults(void)
 {
+#ifndef RTCONFIG_DSL_TCLINUX
 	struct nvram_tuple *t;
 	char prefix[]="dslXXXXXX_", tmp[100];
 	int unit;
@@ -315,23 +319,6 @@ dsl_defaults(void)
 		unit++;
 	}
 
-#ifdef RTCONFIG_VDSL
-	for(unit=8;unit<10;unit++) {
-		snprintf(prefix, sizeof(prefix), "dsl%d_", unit);
-
-		for (t = router_defaults; t->name; t++) {
-			if(strncmp(t->name, "dsl_", 4)!=0) continue;
-
-			if (!nvram_get(strcat_r(prefix, &t->name[4], tmp))) {
-				//_dprintf("_set %s = %s\n", tmp, t->value);
-				nvram_set(tmp, t->value);
-			}
-		}
-		unit++;
-	}
-#endif
-
-#ifndef RTCONFIG_DSL_TCLINUX
 	// dump trx header
 	// this is for upgrading check
 	// if trx is same, the upgrade procedure will be skiped

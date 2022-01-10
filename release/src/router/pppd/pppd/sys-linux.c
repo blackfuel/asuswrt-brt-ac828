@@ -78,6 +78,7 @@
 #include <sys/stat.h>
 #include <sys/utsname.h>
 #include <sys/sysmacros.h>
+#include <sys/syscall.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -205,7 +206,9 @@ static char loop_name[20];
 static unsigned char inbuf[512]; /* buffer for chars read from loopback */
 
 static int	if_is_up;	/* Interface has been marked up */
+#ifdef INET6
 static int	if6_is_up;	/* Interface has been marked up for IPv6, to help differentiate */
+#endif
 static int	have_default_route;	/* Gateway for default route added */
 static u_int32_t proxy_arp_addr;	/* Addr for proxy arp entry added */
 static char proxy_arp_dev[16];		/* Device for proxy arp entry */
@@ -2992,3 +2995,35 @@ ether_to_eui64(eui64_t *p_eui64)
     return 1;
 }
 #endif
+
+/********************************************************************
+ *
+ * get_time - Get current time, monotonic if possible.
+ */
+int
+get_time(struct timeval *tv)
+{
+    static int monotonic = -1;
+
+    if (monotonic) {
+#if defined(__NR_clock_gettime) && defined(CLOCK_MONOTONIC)
+	struct timespec ts;
+	int ret = syscall(__NR_clock_gettime, CLOCK_MONOTONIC, &ts);
+
+	if (tv && ret == 0) {
+	    tv->tv_sec = ts.tv_sec;
+	    tv->tv_usec = ts.tv_nsec / 1000;
+	}
+
+	if (monotonic < 0)
+	    monotonic = (ret == 0);
+	if (monotonic)
+	    return ret;
+#else
+	monotonic = 0;
+#endif
+	warn("Couldn't use monotonic clock source: %m");
+    }
+
+    return gettimeofday(tv, NULL);
+}

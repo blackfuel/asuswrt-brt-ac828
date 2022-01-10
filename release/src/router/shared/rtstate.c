@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,30 +8,62 @@
 #include <bcmdevs.h>
 #include <shutils.h>
 #include <shared.h>
-#include <rtstate.h>
+
+static char *wantype_str[] = {
+	[WANS_DUALWAN_IF_LAN] = "lan",
+	[WANS_DUALWAN_IF_2G] = "2g",
+	[WANS_DUALWAN_IF_5G] = "5g",
+	[WANS_DUALWAN_IF_USB] = "usb",
+	[WANS_DUALWAN_IF_DSL] = "dsl",
+	[WANS_DUALWAN_IF_WAN] = "wan",
+	[WANS_DUALWAN_IF_WAN2] = "wan2",
+	[WANS_DUALWAN_IF_USB2] = "usb2",
+	[WANS_DUALWAN_IF_SFPP] = "sfp+",
+};
 
 /* keyword for rc_support 	*/
 /* ipv6 mssid update parental 	*/
 
 void add_rc_support(char *feature)
 {
-	char *rcsupport = nvram_safe_get("rc_support");
-	char *features;
+	char *rcsupport, *features;
 
 	if (!(feature && *feature))
 		return;
 
+	rcsupport = nvram_safe_get("rc_support");
 	if (*rcsupport) {
-		features = malloc(strlen(rcsupport) + strlen(feature) + 2);
-		if (features == NULL) {
+		if (asprintf(&features, "%s %s", rcsupport, feature) < 0 || !features) {
 			_dprintf("add_rc_support fail\n");
 			return;
 		}
-		sprintf(features, "%s %s", rcsupport, feature);
 		nvram_set("rc_support", features);
 		free(features);
 	} else
 		nvram_set("rc_support", feature);
+}
+
+void del_rc_support(char *feature)
+{
+	char *rcsupport, *features;
+	char word[256], *next;
+
+	if (!(feature && *feature))
+		return;
+
+	rcsupport = nvram_safe_get("rc_support");
+	if (*rcsupport) {
+		features = strdup(rcsupport);
+		if (!features) {
+			_dprintf("del_rc_support fail\n");
+			return;
+		}
+		foreach(word, feature, next)
+			remove_from_list(word, features, strlen(features) + 1);
+		if (strcmp(rcsupport, features) != 0)
+			nvram_set("rc_support", features);
+		free(features);
+	}
 }
 
 #if defined(RTCONFIG_DUALWAN)
@@ -99,21 +133,38 @@ char *link_wan_nvname(int unit, char *buf, int size){
 	return buf;
 }
 
+int is_internet_connect(int unit){
+	int link_internet, wan_auxstate;
+
+	if(!is_wan_connect(unit))
+		return 0;
+
+	if(nvram_match("wans_mode", "lb")){
+		link_internet = nvram_get_int("link_internet");
+		if(link_internet == 2)
+			return 1;
+	}
+	else{
+		wan_auxstate = get_wan_auxstate(unit);
+		if(wan_auxstate == WAN_AUXSTATE_NONE)
+			return 1;
+	}
+
+	return 0;
+}
+
 int is_wan_connect(int unit){
-	char tmp[100], prefix[]="wanXXXXXX_";
 	int wan_state, wan_sbstate, wan_auxstate;
 
 	if(!is_phy_connect(unit))
 		return 0;
 
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	wan_state = get_wan_state(unit);
+	wan_sbstate = get_wan_sbstate(unit);
+	wan_auxstate = get_wan_auxstate(unit);
 
-	wan_state = nvram_get_int(strcat_r(prefix, "state_t", tmp));
-	wan_sbstate = nvram_get_int(strcat_r(prefix, "sbstate_t", tmp));
-	wan_auxstate = nvram_get_int(strcat_r(prefix, "auxstate_t", tmp));
-
-	if(wan_state == 2 && wan_sbstate == 0 &&
-			(wan_auxstate == 0 || wan_auxstate == 2)
+	if(wan_state == WAN_STATE_CONNECTED && wan_sbstate == WAN_STOPPED_REASON_NONE &&
+			(wan_auxstate == WAN_AUXSTATE_NONE || wan_auxstate == WAN_AUXSTATE_NO_INTERNET_ACTIVITY)
 			)
 		return 1;
 	else
@@ -128,7 +179,8 @@ int is_phy_connect(int unit){
 
 	link_wan_nvname(unit, prefix, sizeof(prefix));
 
-	if((ptr = nvram_get(prefix)) != NULL){
+	ptr = nvram_safe_get(prefix);
+	if(strlen(ptr) > 0){
 		link_wan = atoi(ptr);
 
 		if(link_wan)
@@ -151,7 +203,7 @@ int is_ip_conflict(int unit){
 	wan_state = get_wan_state(unit);
 	wan_sbstate = get_wan_sbstate(unit);
 
-	if(wan_state == 4 && wan_sbstate == 4)
+	if(wan_state == WAN_STATE_STOPPED && wan_sbstate == WAN_STOPPED_REASON_INVALID_IPADDR)
 		return 1;
 	else
 		return 0;
@@ -211,13 +263,17 @@ int get_wan_unit(char *ifname)
 				
 		}
 		else if(nvram_match(strcat_r(prefix, "ifname", tmp), ifname)) {
-			
+
 			if (model == MODEL_RTN65U && !nvram_match(strcat_r(prefix, "proto", tmp), "l2tp") && !nvram_match(strcat_r(prefix, "proto", tmp), "pptp"))
 					return unit;
 			
 			if (!nvram_match(strcat_r(prefix, "proto", tmp), "pppoe") && !nvram_match(strcat_r(prefix, "proto", tmp), "l2tp") && !nvram_match(strcat_r(prefix, "proto", tmp), "pptp") && nvram_match(strcat_r(prefix, "gw_ifname", tmp), ifname))
 					return unit;						
-		}   
+		}
+		else if (model == MODEL_BLUECAVE){
+			if (nvram_get_int("switch_stb_x") > 0 && !strcmp(ifname, "eth1"))
+				return unit;
+		}
 	}
 
 	return -1;
@@ -307,13 +363,20 @@ char *get_wan6_ifname(int unit)
 }
 #endif
 
+int get_ports_status(unsigned int port_mask)
+{
+#if defined(RTCONFIG_QCA) && defined(RTCONFIG_DETWAN)
+	return rtkswitch_Port_phyStatus(port_mask);
+#else
+	return -1;
+#endif
+}
+
 // OR all lan port status
 int get_lanports_status(void)
 {
 	return lanport_status();
 }
-
-extern int wanport_status(int wan_unit);
 
 // OR all wan port status
 int get_wanports_status(int wan_unit)
@@ -403,6 +466,17 @@ wan_primary_ifunit(void)
 	return 0;
 }
 
+#ifdef RTCONFIG_REALTEK
+/* The fuction is avoiding watchdog segfault on RP-AC68U.
+ * This is a workaround solution.
+ * */
+int
+rtk_wan_primary_ifunit(void)
+{
+	return wan_primary_ifunit();
+}
+#endif
+
 int
 wan_primary_ifunit_ipv6(void)
 {
@@ -442,26 +516,99 @@ get_invoke_later()
 #endif	/* RTCONFIG_MEDIA_SERVER */
 
 #ifdef RTCONFIG_USB
+#if defined(RTCONFIG_ALPINE) || defined(RTCONFIG_LANTIQ)
+char *get_usb_xhci_port(int port){
+	if(port == 2)
+		return USB_XHCI_PORT_2;
+	else
+		return USB_XHCI_PORT_1;
+}
 
+char *get_usb_ehci_port(int port){
+	if(port == 3)
+		return USB_EHCI_PORT_3;
+	else if(port == 2)
+		return USB_EHCI_PORT_2;
+	else
+		return USB_EHCI_PORT_1;
+}
+
+char *get_usb_ohci_port(int port){
+	if(port == 3)
+		return USB_OHCI_PORT_3;
+	else if(port == 2)
+		return USB_OHCI_PORT_2;
+	else
+		return USB_OHCI_PORT_1;
+}
+
+int get_usb_port_number(const char *usb_port){
+	int i;
+
+	for(i = 1; i <= 2; ++i){
+		if(!strcmp(usb_port, get_usb_xhci_port(i))){
+			return i;
+		}
+	}
+
+	for(i = 1; i <= 3; ++i){
+		if(!strcmp(usb_port, get_usb_ehci_port(i))){
+			return i;
+		}
+	}
+
+	for(i = 1; i <= 3; ++i){
+		if(!strcmp(usb_port, get_usb_ohci_port(i))){
+			return i;
+		}
+	}
+
+	return 0;
+}
+
+int get_usb_port_host(const char *usb_port){
+	int i;
+
+	for(i = 1; i <= 2; ++i){
+		if(!strcmp(usb_port, get_usb_xhci_port(i))){
+			return USB_HOST_XHCI;
+		}
+	}
+
+	for(i = 1; i <= 3; ++i){
+		if(!strcmp(usb_port, get_usb_ehci_port(i))){
+			return USB_HOST_EHCI;
+		}
+	}
+
+	for(i = 1; i <= 3; ++i){
+		if(!strcmp(usb_port, get_usb_ohci_port(i))){
+			return USB_HOST_OHCI;
+		}
+	}
+
+	return USB_HOST_NONE;
+}
+#else
 char xhci_string[32];
 char ehci_string[32];
 char ohci_string[32];
 
 char *get_usb_xhci_port(int port)
 {
-        char word[100], *next;
-        int i=0;
+	char word[100], *next;
+	int i=0;
 
-        strcpy(xhci_string, "xxxxxxxx");
+	strcpy(xhci_string, "xxxxxxxx");
 
-        foreach(word, nvram_safe_get("xhci_ports"), next) {
-                if(i==port) {
-                        strcpy(xhci_string, word);
-                        break;
-                }
-                i++;
-        }
-        return xhci_string;
+	foreach(word, nvram_safe_get("xhci_ports"), next){
+		if(i == port){
+			strcpy(xhci_string, word);
+			break;
+		}
+		i++;
+	}
+	return xhci_string;
 }
 
 char *get_usb_ehci_port(int port)
@@ -501,41 +648,33 @@ char *get_usb_ohci_port(int port)
 int get_usb_port_number(const char *usb_port)
 {
 	char word[100], *next;
-	int port_num, i;
+	int i;
 
-	port_num = 0;
 	i = 0;
 	foreach(word, nvram_safe_get("xhci_ports"), next){
 		++i;
 		if(!strcmp(usb_port, word)){
-			port_num = i;
-			break;
+			return i;
 		}
 	}
 
 	i = 0;
-	if(port_num == 0){
-		foreach(word, nvram_safe_get("ehci_ports"), next){
-			++i;
-			if(!strcmp(usb_port, word)){
-				port_num = i;
-				break;
-			}
+	foreach(word, nvram_safe_get("ehci_ports"), next){
+		++i;
+		if(!strcmp(usb_port, word)){
+			return i;
 		}
 	}
 
 	i = 0;
-	if(port_num == 0){
-		foreach(word, nvram_safe_get("ohci_ports"), next){
-			++i;
-			if(!strcmp(usb_port, word)){
-				port_num = i;
-				break;
-			}
+	foreach(word, nvram_safe_get("ohci_ports"), next){
+		++i;
+		if(!strcmp(usb_port, word)){
+			return i;
 		}
 	}
 
-	return port_num;
+	return 0;
 }
 
 int get_usb_port_host(const char *usb_port)
@@ -570,8 +709,9 @@ int get_usb_port_host(const char *usb_port)
 	return USB_HOST_NONE;
 }
 #endif
+#endif // RTCONFIG_USB
 
-#ifdef RTCONFIG_DUALWAN
+#if defined(RTCONFIG_DUALWAN)
 void set_wanscap_support(char *feature)
 {
 	nvram_set("wans_cap", feature);
@@ -600,6 +740,8 @@ int get_wans_dualwan(void)
 	{
 #ifdef RTCONFIG_DSL
 		caps =  WANSCAP_DSL;
+#elif defined(RTCONFIG_INTERNAL_GOBI) && defined(RTCONFIG_NO_WANPORT)
+		caps = WANSCAP_USB;
 #else
 		caps = WANSCAP_WAN;
 #endif
@@ -614,6 +756,7 @@ int get_wans_dualwan(void)
 		if (!strcmp(word,"dsl")) caps |= WANSCAP_DSL;
 		if (!strcmp(word,"wan")) caps |= WANSCAP_WAN;
 		if (!strcmp(word,"wan2")) caps |= WANSCAP_WAN2;
+		if (!strcmp(word,"sfp+")) caps |= WANSCAP_SFPP;
 	}
 
 	return caps;
@@ -633,8 +776,8 @@ int get_dualwan_by_unit(int unit)
 #ifdef RTCONFIG_MULTICAST_IPTV
 	if(unit == WAN_UNIT_IPTV)
 		return WAN_UNIT_IPTV;
-        if(unit == WAN_UNIT_VOIP)
-                return WAN_UNIT_VOIP;
+	if(unit == WAN_UNIT_VOIP)
+		return WAN_UNIT_VOIP;
 #endif
 
 	i = 0;
@@ -643,13 +786,14 @@ int get_dualwan_by_unit(int unit)
 			if (!strcmp(word,"lan")) return WANS_DUALWAN_IF_LAN;
 			if (!strcmp(word,"2g")) return WANS_DUALWAN_IF_2G;
 			if (!strcmp(word,"5g")) return WANS_DUALWAN_IF_5G;
-			if (!strcmp(word,"usb")) return WANS_DUALWAN_IF_USB;	
+			if (!strcmp(word,"usb")) return WANS_DUALWAN_IF_USB;
 			if (!strcmp(word,"dsl")) return WANS_DUALWAN_IF_DSL;
 			if (!strcmp(word,"wan")) return WANS_DUALWAN_IF_WAN;
 			if (!strcmp(word,"wan2")) return WANS_DUALWAN_IF_WAN2;
 #ifdef RTCONFIG_USB_MULTIMODEM
 			if (!strcmp(word,"usb2")) return WANS_DUALWAN_IF_USB2;
 #endif
+			if (!strcmp(word,"sfp+")) return WANS_DUALWAN_IF_SFPP;
 			return WANS_DUALWAN_IF_NONE;
 		}
 		i++;
@@ -668,6 +812,20 @@ int get_wanunit_by_type(int wan_type){
 	}
 
 	return WAN_UNIT_NONE;
+}
+
+/* Return wan type string of @unit wan_unit.
+ * @return:	pointer to a string.
+ *  NULL:	invalid parameter or unknown wan type.
+ */
+char *get_wantype_str_by_unit(int unit)
+{
+	int type = get_dualwan_by_unit(unit);
+
+	if (unit < 0 || unit > ARRAY_SIZE(wantype_str))
+		return NULL;
+
+	return wantype_str[type];
 }
 
 // imply: unit 0: primary, unit 1: secondary
@@ -800,15 +958,18 @@ void set_lan_phy(char *phy)
 
 void add_lan_phy(char *phy)
 {
-	char phys[128];
+	char phys[128], *ifnames;
 
-	strcpy(phys, nvram_safe_get("lan_ifnames"));
+	if (phy == NULL || *phy == '\0')
+		return;
 
-	if(strlen(phys)==0) nvram_set("lan_ifnames", phy);
-	else {
-		sprintf(phys, "%s %s", phys, phy);
-		nvram_set("lan_ifnames", phys);
-	}
+	ifnames = nvram_safe_get("lan_ifnames");
+	if(find_word(ifnames, phy) != NULL)
+		return;	/* exist */
+
+	snprintf(phys, sizeof(phys), "%s%s%s", ifnames,
+		(*ifnames && *phy) ? " " : "", phy);
+	nvram_set("lan_ifnames", phys);
 }
 
 void set_wan_phy(char *phy)
@@ -818,15 +979,18 @@ void set_wan_phy(char *phy)
 
 void add_wan_phy(char *phy)
 {
-	char phys[128];
+	char phys[128], *ifnames;
 
-	strcpy(phys, nvram_safe_get("wan_ifnames"));
+	if (phy == NULL || *phy == '\0')
+		return;
 
-	if(strlen(phys)==0) nvram_set("wan_ifnames", phy);
-	else {
-		sprintf(phys, "%s %s", phys, phy);
-		nvram_set("wan_ifnames", phys);
-	}
+	ifnames = nvram_safe_get("wan_ifnames");
+	if(find_word(ifnames, phy) != NULL)
+		return;	/* exist */
+
+	snprintf(phys, sizeof(phys), "%s%s%s", ifnames,
+		(*ifnames && *phy) ? " " : "", phy);
+	nvram_set("wan_ifnames", phys);
 }
 
 char *usb_modem_prefix(int modem_unit, char *prefix, int size)
@@ -905,39 +1069,177 @@ int get_wantype_by_modemunit(int modem_unit){
 		return WANS_DUALWAN_IF_NONE;
 }
 
-#if defined(RTCONFIG_CONCURRENTREPEATER)
-char ssid[64]={0};
-char *get_default_ssid(int unit, int band_num)
-{
-	char *result = NULL;
-	int i=0;
-	unsigned char ssidbase[16];
+char ssid[64] = { 0 };
+char ssid2[64] = { 0 };
 
-	char *macp = NULL;
+/**
+ * Get default ssid.
+ * @unit:	wireless unit
+ * @subunit:	wireless subunit
+ * @return:	pointer to a char array which contains result, default ssid.
+ */
+char *get_default_ssid(int unit, int subunit)
+{
+	int rev3 = 0;
+	const int band_num = num_of_wl_if();
+	char ssidbase[16], *macp = NULL;
 	unsigned char mac_binary[6];
+	const char *post_5g = "-1", *post_5g2 = "-2", *post_guest = "_Guest";	/* postfix for RTCONFIG_NEWSSID_REV2 case */
+
+#if defined(RTCONFIG_NEWSSID_REV2) || defined(RTCONFIG_NEWSSID_REV4)
+	rev3 = 1;
+#endif
+
+	if (unit < 0 || unit >= WL_NR_BANDS || subunit < 0) {
+		dbg("%s: invalid parameter. (unit %d, subunit %d)\n",
+			__func__, unit, subunit);
+	}
+
+	/* Adjust postfix for different conditions. */
+#ifdef GTAC5300
+	post_5g = "";
+	post_5g2 = "_Gaming";
+#elif !defined(RTCONFIG_NEWSSID_REV2) && !defined(RTCONFIG_NEWSSID_REV4) && !defined(RTCONFIG_SINGLE_SSID)
+	post_5g = "";
+#endif
+
+#if defined(RTCONFIG_SINGLE_SSID) && defined(RTCONFIG_SSID_AMAPS)
+	post_guest = "_AMAPS_Guest";
+#endif
+
 
 	memset(ssid, 0x0, sizeof(ssid));
 
-#if defined(RTCONFIG_NEWSSID_REV2)
-
+#ifdef RTCONFIG_SINGLE_SSID
 	macp = get_2g_hwaddr();
 	ether_atoe(macp, mac_binary);
-	sprintf((char *)ssidbase, "ASUS_%02X", mac_binary[5]);
+#if defined(RTCONFIG_SSID_AMAPS)
+	sprintf((char *)ssidbase, "%s_%02X_AMAPS", SSID_PREFIX, mac_binary[5]);
+#elif defined(VZWAC1300)
+	if (nvram_match("odmpid", "ASUSMESH-AC1300"))
+		sprintf((char *)ssidbase, "ASUS_%02X_MESH", mac_binary[5]);
+	else
+		sprintf((char *)ssidbase, "%s_%02X", SSID_PREFIX, mac_binary[5]);
 #else
-	macp = get_lan_hwaddr();
-	ether_atoe(macp, mac_binary);
-	sprintf((char *)ssidbase, "%s_%02X", get_productid(), mac_binary[5]);
-#endif	
-
-
-#if defined(RTCONFIG_NEWSSID_REV2)
-			sprintf((char *)ssid, "%s%s", ssidbase, unit ? (unit == 2 ? "_5G-2" : (band_num > 2 ? "_5G-1" : "_5G")) : (band_num > 1 ? "_2G" : ""));
+	sprintf((char *)ssidbase, "%s_%02X", SSID_PREFIX, mac_binary[5]);
+#endif /* RTCONFIG_SSID_AMAPS */
 #else
-			sprintf((char *)ssid, "%s%s", ssidbase, unit ? (unit == 2 ? "_5G-2" : "_5G") : "_2G");
+	if (rev3
+#ifdef RTAC68U
+		&& is_ssid_rev3_series()
+#endif
+	) {
+		macp = get_2g_hwaddr();
+		ether_atoe(macp, mac_binary);
+#if defined(RTAC58U)
+		if (!strncmp(nvram_safe_get("territory_code"), "SP", 2))
+			sprintf((char *)ssidbase, "Spirit_%02X", mac_binary[5]);
+		else if (!strncmp(nvram_safe_get("territory_code"), "CX", 2))
+			sprintf((char *)ssidbase, "Stuff-Fibre_%02X", mac_binary[5]);
+		else
+#endif
+#ifdef RTAC68U
+		if (is_dpsta_repeater())
+			sprintf((char *)ssidbase, "%s_RP_%02X", SSID_PREFIX, mac_binary[5]);
+		else
+#endif
+			sprintf((char *)ssidbase, "%s_%02X", SSID_PREFIX, mac_binary[5]);
+	} else {
+		macp = get_lan_hwaddr();
+		ether_atoe(macp, mac_binary);
+		sprintf((char *)ssidbase, "%s_%02X", get_productid(), mac_binary[5]);
+	}
 #endif
 
-	fprintf(stderr,"###### Default ssid = %s\n", ssid);
+	strlcpy(ssid, ssidbase, sizeof(ssid));
+
+#ifdef RTCONFIG_NEWSSID_REV4
+	if (!subunit)
+		return ssid;
+#endif
+
+#if !defined(RTCONFIG_SINGLE_SSID)	/* including RTCONFIG_NEWSSID_REV2 */
+	switch (unit) {
+	case WL_2G_BAND:
+#if defined(RTCONFIG_NEWSSID_REV2) || defined(RTCONFIG_NEWSSID_REV4)
+		if ((band_num > 1)
+#ifdef RTAC68U
+			&& !is_dpsta_repeater()
+#endif
+		)
+#endif
+			strlcat(ssid, "_2G", sizeof(ssid));
+		break;
+	case WL_5G_BAND:
+		strlcat(ssid, "_5G", sizeof(ssid));
+		if (band_num > 2 &&
+		    nvram_get(wl_nvname("nband", WL_5G_2_BAND, 0)) != NULL)
+		{
+			strlcat(ssid, post_5g, sizeof(ssid));
+		}
+		break;
+	case WL_5G_2_BAND:
+		strlcat(ssid, "_5G", sizeof(ssid));
+		strlcat(ssid, post_5g2, sizeof(ssid));
+		break;
+	case WL_60G_BAND:
+		strlcat(ssid, "_60G", sizeof(ssid));
+		break;
+	default:
+		dbg("%s: Unknown wl_unit (%d)\n", __func__, unit);
+		strlcat(ssid, "_UNKNOWN", sizeof(ssid));
+	}
+#endif
+
+	/* Handle guest network SSID. */
+	if (subunit
+#ifdef RTAC68U
+		&& !is_dpsta_repeater()
+#endif
+	) {
+#if defined(RTCONFIG_SSID_AMAPS)
+		/* RTCONFIG_SSID_AMAPS use the same guest network SSID rule as SINGLE_SSID */
+		snprintf(ssid, sizeof(ssid), "%s_AMAPS_Guest", SSID_PREFIX);
+#elif defined(VZWAC1300)
+	if (nvram_match("odmpid", "ASUSMESH-AC1300"))
+		snprintf(ssid, sizeof(ssid), "ASUS_MESH_Guest");
+	else
+		strlcat(ssid, post_guest, sizeof(ssid));
+#else
+		strlcat(ssid, post_guest, sizeof(ssid));
+#endif
+		if (subunit > 1) {
+			sprintf(ssid2, "%s%d", ssid, subunit);
+			strlcpy(ssid, ssid2, sizeof(ssid));
+		}
+	}
 	return ssid;
 }
-#endif
 
+/**
+ * Get Static IPv4 DNS list separated by spaces.
+ * @prefix:	WAN/LAN prefix of dns1_x & dns2_x values
+ * @buf:	char buffer for storing the return value
+ * @buflen:	char buffer size
+ * @return:	pointer to a char array with DNS lisr, space separated
+ */
+char *get_userdns_r(const char *prefix, char *buf, size_t buflen)
+{
+	char tmp[32], *value;
+	int i;
+
+	if (buf == NULL || buflen <= 0)
+		return NULL;
+
+	strlcpy(buf, "", buflen);
+	for (i = 1; i <= 2; i++) {
+		snprintf(tmp, sizeof(tmp), "%sdns%d_x", prefix, i);
+		value = nvram_safe_get_r(tmp, tmp, sizeof(tmp));
+		if (*value && inet_addr_(value) != INADDR_ANY) {
+			if (*buf)
+				strlcat(buf, " ", buflen);
+			strlcat(buf, value, buflen);
+		}
+	}
+	return buf;
+}

@@ -262,8 +262,7 @@ int asus_reg_domain (int regType)
 	int retval = REGISTERES_OK;
 
 	buf[BUFFER_SIZE] = '\0';
-
-	if (do_connect((int *) &client_sockfd, server, port) != 0) {
+	if (do_connect((FILE **)&client_sockfp, server, port, ssl) != 0) {
 		PRINT ("error connecting to %s:%s\n", server, port);
 		show_message("error connecting to %s:%s\n", server, port);
 		nvram_set ("ddns_return_code", "connect_fail");
@@ -316,7 +315,7 @@ int asus_reg_domain (int regType)
 		bp += bytes;
 		btot += bytes;
 	}
-	close(client_sockfd);
+	fclose((FILE *)client_sockfp);
 	buf[btot] = '\0';
 	//show_message("Asus Reg domain:: return: %s\n", buf);
 	if(btot) { // TODO: according to server response, parsing code have to rewrite
@@ -340,6 +339,7 @@ int asus_reg_domain (int regType)
 		nvram_set ("ddns_return_code", ret_buf);
 		nvram_set ("ddns_return_code_chk", ret_buf);
 	}
+
 
 	switch (ret) {
 	case -1:
@@ -439,7 +439,7 @@ int asus_update_entry(void)
 
 	buf[BUFFER_SIZE] = '\0';
 
-	if (do_connect((int *) &client_sockfd, server, port) != 0) {
+	if (do_connect((FILE **)&client_sockfp, server, port, ssl) != 0) {
 		show_message("error connecting to %s:%s\n", server, port);
 		nvram_set ("ddns_return_code", "connect_fail");
 		nvram_set ("ddns_return_code_chk", "connect_fail");
@@ -484,7 +484,7 @@ int asus_update_entry(void)
                 bp += bytes;
                 btot += bytes;
         }
-        close(client_sockfd);
+        fclose((FILE *)client_sockfp);
         buf[btot] = '\0';
         show_message("Asus update entry:: return: %s\n", buf);
         if(btot) { // TODO: according to server response, parsing code have to rewrite
@@ -646,6 +646,44 @@ wl_wscPincheck(char *pin_string)
 	return 1;    // Invalid
 }
 
+static char *get_macaddr(void)
+{
+	int model = get_model();
+	char *mac = get_lan_hwaddr();
+
+	/* Some model use LAN MAC address to register ASUSDDNS account.
+	 * To keep consistency, don't use get_wan_hwaddr() to rewrite below code.
+	 */
+	switch (model) {
+	case MODEL_RTN56U:
+		mac = nvram_get("et1macaddr");
+		break;
+#if defined(RTCONFIG_QCA)
+	/* Below models has 380 firmwares which use et0macaddr to register ddns name.
+	 * To compatible with 380 firmware, we mustn't use get_lan_hwaddr() on those
+	 * QCA-based models due to it returns value of et1macaddr.
+	 * For newer QCA-based models, which already use get_lan_hwaddr(), e.g.,
+	 * RP-AC51, RT-ACRH17 (RT-AC82U), Lyra series, and VRZ-AC1300, don't append
+	 * model name to below list and just use return value of get_lan_hwaddr().
+	 */
+	case MODEL_RTAC55U:
+	case MODEL_RTAC55UHP:
+	case MODEL_RT4GAC55U:
+	case MODEL_PLN12:
+	case MODEL_PLAC56:
+	case MODEL_PLAC66U:
+	case MODEL_RPAC66:
+	case MODEL_RTAC58U:
+	case MODEL_BRTAC828:
+		mac = nvram_get("et0macaddr");
+		break;
+#endif
+	}
+
+
+	return mac;
+}
+
 
 // Generate password according to MAC address
 int asus_private(void)
@@ -654,7 +692,7 @@ int asus_private(void)
 	int i, l, c;
 	unsigned long secret;
 	unsigned char *p, user[256], hwaddr[6], hwaddr_str[18], key[64], msg[256], ipbuf[20], bin_pwd[16];
-#if defined(RTCONFIG_SOC_IPQ8064)
+#if defined(RTCONFIG_SOC_IPQ8064) || defined(RTCONFIG_SOC_IPQ8074)
 	unsigned char mac_buf[6], mac_buf_str[18];
 #endif
 
@@ -664,28 +702,14 @@ int asus_private(void)
 	memset (user, 0, sizeof (user));
 	memset (bin_pwd, 0, sizeof (bin_pwd));
 
-	/* Some model use LAN MAC address to register ASUSDDNS account.
-	 * To keep consistency, don't use get_wan_hwaddr() to rewrite below code.
-	 */
-#ifdef RTCONFIG_RGMII_BRCM5301X
-	p = nvram_get ("et1macaddr");
-#else
-	if (get_model() == MODEL_RTN56U)
-		p = nvram_get ("et1macaddr");
-	else
-	p = nvram_get ("et0macaddr");
-#endif
-
-#ifdef RTCONFIG_GMAC3
-	if(nvram_match("gmac3_enable", "1"))
-		p = nvram_safe_get ("et2macaddr");
-#endif
+	p = get_macaddr();
 	if (p == NULL)	{
+		show_message("ERROR: %s() can not take MAC address from et0macaddr\n");
 		PRINT ("ERROR: %s() can not take MAC address from et0macaddr\n");
 		return -1;
 	}
 
-#if defined(RTCONFIG_SOC_IPQ8064)
+#if defined(RTCONFIG_SOC_IPQ8064) || defined(RTCONFIG_SOC_IPQ8074)
 	/* Make sure last bytes of MAC address is aligned to 4. */
 	ether_atoe(p, mac_buf);
 	mac_buf[5] &= 0xFC;
@@ -698,6 +722,7 @@ int asus_private(void)
 	strtok (hwaddr_str, ":");
 	for (i = 0; i < 6; ++i)	{
 		if (p == NULL)	{
+			show_message("ERROR: %s() can not convert MAC address\n", __FUNCTION__);
 			PRINT ("ERROR: %s() can not convert MAC address\n", __FUNCTION__);
 			return -1;
 		}
@@ -708,14 +733,17 @@ int asus_private(void)
 
 	p = nvram_get ("secret_code");
 	if (p == NULL)	{
+		show_message("ERROR: secret_code not found.\n");
 		PRINT ("ERROR: secret_code not found.\n");
 		return -1;
 	}
 	strncpy (key, p, sizeof (key));
 	c = wl_wscPincheck (key);
 	//DBG ("secret code (%s) is %s\n", key, (c == 0)?"valid":"INVALID");
-	if (c)
+	if (c){
+		show_message("WARNING: invalid secret code (%s)?\n", key);
 		PRINT ("WARNING: invalid secret code (%s)?\n", key);
+	}
 
 	DUMP (key);
 
@@ -726,12 +754,16 @@ int asus_private(void)
 		int sock;
 
 		if (interface == NULL)	{
+			show_message("ERROR: %s() invalid address and interface\n", __FUNCTION__);
 			PRINT ("ERROR: %s() invalid address and interface\n", __FUNCTION__);
 			return -1;
 		}
 
 		sock = socket(AF_INET, SOCK_STREAM, 0);
+		show_message("%s() interface =%s\n", __FUNCTION__, interface);
+		PRINT("%s() interface =%s\n", __FUNCTION__, interface);
 		if (get_if_addr(sock, interface, &sin) != 0) {
+			show_message("ERROR: %s() get IP address of interface fail\n", __FUNCTION__);
 			PRINT ("ERROR: %s() get IP address of interface fail\n", __FUNCTION__);
 			return -1;
 		}

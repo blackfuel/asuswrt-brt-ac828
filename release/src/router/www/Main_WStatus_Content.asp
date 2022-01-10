@@ -16,13 +16,57 @@
 <script language="JavaScript" type="text/javascript" src="/general.js"></script>
 <script language="JavaScript" type="text/javascript" src="/popup.js"></script>
 <script language="JavaScript" type="text/javascript" src="/help.js"></script>
-<script>function initial(){
-	show_menu();	
+<script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
+<script language="JavaScript" type="text/javascript" src="/js/httpApi.js"></script>
+<script>
+var classObj= {
+	ToHexCode:function(str){
+		return encodeURIComponent(str).replace(/%/g,"\\x").toLowerCase();
+	},
+	UnHexCode:function(str){
+		return decodeURIComponent(str.replace(/\\x/g, "%"));
+	}
+}
+
+var content = "";
+function GenContent(){
+	var dead = 0;
+	$.ajax({
+		url: '/wl_log.asp',
+		dataType: 'text',
+		timeout: 1500,
+		error: function(xhr){
+			if(dead > 30){
+				$("#wl_log").html("Fail to grab wireless log.");
+			}
+			else{
+				dead++;
+				setTimeout("GenContent();", 1000);
+			}
+		},
+
+		success: function(resp){
+			content = htmlEnDeCode.htmlEncode(resp);
+			content = classObj.UnHexCode(content);
+			if(content.length > 10){
+				$("#wl_log").html(content);
+			}
+			else{
+				$("#wl_log").html("Fail to grab wireless log.");
+			}
+		}
+	});
+}
+
+function initial(){
+	show_menu();
+	GenContent();
+	
 }
 </script>
 </head>
 
-<body onload="initial();" >
+<body onload="initial();" class="bg">
 <div id="TopBanner"></div>
 <div id="Loading" class="popup_bg"></div>
 
@@ -57,10 +101,10 @@
 								<td valign="top">
 									<div>&nbsp;</div>
 									<div class="formfonttitle"><#System_Log#> - <#menu5_7_4#></div>
-									<div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png"></div>
+									<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 									<div class="formfontdesc"><#WLLog_title#></div>
 									<div style="margin-top:8px"> 
-										<textarea  cols="63" rows="30" style="width:99%;font-family:'Courier New', Courier, mono; font-size:13px; background:#475A5F;color:#FFFFFF" readonly="readonly" wrap="off"><% nvram_dump("wlan11b_2g.log",""); %></textarea>
+										<textarea id="wl_log" cols="63" rows="30" class="textarea_ssh_table" style="width:99%;font-family:'Courier New', Courier, mono; font-size:13px;" readonly="readonly" wrap="off"></textarea>
 									</div>
 									<div class="apply_gen">
 										<input type="button" onClick="location.href=location.href" value="<#CTL_refresh#>" class="button_gen" >

@@ -26,7 +26,11 @@
 
 #include <linux/version.h>
 #include <linux/time.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+#include "../usb-bus-stats.h"
+#else
 #include <linux/usb/usb-bus-stats.h>
+#endif
 #include "../bled_defs.h"
 #include "check.h"
 
@@ -66,7 +70,7 @@ unsigned int usbbus_check_traffic(struct bled_priv *bp)
 		diff += d;
 		if (unlikely(bp->flags & BLED_FLAGS_DBG_CHECK_FUNC)) {
 			prn_bl_v("GPIO#%d: bus %2d, d %10lu (RX %10lu,%10lu / TX %10lu,%10lu)\n",
-				bp->gpio_nr, bus, d, ifs->last_rx_bytes, s->rx_bytes,
+				bp->gpio_nr[0], bus, d, ifs->last_rx_bytes, s->rx_bytes,
 				ifs->last_tx_bytes, s->tx_bytes);
 		}
 

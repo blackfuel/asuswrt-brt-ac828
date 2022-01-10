@@ -35,7 +35,7 @@ static struct gpio_s {
 	unsigned int	active_low;	/* low active if non-zero */
 	gpio_func_data_t data;
 } gpio_tbl[GPIO_IDX_MAX] = {
-#if defined(BRTAC828) || defined(RTAC88S)
+#if defined(BRTAC828) || defined(RTAC88S) || defined(RTAD7200)
 #if defined(BRTAC828_SR1)
 	/* BRT-AC828 SR1 */
 	[RST_BTN] = {	/* GPIO54, Low  active, input  */

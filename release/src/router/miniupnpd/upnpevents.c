@@ -102,17 +102,37 @@ newSubscriber(const char * eventurl, const char * callback, int callbacklen)
 	else if(strcmp(eventurl, DP_EVENTURL)==0)
 		tmp->service = EDP;
 #endif
+#ifdef ENABLE_AURASYNC
+	else if(strcmp(eventurl, AS_EVENTURL)==0 && GETFLAG(ENABLEAURASYNCMASK))
+		tmp->service = EAS;
+#endif
+#ifdef ENABLE_NVGFN
+	else if(strcmp(eventurl, NVGFN_EVENTURL)==0 && GETFLAG(ENABLENVGFNMASK))
+		tmp->service = ENVGFN;
+#endif
 	else {
 		free(tmp);
 		return NULL;
 	}
+#ifdef ENABLE_AURASYNC
+	if (aura_standalone && (tmp->service != EAS)) {
+		free(tmp);
+		return NULL;
+	}
+#endif
+#ifdef ENABLE_NVGFN
+	if (gfn_only && (tmp->service != ENVGFN)) {
+		free(tmp);
+		return NULL;
+	}
+#endif
 	memcpy(tmp->callback, callback, callbacklen);
 	tmp->callback[callbacklen] = '\0';
 	/* make a dummy uuid */
 	/* TODO: improve that */
 	strncpy(tmp->uuid, uuidvalue_igd, sizeof(tmp->uuid));
 	tmp->uuid[sizeof(tmp->uuid)-1] = '\0';
-	snprintf(tmp->uuid+37, 5, "%04lx", random() & 0xffff);
+	snprintf(tmp->uuid+sizeof(tmp->uuid)-5, 5, "%04lx", random() & 0xffff);
 	return tmp;
 }
 
@@ -136,7 +156,7 @@ upnpevents_addSubscriber(const char * eventurl,
 	if(!tmp)
 		return NULL;
 	if(timeout)
-		tmp->timeout = time(NULL) + timeout;
+		tmp->timeout = upnp_time() + timeout;
 	LIST_INSERT_HEAD(&subscriberlist, tmp, entries);
 	upnp_event_create_notify(tmp);
 	return tmp->uuid;
@@ -151,10 +171,10 @@ renewSubscription(const char * sid, int sidlen, int timeout)
 		if((sidlen == 41) && (memcmp(sid, sub->uuid, 41) == 0)) {
 #ifdef UPNP_STRICT
 			/* check if the subscription already timeouted */
-			if(sub->timeout && time(NULL) > sub->timeout)
+			if(sub->timeout && upnp_time() > sub->timeout)
 				continue;
 #endif
-			sub->timeout = (timeout ? time(NULL) + timeout : 0);
+			sub->timeout = (timeout ? upnp_time() + timeout : 0);
 			return 0;
 		}
 	}
@@ -378,6 +398,16 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 		xml = getVarsDP(&l);
 		break;
 #endif
+#ifdef ENABLE_AURASYNC
+	case EAS:
+		xml = getVarsAS(&l);
+		break;
+#endif
+#ifdef ENABLE_NVGFN
+	case ENVGFN:
+		xml = getVarsNVGFN(&l);
+		break;
+#endif
 	default:
 		xml = NULL;
 		l = 0;
@@ -563,7 +593,7 @@ void upnpevents_processfds(fd_set *readset, fd_set *writeset)
 		obj = next;
 	}
 	/* remove timeouted subscribers */
-	curtime = time(NULL);
+	curtime = upnp_time();
 	for(sub = subscriberlist.lh_first; sub != NULL; ) {
 		subnext = sub->entries.le_next;
 		if(sub->timeout && curtime > sub->timeout && sub->notify == NULL) {

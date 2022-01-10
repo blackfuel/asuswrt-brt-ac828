@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <../drivers/mtd/ubi/ubi-media.h>
 #include <sys/ioctl.h>
 #include <mtd/mtd-user.h>
+#include <limits.h>
 
 #define SBL_VERSION_FILE       "sbl_version"
 #define TZ_VERSION_FILE        "tz_version"
@@ -34,14 +35,15 @@
 #define MAX_RPM_VERSION	8
 #define HASH_P_FLAG		0x02200000
 #define TMP_FILE_DIR		"/tmp/"
-#define CERT_BUFFER_SIZE	1536
-#define CERT_SIZE		1204
+#define CERT_SIZE		2048
 #define PRESENT		1
 #define MBN_HDR_SIZE		40
 #define SIG_SIZE		256
 #define NOT_PRESENT		0
-#define SIG_CERT_SIZE		6400
+#define SIG_CERT_2_SIZE	4352
+#define SIG_CERT_3_SIZE	6400
 #define SBL_NAND_PREAMBLE	10240
+#define SBL_HDR_RESERVED	12
 
 #define ARRAY_SIZE(array)	sizeof(array)/sizeof(array[0])
 
@@ -53,8 +55,6 @@ struct image_section sections[] = {
 		.file			= TMP_FILE_DIR,
 		.version_file		= APPSBL_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
-		.get_sw_id		= get_sw_id_from_component_bin_elf,
-		.split_components	= split_code_signature_cert_from_component_bin_elf,
 	},
 	{
 		.section_type		= HLOS_TYPE,
@@ -63,8 +63,6 @@ struct image_section sections[] = {
 		.file			= TMP_FILE_DIR,
 		.version_file		= HLOS_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
-		.get_sw_id		= get_sw_id_from_component_bin,
-		.split_components	= split_code_signature_cert_from_component_bin,
 	},
 	{
 		.section_type		= HLOS_TYPE,
@@ -75,8 +73,6 @@ struct image_section sections[] = {
 		.file			= TEMP_KERNEL_PATH,
 		.version_file		= HLOS_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
-		.get_sw_id		= get_sw_id_from_component_bin,
-		.split_components	= split_code_signature_cert_from_component_bin,
 	},
 	{
 		.section_type		= TZ_TYPE,
@@ -85,18 +81,30 @@ struct image_section sections[] = {
 		.file			= TMP_FILE_DIR,
 		.version_file		= TZ_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
-		.get_sw_id		= get_sw_id_from_component_bin_elf,
-		.split_components	= split_code_signature_cert_from_component_bin_elf,
 	},
 	{
 		.section_type		= SBL_TYPE,
-		.type			= "sbl",
+		.type			= "sbl1",
 		.max_version		= MAX_SBL_VERSION,
 		.file			= TMP_FILE_DIR,
 		.version_file		= SBL_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
-		.get_sw_id		= get_sw_id_from_component_bin_elf,
-		.split_components	= split_code_signature_cert_from_component_bin_elf,
+	},
+	{
+		.section_type		= SBL_TYPE,
+		.type			= "sbl2",
+		.max_version		= MAX_SBL_VERSION,
+		.file			= TMP_FILE_DIR,
+		.version_file		= SBL_VERSION_FILE,
+		.is_present		= NOT_PRESENT,
+	},
+	{
+		.section_type		= SBL_TYPE,
+		.type			= "sbl3",
+		.max_version		= MAX_SBL_VERSION,
+		.file			= TMP_FILE_DIR,
+		.version_file		= SBL_VERSION_FILE,
+		.is_present		= NOT_PRESENT,
 	},
 	{
 		.section_type		= RPM_TYPE,
@@ -105,8 +113,6 @@ struct image_section sections[] = {
 		.file			= TMP_FILE_DIR,
 		.version_file		= RPM_VERSION_FILE,
 		.is_present		= NOT_PRESENT,
-		.get_sw_id		= get_sw_id_from_component_bin_elf,
-		.split_components	= split_code_signature_cert_from_component_bin_elf,
 	},
 };
 
@@ -150,6 +156,46 @@ size_t strlcat(char *dst, const char *src, size_t size)
 }
 #endif
 
+int check_mbn_elf(struct image_section **sec)
+{
+	int fd = open((*sec)->file, O_RDONLY);
+	struct stat sb;
+	uint8_t *fp;
+	Elf32_Ehdr *elf;
+
+	if (fd < 0) {
+		perror((*sec)->file);
+		return 0;
+	}
+
+	if (fstat(fd, &sb) == -1) {
+		perror("fstat");
+		close(fd);
+		return 0;
+	}
+
+	fp = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (fp == MAP_FAILED) {
+		perror("mmap");
+		close(fd);
+		return 0;
+	}
+
+	elf = (Elf32_Ehdr *)fp;
+	if (!strncmp((char *)&(elf->e_ident[1]), "ELF", 3)) {
+		(*sec)->get_sw_id = get_sw_id_from_component_bin_elf;
+		(*sec)->split_components = split_code_signature_cert_from_component_bin_elf;
+	} else if (!strncmp((char *)&(((Elf32_Ehdr *)(fp + SBL_NAND_PREAMBLE))->e_ident[1]), "ELF", 3)) {
+		(*sec)->get_sw_id = get_sw_id_from_component_bin_elf;
+		(*sec)->split_components = split_code_signature_cert_from_component_bin_elf;
+	} else {
+		(*sec)->get_sw_id = get_sw_id_from_component_bin;
+		(*sec)->split_components = split_code_signature_cert_from_component_bin;
+	}
+
+	return 1;
+}
+
 int get_sections(void)
 {
 	DIR *dir = opendir(TMP_FILE_DIR);
@@ -175,6 +221,10 @@ int get_sections(void)
 				} else {
 					strlcat(sec->file, file->d_name,
 							sizeof(sec->file));
+				}
+				if (!check_mbn_elf(&sec)) {
+					closedir(dir);
+					return 0;
 				}
 				if (!sec->get_sw_id(sec)) {
 					closedir(dir);
@@ -236,8 +286,8 @@ int get_local_image_version(struct image_section *section)
 
 	fstat(fd, &st);
 
-	len = st.st_size < sizeof(local_version_string) ? st.st_size :
-							sizeof(local_version_string);
+	len = st.st_size < sizeof(local_version_string) - 1 ? st.st_size :
+							sizeof(local_version_string) - 1;
 	read(fd, local_version_string, len);
 	local_version_string[len] = '\0';
 	close(fd);
@@ -330,6 +380,7 @@ int get_sw_id_from_component_bin(struct image_section *section)
 	uint8_t *fp;
 	int cert_offset;
 	char *sw_version;
+	int sig_cert_size;
 
 	if (fd == -1) {
 		perror(section->file);
@@ -350,7 +401,13 @@ int get_sw_id_from_component_bin(struct image_section *section)
 	}
 
 	mbn_hdr = (Mbn_Hdr *)fp;
-	if (mbn_hdr->image_size - mbn_hdr->code_size != SIG_CERT_SIZE) {
+	if (strstr(section->file, sections[4].type)) {
+		uint32_t preamble = sections[2].is_present ? SBL_NAND_PREAMBLE : 0;
+
+		mbn_hdr = (Mbn_Hdr *)(fp + preamble + SBL_HDR_RESERVED);
+	}
+	sig_cert_size = mbn_hdr->image_size - mbn_hdr->code_size;
+	if (sig_cert_size != SIG_CERT_2_SIZE && sig_cert_size != SIG_CERT_3_SIZE) {
 		printf("Error: Image without version information\n");
 		close(fd);
 		return 0;
@@ -374,7 +431,8 @@ int process_elf(char *bin_file, uint8_t **fp, Elf32_Ehdr **elf, Elf32_Phdr **phd
 {
 	int fd = open(bin_file, O_RDONLY);
 	struct stat sb;
-	int version, i;
+	int version = 0;
+	int i = 0;
 
 	if (fd < 0) {
 		perror(bin_file);
@@ -686,9 +744,10 @@ int split_code_signature_cert_from_component_bin(struct image_section *section,
 	Mbn_Hdr *mbn_hdr;
 	int fd = open(section->file, O_RDONLY);
 	uint8_t *fp;
-	int sig_offset;
-	int cert_offset;
+	int sig_offset = 0;
+	int cert_offset = 0;
 	struct stat sb;
+	int sig_cert_size;
 
 	if (fd == -1) {
 		perror(section->file);
@@ -709,7 +768,15 @@ int split_code_signature_cert_from_component_bin(struct image_section *section,
 	}
 
 	mbn_hdr = (Mbn_Hdr *)fp;
-	if (mbn_hdr->image_size - mbn_hdr->code_size != SIG_CERT_SIZE) {
+	if (strstr(section->file, sections[4].type)) {
+		uint32_t preamble = sections[2].is_present ? SBL_NAND_PREAMBLE : 0;
+
+		mbn_hdr = (Mbn_Hdr *)(fp + preamble + SBL_HDR_RESERVED);
+		sig_offset = preamble + MBN_HDR_SIZE;
+		cert_offset = preamble + MBN_HDR_SIZE;
+	}
+	sig_cert_size = mbn_hdr->image_size - mbn_hdr->code_size;
+	if (sig_cert_size != SIG_CERT_2_SIZE && sig_cert_size != SIG_CERT_3_SIZE) {
 		printf("Error: Image without version information\n");
 		close(fd);
 		return 0;
@@ -723,7 +790,7 @@ int split_code_signature_cert_from_component_bin(struct image_section *section,
 	src_size = mbn_hdr->code_size;
 	(*src)[mbn_hdr->code_size] = '\0';
 
-	sig_offset = mbn_hdr->sig_ptr - mbn_hdr->image_dest_ptr + MBN_HDR_SIZE;
+	sig_offset += mbn_hdr->sig_ptr - mbn_hdr->image_dest_ptr + MBN_HDR_SIZE;
 	*sig = malloc((SIG_SIZE + 1) * sizeof(char));
 	if (*sig == NULL) {
 		free(*src);
@@ -732,7 +799,7 @@ int split_code_signature_cert_from_component_bin(struct image_section *section,
 	memcpy(*sig, fp + sig_offset, SIG_SIZE);
 	(*sig)[SIG_SIZE] = '\0';
 
-	cert_offset = mbn_hdr->cert_ptr - mbn_hdr->image_dest_ptr + MBN_HDR_SIZE;
+	cert_offset += mbn_hdr->cert_ptr - mbn_hdr->image_dest_ptr + MBN_HDR_SIZE;
 	*cert = malloc((CERT_SIZE + 1) * sizeof(char));
 	if (*cert == NULL) {
 		free(*src);
@@ -912,16 +979,48 @@ int generate_hash(char *cert, char *sw_file, char *hw_file)
 	char f_sw_xor[] = "/tmp/swid_xor_XXXXXX";
 	char f_hw_xor[] = "/tmp/hwid_xor_XXXXXX";
 
+	if (sw_id_str == NULL || hw_id_str == NULL || oem_id_str == NULL || oem_model_id_str == NULL) {
+		if (sw_id_str != NULL) {
+			free(sw_id_str);
+		}
+		if (hw_id_str != NULL) {
+			free(hw_id_str);
+		}
+		if (oem_id_str != NULL) {
+			free(oem_id_str);
+		}
+		if (oem_model_id_str != NULL) {
+			free(oem_model_id_str);
+		}
+		return 0;
+	}
 	printf("sw_id=%s\thw_id=%s\t", sw_id_str, hw_id_str);
 	printf("oem_id=%s\toem_model_id=%s\n", oem_id_str, oem_model_id_str);
+
 	generate_swid_ipad(sw_id_str, &swid_xor_ipad);
 	tmp = create_xor_ipad_opad(f_sw_xor, &swid_xor_ipad);
-	strlcpy(sw_file, tmp, sizeof(sw_file));
+	if (tmp == NULL) {
+		free(sw_id_str);
+		free(hw_id_str);
+		free(oem_id_str);
+		free(oem_model_id_str);
+		return 0;
+	}
+	strlcpy(sw_file, tmp, 32);
 	free(tmp);
+
 	generate_hwid_opad(hw_id_str, oem_id_str, oem_model_id_str, &hwid_xor_opad);
 	tmp = create_xor_ipad_opad(f_hw_xor, &hwid_xor_opad);
-	strlcpy(hw_file, tmp, sizeof(hw_file));
+	if (tmp == NULL) {
+		free(sw_id_str);
+		free(hw_id_str);
+		free(oem_id_str);
+		free(oem_model_id_str);
+		return 0;
+	}
+	strlcpy(hw_file, tmp, 32);
 	free(tmp);
+
 	free(sw_id_str);
 	free(hw_id_str);
 	free(oem_id_str);
@@ -979,7 +1078,11 @@ int is_component_authenticated(char *src, char *sig, char *cert)
 		return 0;
 	}
 
-	generate_hash(cert, sw_file, hw_file);
+	retval = generate_hash(cert, sw_file, hw_file);
+	if (retval == 0) {
+		return 0;
+	}
+
 	code_file = mktemp(code_hash);
 	snprintf(command, sizeof(command),
 		"openssl dgst -sha256 -binary -out %s src", code_file);
@@ -1031,6 +1134,14 @@ int is_component_authenticated(char *src, char *sig, char *cert)
 
 	computed_hash = read_file(computed_file);
 	reference_hash = read_file(reference_file);
+	if (computed_hash == NULL || reference_hash == NULL) {
+		remove_file(sw_file, hw_file, code_file, pub_file);
+		remove(tmp_file);
+		remove(computed_file);
+		remove(reference_file);
+		free(computed_hash?computed_hash:reference_hash);
+		return 0;
+	}
 
 	remove_file(sw_file, hw_file, code_file, pub_file);
 	remove(tmp_file);
